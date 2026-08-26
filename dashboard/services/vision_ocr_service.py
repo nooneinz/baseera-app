@@ -19,9 +19,11 @@ the same as data typed into a real Excel file.
 import json
 import logging
 
+from dashboard.services.ai_service import GEMINI_MODEL
+
 logger = logging.getLogger(__name__)
 
-VISION_MODEL = "gemini-2.5-flash"
+VISION_MODEL = GEMINI_MODEL
 
 REJECT_NOT_FINANCIAL_AR = (
     "هذه الصورة لا تبدو مستنداً مالياً (فاتورة، إيصال، كشف حساب، أو دفتر محاسبي "

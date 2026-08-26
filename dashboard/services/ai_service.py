@@ -8,6 +8,14 @@ from google import genai
 
 load_dotenv()
 
+# Google retired "gemini-2.5-flash" and "gemini-2.0-flash" for new callers
+# (both now return 404 NOT_FOUND: "no longer available... use
+# models/gemini-3.6-flash"), which was silently sending every AI-dependent
+# feature down its offline/fallback path. Verified live against the real API
+# key that "gemini-3.6-flash" responds normally; kept as one constant so a
+# future retirement only needs updating here.
+GEMINI_MODEL = "gemini-3.6-flash"
+
 
 def cosine_similarity(v1, v2):
     dot = sum(a * b for a, b in zip(v1, v2))
@@ -418,7 +426,7 @@ Code Execution:
                     return
 
                 stream = self.client.models.generate_content_stream(
-                    model="gemini-2.0-flash",
+                    model=GEMINI_MODEL,
                     contents=current_prompt
                 )
                 
@@ -767,7 +775,7 @@ Requirements:
                         q.put(action_btn)
                     else:
                         stream = self.client.models.generate_content_stream(
-                            model="gemini-2.0-flash",
+                            model=GEMINI_MODEL,
                             contents=agent_prompt
                         )
                         
@@ -1061,7 +1069,7 @@ You MUST return ONLY a valid JSON object matching EXACTLY this structure (no mar
             uploaded_file = self.client.files.upload(file=file_path)
             
             response = self.client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=GEMINI_MODEL,
                 contents=[uploaded_file, prompt]
             )
             
@@ -1110,7 +1118,7 @@ You MUST return ONLY a valid JSON object matching EXACTLY this structure (no mar
                 return None
             img = PIL.Image.open(file_path)
             response = self.client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=GEMINI_MODEL,
                 contents=[img, prompt]
             )
             text = response.text.strip()
@@ -1151,7 +1159,7 @@ You MUST return ONLY a valid JSON object matching EXACTLY this structure (no mar
         try:
             if hasattr(self, 'client') and self.client:
                 response = self.client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model=GEMINI_MODEL,
                     contents=prompt
                 )
                 
