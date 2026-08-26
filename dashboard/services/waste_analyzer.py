@@ -27,6 +27,8 @@ import json
 import logging
 from decimal import Decimal
 
+from dashboard.services.ai_service import GEMINI_MODEL
+
 logger = logging.getLogger(__name__)
 
 # Column-name hints. These only *locate* candidate columns; whether a column
@@ -359,7 +361,7 @@ def analyze_waste(rows, ai_service=None, lang="ar", company_profile=None):
 
         try:
             response = ai_service.client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=GEMINI_MODEL,
                 contents=prompt,
             )
             text = (response.text or "").strip()
