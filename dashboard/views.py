@@ -225,7 +225,9 @@ def portal(request):
         excel = request.FILES.get("excel_file")
         try:
             from dashboard.services.validation_service import validate_financial_file
-            is_valid, status, msg, accepted_sheets = validate_financial_file(excel)
+            validation = validate_financial_file(excel)
+            is_valid, status, msg = validation["is_valid"], validation["status"], validation["message"]
+            accepted_sheets = validation["accepted_sheets"]
             if not is_valid:
                 messages.error(request, msg)
                 return redirect("portal")
@@ -234,7 +236,7 @@ def portal(request):
         except Exception as exc:
             messages.error(request, f"حدث خطأ أثناء فحص الملف: {str(exc)}")
             return redirect("portal")
-            
+
         excel.seek(0)
 
         excel.name = build_safe_filename(excel.name)
@@ -242,7 +244,12 @@ def portal(request):
         success, error_msg = process_excel_to_db(project_file, request.user, accepted_sheets)
         if success:
             request.session['active_file_id'] = project_file.id
-            
+            try:
+                from dashboard.services.retrieval_service import index_accepted_sheets
+                index_accepted_sheets(project_file, accepted_sheets)
+            except Exception as idx_err:
+                print(f"Retrieval indexing error: {idx_err}")
+
             SystemLog.objects.create(
                 user=request.user,
                 action_type="رفع ملف / Upload",
@@ -1004,7 +1011,9 @@ def datasets(request):
 
         try:
             from dashboard.services.validation_service import validate_financial_file
-            is_valid, status, msg, accepted_sheets = validate_financial_file(excel)
+            validation = validate_financial_file(excel)
+            is_valid, status, msg = validation["is_valid"], validation["status"], validation["message"]
+            accepted_sheets = validation["accepted_sheets"]
             if not is_valid:
                 messages.error(request, msg)
                 return redirect("datasets")
@@ -1013,19 +1022,25 @@ def datasets(request):
         except Exception as exc:
             messages.error(request, f"حدث خطأ أثناء فحص الملف: {str(exc)}")
             return redirect("datasets")
-            
+
         excel.seek(0)
 
         project_file = ProjectFile.objects.create(user=request.user, excel_file=excel)
         success, error_msg = process_excel_to_db(project_file, request.user, accepted_sheets)
-        
+
         if not success:
             project_file.delete()
             messages.error(request, f"فشل في قراءة وتجميع بيانات الملف. التفاصيل: {error_msg}")
             return redirect('datasets')
 
+        try:
+            from dashboard.services.retrieval_service import index_accepted_sheets
+            index_accepted_sheets(project_file, accepted_sheets)
+        except Exception as idx_err:
+            print(f"Retrieval indexing error: {idx_err}")
+
         request.session['active_file_id'] = project_file.id
-        
+
         import threading
         def bg_ai_tasks(user, project_file_path):
             from .models import Notification
@@ -1205,9 +1220,22 @@ def export_excel_report(request):
                     except Exception as e:
                         print(f"Error parsing file {pf.id}: {e}")
 
+    # Reconciliation Layer (spec section 6): verify the report's aggregated
+    # numbers against the source rows BEFORE any file is generated. rows_data
+    # already only ever comes from DynamicRecord (populated exclusively from
+    # ACCEPTED sheets, see process_excel_to_db) or a freshly-parsed accepted
+    # file, so a rejected sheet's data can never reach this point either way.
+    from dashboard.services.reconciliation_service import reconcile_report_items, ReconciliationError
+
+    try:
+        verified_items = reconcile_report_items(rows_data, lang=user_lang.lower())
+    except ReconciliationError as recon_err:
+        return HttpResponse(recon_err.message, status=409, content_type="text/plain; charset=utf-8")
+
     client_payload = {
         "company_name": profile.company_name if profile.company_name else (request.user.get_full_name() or request.user.username),
-        "items": rows_data
+        "items": rows_data,
+        "_normalized_items": verified_items,
     }
 
     buffer = io.BytesIO()
@@ -1348,6 +1376,34 @@ def user_settings(request):
             return redirect("welcome")
 
     return render(request, "dashboard/settings.html", {"profile": profile})
+
+
+@login_required
+def strategic_profile(request):
+    """
+    Company Strategic Profile — the hard constraints & priority ranking that
+    the Orchestrator (see dashboard/services/orchestrator.py) must consult
+    before resolving any conflict between agent recommendations.
+    """
+    from .forms import CompanyStrategicProfileForm
+    from .models import CompanyStrategicProfile
+
+    instance = CompanyStrategicProfile.objects.filter(user=request.user).first()
+
+    if request.method == "POST":
+        form = CompanyStrategicProfileForm(request.POST, instance=instance)
+        if form.is_valid():
+            profile = form.save(commit=False)
+            profile.user = request.user
+            profile.save()
+            messages.success(request, "تم حفظ الملف الاستراتيجي للشركة بنجاح. / Company strategic profile saved successfully.")
+            return redirect("strategic_profile")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه. / Please correct the errors below.")
+    else:
+        form = CompanyStrategicProfileForm(instance=instance)
+
+    return render(request, "dashboard/strategic_profile.html", {"form": form, "instance": instance})
 
 
 def password_reset(request):
@@ -1880,6 +1936,22 @@ import json
 
 from django.views.decorators.csrf import csrf_exempt
 
+
+def _direct_reply_event_stream(text, suggested_actions=None):
+    """
+    SSE generator matching the existing GeminiAIService streaming protocol,
+    used by the Orchestrator/Router (spec section 4) to answer directly
+    without invoking any agent/LLM — e.g. Route 1 (off-topic) or an
+    unresolved/ambiguous Retrieval Layer match. Emits the text as a single
+    chunk, followed by a distinct `suggested_actions` SSE payload (spec
+    section 4.3) and the standard STATUS___:DONE terminator.
+    """
+    yield f"data: {json.dumps({'candidates': [{'content': {'parts': [{'text': text}]}}]})}\n\n"
+    if suggested_actions:
+        yield f"data: {json.dumps({'suggested_actions': suggested_actions}, ensure_ascii=False)}\n\n"
+    yield f"data: {json.dumps({'candidates': [{'content': {'parts': [{'text': 'STATUS___:DONE'}]}}]})}\n\n"
+
+
 @csrf_exempt
 @login_required
 @csrf_exempt
@@ -1910,20 +1982,61 @@ def chat_api(request):
                 lang = "en"
             else:
                 lang = data.get("lang", "ar")
-            
+
             from dashboard.services.ai_service import GeminiAIService
             ai_service = GeminiAIService()
-            
+
             user_id = request.user.id if request.user.is_authenticated else None
+            confirmed_sheet = data.get("confirmed_sheet")
+
+            # Orchestrator / Router (spec section 4): classify the message into
+            # off_topic / single_file / multi_agent BEFORE any agent is invoked.
+            from dashboard.services import orchestrator
+            route_info = orchestrator.route_message(
+                user_id, last_user_query, lang=lang, ai_service=ai_service,
+                confirmed_sheet=confirmed_sheet,
+            )
+
+            if route_info["direct_reply"] is not None:
+                # Route 1 (off-topic) or an unresolved/ambiguous file match:
+                # answer directly, no agent/LLM call, no hallucination risk.
+                return StreamingHttpResponse(
+                    _direct_reply_event_stream(route_info["direct_reply"], route_info["suggested_actions"]),
+                    content_type='text/event-stream',
+                )
+
+            if route_info["needs_confirmation"]:
+                # Ambiguous file match with no canned message yet (e.g. two
+                # close candidates): ask the user to confirm before computing.
+                confirm_msg = (
+                    "\u0648\u062C\u062F\u062A \u0623\u0643\u062B\u0631 \u0645\u0646 \u0645\u0644\u0641/\u062C\u062F\u0648\u0644 \u0645\u062D\u062A\u0645\u0644 \u0645\u0637\u0627\u0628\u0642 \u0644\u0633\u0624\u0627\u0644\u0643. \u064A\u0631\u062C\u0649 \u062A\u0623\u0643\u064A\u062F \u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0635\u062D\u064A\u062D \u0642\u0628\u0644 \u0627\u0644\u0645\u062A\u0627\u0628\u0639\u0629:"
+                    if lang == "ar" else
+                    "I found more than one file/sheet that could match your question. Please confirm the correct one before I proceed:"
+                )
+                return StreamingHttpResponse(
+                    _direct_reply_event_stream(confirm_msg, route_info["suggested_actions"]),
+                    content_type='text/event-stream',
+                )
+
+            # Client explicitly picked a specific agent or a manual multi-agent
+            # committee -> respect that choice. Otherwise (the default single
+            # "general" agent) let the router decide dynamically.
+            client_made_explicit_choice = bool(agent_ids) and agent_ids != ["general"]
+            effective_agent_ids = agent_ids if client_made_explicit_choice else route_info["agent_ids"]
+
+            effective_file_context = file_context
+            if route_info["matched_sheet_note"]:
+                effective_file_context = (file_context or "") + "\n" + route_info["matched_sheet_note"]
+
             event_stream = ai_service.generate_chat_stream(
                 messages_list,
-                file_context,
+                effective_file_context,
                 user_id=user_id,
-                agent_id=agent_id,
-                agent_ids=agent_ids,
+                agent_id=effective_agent_ids[0] if effective_agent_ids else agent_id,
+                agent_ids=effective_agent_ids,
                 lang=lang
             )
-            
+
             return StreamingHttpResponse(event_stream, content_type='text/event-stream')
         except Exception as e:
             return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=500)

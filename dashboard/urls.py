@@ -25,6 +25,7 @@ urlpatterns = [
     path("notifications/", views.notifications_view, name="notifications"),
     path("chat-history/", views.chat_history_view, name="chat_history"),
     path("settings/", views.user_settings, name="settings"),
+    path("settings/strategic-profile/", views.strategic_profile, name="strategic_profile"),
     # Add newly discovered missing links
     path("templates-feedback/", views.templates_feedback, name="templates_feedback"),
     path("pricing/", views.pricing, name="pricing"),

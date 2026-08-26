@@ -49,7 +49,7 @@ class CompanyStrategicProfile(models.Model):
     max_investment_limit = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     cash_reserve_floor = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
 
-    active_agents = models.JSONField(default=list)
+    active_agents = models.JSONField(default=list, blank=True)
 
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -163,6 +163,40 @@ class ProjectFile(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.excel_file.name}"
+
+
+class FileSheetMetadata(models.Model):
+    """
+    Retrieval Layer index entry: one row per ACCEPTED (or WARNING) sheet/table
+    inside an uploaded ProjectFile. Rejected sheets are never represented here
+    on purpose — see dashboard/services/validation_service.validate_financial_file
+    and section 3.2/5 of the platform architecture spec.
+    """
+    CATEGORY_CHOICES = [
+        ('sales', 'مبيعات'),
+        ('expenses', 'مصروفات'),
+        ('invoices', 'فواتير'),
+        ('inventory', 'مخزون'),
+        ('bank', 'كشف حساب بنكي'),
+        ('other', 'أخرى'),
+    ]
+
+    project_file = models.ForeignKey(ProjectFile, on_delete=models.CASCADE, related_name='sheet_metadata')
+    sheet_name = models.CharField(max_length=255, verbose_name="اسم الورقة/الجدول")
+    status = models.CharField(max_length=20, default='accept', choices=[('accept', 'مقبول'), ('warning', 'مقبول مع تحذير')])
+    columns = models.JSONField(default=list, verbose_name="أسماء الأعمدة")
+    row_count = models.IntegerField(default=0)
+    date_range_start = models.DateField(null=True, blank=True)
+    date_range_end = models.DateField(null=True, blank=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other', verbose_name="التصنيف المبدئي")
+    keywords = models.JSONField(default=list, help_text="رموز نصية مستخرجة من اسم الورقة والأعمدة لأغراض البحث الهجين")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Retrieval Sheet Metadata"
+
+    def __str__(self):
+        return f"{self.sheet_name} ({self.get_category_display()}) - file #{self.project_file_id}"
 
 
 class UserFeedback(models.Model):
