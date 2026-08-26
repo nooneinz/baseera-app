@@ -1923,6 +1923,22 @@ import json
 
 from django.views.decorators.csrf import csrf_exempt
 
+
+def _direct_reply_event_stream(text, suggested_actions=None):
+    """
+    SSE generator matching the existing GeminiAIService streaming protocol,
+    used by the Orchestrator/Router (spec section 4) to answer directly
+    without invoking any agent/LLM — e.g. Route 1 (off-topic) or an
+    unresolved/ambiguous Retrieval Layer match. Emits the text as a single
+    chunk, followed by a distinct `suggested_actions` SSE payload (spec
+    section 4.3) and the standard STATUS___:DONE terminator.
+    """
+    yield f"data: {json.dumps({'candidates': [{'content': {'parts': [{'text': text}]}}]})}\n\n"
+    if suggested_actions:
+        yield f"data: {json.dumps({'suggested_actions': suggested_actions}, ensure_ascii=False)}\n\n"
+    yield f"data: {json.dumps({'candidates': [{'content': {'parts': [{'text': 'STATUS___:DONE'}]}}]})}\n\n"
+
+
 @csrf_exempt
 @login_required
 @csrf_exempt
@@ -1953,20 +1969,61 @@ def chat_api(request):
                 lang = "en"
             else:
                 lang = data.get("lang", "ar")
-            
+
             from dashboard.services.ai_service import GeminiAIService
             ai_service = GeminiAIService()
-            
+
             user_id = request.user.id if request.user.is_authenticated else None
+            confirmed_sheet = data.get("confirmed_sheet")
+
+            # Orchestrator / Router (spec section 4): classify the message into
+            # off_topic / single_file / multi_agent BEFORE any agent is invoked.
+            from dashboard.services import orchestrator
+            route_info = orchestrator.route_message(
+                user_id, last_user_query, lang=lang, ai_service=ai_service,
+                confirmed_sheet=confirmed_sheet,
+            )
+
+            if route_info["direct_reply"] is not None:
+                # Route 1 (off-topic) or an unresolved/ambiguous file match:
+                # answer directly, no agent/LLM call, no hallucination risk.
+                return StreamingHttpResponse(
+                    _direct_reply_event_stream(route_info["direct_reply"], route_info["suggested_actions"]),
+                    content_type='text/event-stream',
+                )
+
+            if route_info["needs_confirmation"]:
+                # Ambiguous file match with no canned message yet (e.g. two
+                # close candidates): ask the user to confirm before computing.
+                confirm_msg = (
+                    "\u0648\u062C\u062F\u062A \u0623\u0643\u062B\u0631 \u0645\u0646 \u0645\u0644\u0641/\u062C\u062F\u0648\u0644 \u0645\u062D\u062A\u0645\u0644 \u0645\u0637\u0627\u0628\u0642 \u0644\u0633\u0624\u0627\u0644\u0643. \u064A\u0631\u062C\u0649 \u062A\u0623\u0643\u064A\u062F \u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0635\u062D\u064A\u062D \u0642\u0628\u0644 \u0627\u0644\u0645\u062A\u0627\u0628\u0639\u0629:"
+                    if lang == "ar" else
+                    "I found more than one file/sheet that could match your question. Please confirm the correct one before I proceed:"
+                )
+                return StreamingHttpResponse(
+                    _direct_reply_event_stream(confirm_msg, route_info["suggested_actions"]),
+                    content_type='text/event-stream',
+                )
+
+            # Client explicitly picked a specific agent or a manual multi-agent
+            # committee -> respect that choice. Otherwise (the default single
+            # "general" agent) let the router decide dynamically.
+            client_made_explicit_choice = bool(agent_ids) and agent_ids != ["general"]
+            effective_agent_ids = agent_ids if client_made_explicit_choice else route_info["agent_ids"]
+
+            effective_file_context = file_context
+            if route_info["matched_sheet_note"]:
+                effective_file_context = (file_context or "") + "\n" + route_info["matched_sheet_note"]
+
             event_stream = ai_service.generate_chat_stream(
                 messages_list,
-                file_context,
+                effective_file_context,
                 user_id=user_id,
-                agent_id=agent_id,
-                agent_ids=agent_ids,
+                agent_id=effective_agent_ids[0] if effective_agent_ids else agent_id,
+                agent_ids=effective_agent_ids,
                 lang=lang
             )
-            
+
             return StreamingHttpResponse(event_stream, content_type='text/event-stream')
         except Exception as e:
             return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=500)

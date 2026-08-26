@@ -8,6 +8,7 @@ layer is implemented (see the phase docstrings below) — by the end of Phase 6
 all 8 scenarios must pass.
 """
 import io
+import json
 import datetime
 from decimal import Decimal
 
@@ -17,7 +18,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import ValidationError
 
 from dashboard.services.validation_service import validate_financial_file
-from dashboard.models import CompanyStrategicProfile
+from dashboard.services import orchestrator
+from dashboard.models import CompanyStrategicProfile, ProjectFile, FileSheetMetadata
 
 
 # --------------------------------------------------------------------------
@@ -246,3 +248,122 @@ class StrategicProfileViewTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertFalse(CompanyStrategicProfile.objects.filter(user=self.user).exists())
+
+
+class OrchestratorRouterTests(TestCase):
+    """Section 4: Orchestrator / Router. Spec test-plan items 3, 4, 7."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="router_user", password="pw123456")
+        self.client.force_login(self.user)
+
+    # --- Test 3: "اختبار الهلوسة" ------------------------------------------
+    def test_3_off_topic_question_gets_direct_refusal_no_agent_call(self):
+        """'What is the capital of Muscat?' must get Route 1's canned refusal,
+        with no financial analysis and no numbers hallucinated."""
+        route = orchestrator.classify_route("ما عاصمة مسقط؟", has_uploaded_files=False)
+        self.assertEqual(route, orchestrator.ROUTE_OFF_TOPIC)
+
+        response = self.client.post(
+            "/api/insights/chat",
+            data=json.dumps({"message": "ما عاصمة مسقط؟", "lang": "ar"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        body = b"".join(response.streaming_content).decode("utf-8")
+
+        streamed_text = ""
+        for line in body.splitlines():
+            if line.startswith("data: "):
+                payload = json.loads(line[len("data: "):])
+                candidates = payload.get("candidates")
+                if candidates:
+                    streamed_text += candidates[0]["content"]["parts"][0]["text"]
+
+        self.assertIn("لا يمكنني الإجابة على هذا السؤال لأنه خارج اختصاصي", streamed_text)
+        # No financial-analysis markers should leak into an off-topic refusal.
+        self.assertNotIn("هامش الربح", streamed_text)
+        self.assertNotIn("STATUS___:جاري", streamed_text)
+
+    # --- Test 4: "اختبار الدجاج" --------------------------------------------
+    def test_4_chicken_query_against_meat_file_asks_for_confirmation(self):
+        """
+        A file about 'مبيعات لحوم' (meat sales) must NOT be silently reused
+        to answer a question about 'دجاج' (chicken): the system must ask for
+        explicit confirmation instead of conflating the two.
+        """
+        pf = ProjectFile.objects.create(user=self.user, excel_file="excel_files/meat_sales.xlsx")
+        FileSheetMetadata.objects.create(
+            project_file=pf,
+            sheet_name="مبيعات اللحوم",
+            status="accept",
+            columns=["التاريخ", "السعر", "الكمية"],
+            row_count=10,
+            category="sales",
+            keywords=["مبيعات", "لحوم", "لحم", "التاريخ", "السعر", "الكمية"],
+        )
+
+        route_info = orchestrator.route_message(
+            self.user.id, "ما هي توقعات شراء الدجاج للشهر القادم؟", lang="ar",
+        )
+
+        self.assertEqual(route_info["route"], orchestrator.ROUTE_SINGLE_FILE)
+        self.assertTrue(route_info["needs_confirmation"])
+        self.assertEqual(route_info["matched_sheet_note"], "")
+        action_ids = [a["action_id"] for a in route_info["suggested_actions"]]
+        self.assertIn("upload_new_file", action_ids)
+
+    def test_4_confirmed_sheet_bypasses_retrieval_ambiguity(self):
+        """Once the user explicitly confirms a file/sheet, the router must use
+        it directly without re-running the ambiguity check."""
+        pf = ProjectFile.objects.create(user=self.user, excel_file="excel_files/meat_sales.xlsx")
+        FileSheetMetadata.objects.create(
+            project_file=pf, sheet_name="مبيعات اللحوم", status="accept",
+            columns=["التاريخ", "السعر"], row_count=10, category="sales",
+            keywords=["مبيعات", "لحوم"],
+        )
+        route_info = orchestrator.route_message(
+            self.user.id, "ما هي توقعات شراء الدجاج؟", lang="ar",
+            confirmed_sheet={"project_file_id": pf.id, "sheet_name": "مبيعات اللحوم"},
+        )
+        self.assertFalse(route_info["needs_confirmation"])
+        self.assertIn("مبيعات اللحوم", route_info["matched_sheet_note"])
+
+    # --- Test 7: الحدود المالية الصلبة -------------------------------------
+    def test_7_option_exceeding_max_investment_limit_is_auto_rejected(self):
+        profile = CompanyStrategicProfile.objects.create(
+            user=self.user, company_name="شركة", sector="retail", size="small",
+            growth_stage="growth", risk_tolerance="balanced",
+            strategic_priorities_ranking=[
+                "cash_preservation", "growth", "profitability",
+                "cost_reduction", "long_term_stability",
+            ],
+            max_investment_limit=Decimal("100000"),
+            cash_reserve_floor=Decimal("20000"),
+        )
+        options = [
+            {"label": "توسع بميزانية 250,000", "required_investment": Decimal("250000"),
+             "expected_roi": 0.40, "cash_after": Decimal("30000")},
+            {"label": "توسع محدود بميزانية 80,000", "required_investment": Decimal("80000"),
+             "expected_roi": 0.12, "cash_after": Decimal("25000")},
+            {"label": "خيار يستنزف السيولة", "required_investment": Decimal("50000"),
+             "expected_roi": 0.18, "cash_after": Decimal("5000")},
+        ]
+
+        kept, rejected = orchestrator.filter_options_by_hard_constraints(options, profile)
+
+        kept_labels = [o["label"] for o in kept]
+        rejected_labels = [o["label"] for o in rejected]
+
+        # The highest-return option is rejected purely for busting the hard
+        # investment cap, even though it has the best ROI of the three.
+        self.assertNotIn("توسع بميزانية 250,000", kept_labels)
+        self.assertIn("توسع بميزانية 250,000", rejected_labels)
+        self.assertIn("خيار يستنزف السيولة", rejected_labels)
+        self.assertEqual(kept_labels, ["توسع محدود بميزانية 80,000"])
+
+    def test_7_no_profile_means_no_constraints_applied(self):
+        options = [{"label": "أي خيار", "required_investment": Decimal("999999999")}]
+        kept, rejected = orchestrator.filter_options_by_hard_constraints(options, None)
+        self.assertEqual(kept, options)
+        self.assertEqual(rejected, [])
