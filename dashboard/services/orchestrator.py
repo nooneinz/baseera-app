@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 ROUTE_OFF_TOPIC = "off_topic"
 ROUTE_SINGLE_FILE = "single_file"
 ROUTE_MULTI_AGENT = "multi_agent"
+ROUTE_GREETING = "greeting"
 
 # Business/financial domain signal — presence of ANY of these takes a message
 # out of "off_topic" contention regardless of how the rest of the sentence
@@ -43,13 +44,40 @@ BUSINESS_DOMAIN_KEYWORDS = [
     'عميل', 'عملاء', 'مورد', 'موردين', 'سعر', 'تسعير', 'هامش', 'ضريبة', 'رأس مال',
     'شركة', 'مشروع', 'تقرير', 'ملف', 'بيانات', 'قرار', 'استراتيجية', 'توسع', 'نمو',
     'موظف', 'رواتب', 'أصول', 'خصوم', 'ديون', 'قرض', 'توقعات', 'تحليل', 'مقارنة',
+    'خطة', 'خطه', 'خطط', 'خطتنا', 'هدر', 'أعمال', 'عمل', 'وكيل', 'وكلاء', 'مساعدة', 'مساعدني',
     'sales', 'revenue', 'expense', 'expenses', 'profit', 'loss', 'invoice', 'invoices',
     'cost', 'costs', 'budget', 'invest', 'investment', 'finance', 'financial', 'cash',
     'liquidity', 'inventory', 'stock', 'customer', 'supplier', 'vendor', 'price', 'pricing',
     'margin', 'tax', 'capital', 'company', 'business', 'report', 'file', 'data', 'decision',
     'strategy', 'expand', 'expansion', 'growth', 'employee', 'payroll', 'asset', 'liability',
     'debt', 'loan', 'forecast', 'analysis', 'analyze', 'compare', 'roi', 'kpi', 'p&l',
+    'plan', 'plans', 'waste', 'help', 'agent', 'agents',
 ]
+
+# Pure greetings/small-talk openers -- a message that is ONLY one of these
+# (optionally with a couple of trailing filler words like "وكيفك") must
+# never be treated as off-topic, and must never even reach the LLM
+# secondary classifier: its job description ("no relevance to
+# finance/business at all") technically fits a bare "hi", but refusing a
+# greeting on a business platform is wrong regardless of what the model
+# infers. A greeting WITH a real request attached (e.g. "السلام عليكم
+# احتاج منك خطة") is intentionally excluded here -- that has real content
+# and must go through normal routing instead of a canned hello.
+GREETING_OPENERS = [
+    'هلا', 'أهلا', 'اهلا', 'يا هلا', 'مرحبا', 'مرحباً', 'السلام عليكم', 'صباح الخير',
+    'مساء الخير', 'تحياتي', 'حياك', 'حياك الله',
+    'hi', 'hello', 'hey', 'good morning', 'good evening', 'greetings', 'howdy',
+]
+
+# Small-talk fillers tolerated right after a greeting opener (still "just a
+# greeting", not a real request) -- deliberately a fixed, explicit list
+# rather than "any short remainder": a real request can also be just a few
+# words ("احتاج منك خطة" is 3 words), so length alone can't distinguish it
+# from small talk.
+_SMALL_TALK_FILLERS = {
+    'كيف حالك', 'كيفك', 'شخبارك', 'شلونك', 'ايش اخبارك', 'كيف الحال',
+    'how are you', "how's it going", 'whats up', "what's up",
+}
 
 # Generic trivia/factual question markers — necessary but not sufficient on
 # their own (a business question can also start with "what is/كم"), they only
@@ -65,7 +93,7 @@ TRIVIA_PATTERNS = [
 # decision rather than a single lookup — this is what triggers the committee
 # route (Route 3) instead of a single general agent (Route 2).
 STRATEGIC_DECISION_KEYWORDS = [
-    'قرار', 'استراتيجية', 'استراتيجي', 'خطة', 'خطتنا', 'توسع', 'نطلق', 'إطلاق', 'دمج',
+    'قرار', 'استراتيجية', 'استراتيجي', 'خطة', 'خطه', 'خطتنا', 'توسع', 'نطلق', 'إطلاق', 'دمج',
     'استحواذ', 'إعادة هيكلة', 'نستثمر', 'استثمار', 'مقارنة بين', 'أيهما أفضل', 'قرار مصيري',
     'decision', 'strategy', 'strategic', 'plan', 'expand', 'expansion', 'launch', 'merger',
     'acquisition', 'restructur', 'should we', 'which is better', 'trade-off', 'tradeoff',
@@ -93,6 +121,33 @@ def _has_business_domain_signal(text_lower):
     return any(kw in text_lower for kw in BUSINESS_DOMAIN_KEYWORDS)
 
 
+def _is_pure_greeting(text_lower):
+    """
+    True only when the ENTIRE message is a greeting opener, optionally
+    followed by nothing but small talk (see _SMALL_TALK_FILLERS). A
+    greeting with a real request attached (e.g. "السلام عليكم احتاج منك
+    خطة") returns False -- that has to go through normal routing, not a
+    canned hello.
+    """
+    stripped = text_lower.strip(" ,.!؟?")
+    if not stripped:
+        return False
+    if stripped in GREETING_OPENERS:
+        return True
+    for opener in GREETING_OPENERS:
+        if stripped.startswith(opener):
+            remainder = stripped[len(opener):].strip(" ,.!؟?")
+            if not remainder or remainder in _SMALL_TALK_FILLERS:
+                return True
+    return False
+
+
+def greeting_reply(lang="ar"):
+    if lang == "ar":
+        return "أهلاً بك! أنا بصيرة، مساعدك المالي. كيف يمكنني مساعدتك اليوم في إدارة أعمالك أو تحليل بياناتك؟"
+    return "Hello! I'm Baseera, your financial assistant. How can I help you with your business or data today?"
+
+
 def classify_route(message, has_uploaded_files=False):
     """
     Rule-based intent classification (deterministic, testable, and always
@@ -108,12 +163,21 @@ def classify_route(message, has_uploaded_files=False):
     if not text:
         return ROUTE_SINGLE_FILE
 
+    # Route 0: a pure greeting ("هلا", "hello") is answered directly and
+    # confidently here -- it never reaches the off-topic checks below, and
+    # (in route_message) never reaches the LLM secondary classifier either.
+    # That LLM's job description ("no relevance to finance/business at
+    # all") technically fits a bare "hi" -- refusing a greeting on this
+    # platform would be wrong regardless of what the model infers, so this
+    # has to be decided before either heuristic or LLM off-topic logic runs.
+    if _is_pure_greeting(text_lower):
+        return ROUTE_GREETING
+
     has_business_signal = _has_business_domain_signal(text_lower)
     looks_like_trivia = _matches_any(TRIVIA_PATTERNS, text_lower)
 
     # Route 1: off-topic — a factual/trivia question with no business signal
-    # at all. Greetings are handled upstream by the existing greeting
-    # detector in ai_service and never reach this classifier as "off_topic".
+    # at all.
     if looks_like_trivia and not has_business_signal:
         return ROUTE_OFF_TOPIC
 
@@ -144,9 +208,16 @@ def llm_classify_route(ai_service, message, lang="ar"):
         return None
     try:
         prompt = (
+            "You are the intent router for Baseera, a chat assistant used EXCLUSIVELY inside a "
+            "business/financial management platform -- every user of this chat is a business owner "
+            "or manager, and greetings, small talk, and vaguely-worded requests for help/advice/a "
+            "plan are normal here and are NOT off-topic. "
             "Classify the following user message into exactly one label: "
-            "OFF_TOPIC (no relevance to finance/business at all), "
-            "SINGLE_FILE (a simple question answerable from one data file or a direct lookup), "
+            "OFF_TOPIC (ONLY for messages clearly and entirely about something with no plausible "
+            "connection to business/finance/strategy at all, e.g. weather, sports scores, recipes, "
+            "general trivia -- when in doubt, do NOT pick this label), "
+            "SINGLE_FILE (a simple question answerable from one data file or a direct lookup, "
+            "including greetings and vague requests for help), "
             "or MULTI_AGENT (a complex strategic decision needing multiple expert perspectives). "
             "Respond with ONLY the label.\n\nMessage: " + message
         )
@@ -243,8 +314,8 @@ def route_message(user_id, message, lang="ar", ai_service=None, confirmed_sheet=
     """
     Main entry point. Returns a dict:
     {
-        "route": ROUTE_OFF_TOPIC | ROUTE_SINGLE_FILE | ROUTE_MULTI_AGENT,
-        "direct_reply": str | None,       # set only for ROUTE_OFF_TOPIC
+        "route": ROUTE_GREETING | ROUTE_OFF_TOPIC | ROUTE_SINGLE_FILE | ROUTE_MULTI_AGENT,
+        "direct_reply": str | None,       # set for ROUTE_GREETING and ROUTE_OFF_TOPIC
         "agent_ids": [str, ...],
         "needs_confirmation": bool,
         "suggested_actions": [ {label, action_id}, ... ],
@@ -279,6 +350,10 @@ def route_message(user_id, message, lang="ar", ai_service=None, confirmed_sheet=
         "suggested_actions": [],
         "matched_sheet_note": "",
     }
+
+    if route == ROUTE_GREETING:
+        result["direct_reply"] = greeting_reply(lang)
+        return result
 
     if route == ROUTE_OFF_TOPIC:
         result["direct_reply"] = off_topic_reply(lang)
