@@ -638,15 +638,15 @@ def dashboard(request):
             "predicted_growth_en": "Calculating...",
         }
     else:
-        # Fallback to mock KPIs if no data
+        # Fallback to zero KPIs if no data
         kpis = {
-            "total_sales_ar": "4,285 ر.ع.",
-            "total_sales_en": "4,285 OMR",
-            "profit_margin": "31.5%",
-            "warnings_count_ar": "2 تنبيهات موردين",
-            "warnings_count_en": "2 Supplier alerts",
-            "predicted_growth_ar": "+12% الشهر القادم",
-            "predicted_growth_en": "+12% Next Month",
+            "total_sales_ar": "0 ر.ع.",
+            "total_sales_en": "0 OMR",
+            "profit_margin": "0%",
+            "warnings_count_ar": "0 تنبيهات",
+            "warnings_count_en": "0 Alerts",
+            "predicted_growth_ar": "0%",
+            "predicted_growth_en": "0%",
         }
 
     active_announcements = Announcement.objects.filter(is_active=True).order_by("-created_at")

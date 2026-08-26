@@ -242,8 +242,8 @@ Code Execution:
                 "role_title": "المدقق الجنائي ومكافحة الهدر المالي" if lang == "ar" else "Fraud & Forensic Auditor",
                 "icon": "shield-alert",
                 "color": "cyan",
-                "system_prompt_ar": "أنت وكيل التدقيق الجنائي ومكافحة الهدر المالي (Forensic Auditor & Fraud Detective). تخصصك الحصري: كشف الشذوذ والعمليات المالية المريبة، تتبع تسرب النفقات (Expense Leakage)، تدقيق الفواتير غير المعتادة، مطابقة البيانات، ومكافحة الهدر في المشتريات.",
-                "system_prompt_en": "You are the Forensic Audit & Anti-Waste Detective. Your exclusive domain: spotting transaction anomalies, expense leakages, invoice reconciliation, and financial waste."
+                "system_prompt_ar": "أنت وكيل التدقيق الجنائي ومكافحة الهدر المالي (Forensic Auditor & Fraud Detective). تخصصك الحصري: كشف الشذوذ والعمليات المالية المريبة، تتبع تسرب النفقات (Expense Leakage)، تدقيق الفواتير غير المعتادة، مطابقة البيانات، ومكافحة الهدر في المشتريات. تعليمات هامة: الهدر قد لا يكون عموداً مباشراً في البيانات، بل عليك استنتاجه وتحليله من خلال تباين المبيعات والتكاليف، الشذوذ الإحصائي، وتناقص هوامش الربح أو المنتجات الراكدة.",
+                "system_prompt_en": "You are the Forensic Audit & Anti-Waste Detective. Your exclusive domain: spotting transaction anomalies, expense leakages, invoice reconciliation, and financial waste. IMPORTANT: Waste may not be a direct column in the data. You must infer and analyze waste dynamically through sales vs cost variances, statistical anomalies, decaying margins, or stagnant products."
             },
             "retention": {
                 "id": "retention",

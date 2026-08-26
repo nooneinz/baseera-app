@@ -1490,14 +1490,12 @@
                   <i data-lucide="database" class="h-3.5 w-3.5"></i>
                   عرض البيانات من <strong>${cleanFileName}</strong> · ${(dataset.rows ? dataset.rows.length : 0).toLocaleString(isAr ? 'ar-OM' : 'en-US')} صفاً
                 </span>
-                <button id="resetData" class="font-bold hover:underline">استخدم البيانات التجريبية بدلاً من ذلك</button>
               `
               : `
                 <span class="flex items-center gap-2">
                   <i data-lucide="database" class="h-3.5 w-3.5"></i>
                   Showing data from <strong>${cleanFileName}</strong> · ${(dataset.rows ? dataset.rows.length : 0).toLocaleString()} rows
                 </span>
-                <button id="resetData" class="font-semibold hover:underline">Use demo data instead</button>
               `;
           }
 
