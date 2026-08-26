@@ -69,10 +69,12 @@ CSRF_TRUSTED_ORIGINS = [
     "https://127.0.0.1",
     "http://localhost",
     "http://127.0.0.1",
+    "https://baseera-app.onrender.com"
 ]
 
 if os.getenv("CSRF_TRUSTED_ORIGINS"):
-    CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS").split(",")
+    env_origins = os.getenv("CSRF_TRUSTED_ORIGINS").split(",")
+    CSRF_TRUSTED_ORIGINS.extend(env_origins)
 
 
 # Application definition
