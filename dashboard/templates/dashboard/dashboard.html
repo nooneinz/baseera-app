@@ -91,9 +91,7 @@
         </div>
     </header>
 
-    <!-- Populated by JS (processDataset): confirms which uploaded file the
-         dashboard below is built from, or that no file exists yet. -->
-    <div id="dataBanner" class="hidden mb-4 rounded-xl px-4 py-2.5 text-xs font-semibold flex items-center justify-between gap-3 animate-fade-up"></div>
+
 
     {% if not files %}
     <!-- First Time Onboarding Banner (When No Datasets Exist) -->
@@ -1481,41 +1479,12 @@
               .replace(/تجميع\s*البيانات\s*التراكمية/gi, 'Cumulative Business Dataset');
           }
 
-          if (banner) {
-            banner.classList.remove('hidden');
-            banner.classList.add('bg-emerald-50','border','border-emerald-100','text-emerald-700');
-            banner.innerHTML = isAr 
-              ? `
-                <span class="flex items-center gap-2">
-                  <i data-lucide="database" class="h-3.5 w-3.5"></i>
-                  عرض البيانات من <strong>${cleanFileName}</strong> · ${(dataset.rows ? dataset.rows.length : 0).toLocaleString(isAr ? 'ar-OM' : 'en-US')} صفاً
-                </span>
-              `
-              : `
-                <span class="flex items-center gap-2">
-                  <i data-lucide="database" class="h-3.5 w-3.5"></i>
-                  Showing data from <strong>${cleanFileName}</strong> · ${(dataset.rows ? dataset.rows.length : 0).toLocaleString()} rows
-                </span>
-              `;
-          }
-
           const overviewSub = document.getElementById('overviewSub');
           if (overviewSub) {
             overviewSub.textContent = isAr
               ? `قامت بصيرة بتحليل ملف ${cleanFileName} وتوليد لوحة المعلومات الحالية.`
               : `Basira analyzed ${cleanFileName} and generated this dashboard.`;
           }
-        } else if (banner) {
-          // No real file at all: say so plainly instead of leaving sample
-          // numbers on screen unlabeled (dict.noDatasetUploaded).
-          banner.classList.remove('hidden');
-          banner.classList.add('bg-amber-50','border','border-amber-200','text-amber-700');
-          banner.innerHTML = `
-            <span class="flex items-center gap-2">
-              <i data-lucide="info" class="h-3.5 w-3.5"></i>
-              ${dict.noDatasetUploaded}
-            </span>
-          `;
         }
 
         if (document.getElementById('revenueTitle') && built.revenueTitle) document.getElementById('revenueTitle').textContent = built.revenueTitle;
