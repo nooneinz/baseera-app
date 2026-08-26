@@ -913,7 +913,6 @@
             ${k.isWaste ? `<i data-lucide="alert-triangle" class="h-4 w-4 text-rose-500"></i>` : (k.neutral ? '' : `<i data-lucide="${k.up ? 'trending-up' : 'trending-down'}" class="h-4 w-4"></i>`)}
             <span class="${k.isWaste ? '' : 'sensitive-value'}" ${k.isWaste ? 'id="wasteKpiDetail"' : ''}>${k.d}</span>${k.neutral || k.isWaste ? '' : (isAr ? ' مقارنة بالشهر السابق' : ' vs last month')}
           </div>
-          ${k.isWaste ? '<div id="wasteAiPanel" class="mt-3 text-xs text-slate-500 dark:text-slate-400 leading-relaxed hidden"></div>' : ''}
         </div>
       `).join('');
 
@@ -935,9 +934,15 @@
     // literal waste/loss column. The number shown (if any) is always
     // recomputed server-side from the actual rows, never guessed client-side.
     async function analyzeWasteWithAI() {
+      // Keep this card exactly as compact as the other 3 KPI cards: a
+      // number plus a short one-line caption. The full AI diagnosis and
+      // recommendations are still real and available via /api/analyze-waste/
+      // (e.g. for a dedicated report), but were previously dumped whole into
+      // this small card, ballooning it into a wall of text that overflowed
+      // and looked broken next to the other cards -- so they no longer
+      // render here.
       const valueEl = document.getElementById('wasteKpiValue');
       const detailEl = document.getElementById('wasteKpiDetail');
-      const panelEl = document.getElementById('wasteAiPanel');
       try {
         const res = await fetch('/api/analyze-waste/', {
           method: 'POST',
@@ -949,7 +954,7 @@
 
         if (!data.analyzable) {
           if (valueEl) valueEl.textContent = isAr ? 'غير كافٍ للتحليل' : 'Not enough data';
-          if (detailEl) detailEl.textContent = data.diagnosis || (isAr ? 'أضف عمود تكلفة أو كمية لتفعيل هذا التحليل' : 'Add a cost or quantity column to enable this');
+          if (detailEl) detailEl.textContent = isAr ? 'أضف عمود تكلفة أو كمية' : 'Add a cost or quantity column';
           return;
         }
 
@@ -962,15 +967,6 @@
           detailEl.textContent = data.ai_used
             ? (isAr ? 'تحليل ذكاء اصطناعي من بيانات ملفك' : 'AI analysis of your file')
             : (isAr ? 'استنتاج إحصائي من بيانات ملفك' : 'Statistical inference from your file');
-        }
-        if (panelEl && (data.diagnosis || (data.recommendations && data.recommendations.length))) {
-          let html = data.diagnosis ? `<p>${data.diagnosis}</p>` : '';
-          if (data.recommendations && data.recommendations.length) {
-            html += `<ul class="mt-1.5 list-disc ${isAr ? 'pr-4' : 'pl-4'} space-y-0.5">` +
-              data.recommendations.map(r => `<li>${r}</li>`).join('') + '</ul>';
-          }
-          panelEl.innerHTML = html;
-          panelEl.classList.remove('hidden');
         }
       } catch (e) {
         console.error('AI waste analysis failed:', e);
