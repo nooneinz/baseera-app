@@ -1,5 +1,14 @@
 {% load custom_filters %}
 <header class="flex items-center gap-3 rounded-3xl px-4 py-3 glass relative z-[60]">
+    <!-- Mobile-only menu button: opens the off-canvas sidebar drawer
+         (see sidebar.html). Hidden entirely on lg+ where the sidebar is
+         always visible in its normal desktop position. -->
+    <button type="button" onclick="openMobileSidebar()"
+        class="lg:hidden grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-800 shadow-sm hover:bg-slate-50 transition dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700 cursor-pointer shrink-0"
+        aria-label="{% if trans.lang_code == 'ar' %}فتح القائمة{% else %}Open menu{% endif %}">
+        <i data-lucide="menu" class="h-5 w-5"></i>
+    </button>
+
     <!-- Spacer to push items to the end -->
     <div class="flex-1"></div>
 

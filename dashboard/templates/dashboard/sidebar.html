@@ -18,24 +18,102 @@
   [dir="rtl"] .nav-item.active {
       box-shadow: inset -4px 0 0 #7c6cf0;
   }
+
+  /* Default (desktop): the in-drawer close button never shows -- the
+     sidebar is always visible in its normal position on lg+, so there is
+     nothing to close. This MUST come before the mobile media query below:
+     media queries add no specificity of their own, so the plain rule
+     would otherwise win the cascade by simply appearing later in the
+     file and hide the button on mobile too. */
+  .mobile-sidebar-close-btn {
+    display: none;
+  }
+
+  /* Mobile drawer (below Tailwind's lg breakpoint, 1024px): the sidebar
+     leaves normal document flow entirely and becomes a fixed off-canvas
+     panel, so it never pushes or squeezes page content regardless of
+     which flex layout a given page's wrapper div uses. Desktop (lg+) is
+     completely untouched -- these rules only apply under the media query. */
+  @media (max-width: 1023.98px) {
+    .sidebar-glass {
+      position: fixed;
+      top: 0.75rem;
+      bottom: 0.75rem;
+      left: 0.75rem;
+      width: 17rem;
+      max-width: 85vw;
+      z-index: 10000;
+      transform: translateX(-110%);
+      transition: transform 0.3s ease-out;
+    }
+    .sidebar-glass.mobile-sidebar-open {
+      transform: translateX(0);
+    }
+    /* RTL (Arabic): drawer slides in from the right edge instead. */
+    html[dir="rtl"] .sidebar-glass {
+      left: auto;
+      right: 0.75rem;
+      transform: translateX(110%);
+    }
+    html[dir="rtl"] .sidebar-glass.mobile-sidebar-open {
+      transform: translateX(0);
+    }
+    .mobile-sidebar-close-btn {
+      display: flex;
+    }
+    .mobile-sidebar-overlay.mobile-sidebar-open {
+      display: block;
+    }
+  }
+  /* Hand-written (not Tailwind-utility-only) on purpose: this backdrop is
+     the click target that closes the drawer, so its position/z-index must
+     not depend on Tailwind's CDN script having finished compiling
+     arbitrary-value utility classes (fixed/inset-0/z-[9990]) by the time a
+     user taps it. */
+  .mobile-sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.6);
+    z-index: 9990;
+  }
+  @media (min-width: 1024px) {
+    .mobile-sidebar-overlay {
+      display: none !important;
+    }
+  }
 </style>
 
-<aside class="sidebar-glass w-full lg:w-64 shrink-0 rounded-3xl flex flex-col p-3.5 text-white/90 text-{{ trans.align }} lg:sticky top-3 h-auto lg:h-[calc(100vh-1.5rem)] overflow-y-auto">
-    <!-- Brand / Home Link -->
-    <a 
-        href="{% url 'welcome' %}" 
-        class="flex items-center justify-start gap-3 px-2 py-1.5 mb-2 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 ease-out"
-        {% if trans.lang_code == 'ar' %}dir="rtl"{% endif %}
-    >
-        <img 
-            src="{% static 'dashboard/img/logo.png' %}" 
-            alt="Basira Logo" 
-            class="h-10 w-10 shrink-0 object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
+<!-- Mobile-only backdrop: dims the page and closes the drawer on tap.
+     The lg+ media query above guarantees it can never appear on desktop
+     even if JS state is stale. -->
+<div id="mobileSidebarOverlay"
+     class="mobile-sidebar-overlay"
+     onclick="closeMobileSidebar()"></div>
+
+<aside id="appSidebar" class="sidebar-glass w-full lg:w-64 shrink-0 rounded-3xl flex flex-col p-3.5 text-white/90 text-{{ trans.align }} lg:sticky top-3 h-auto lg:h-[calc(100vh-1.5rem)] overflow-y-auto">
+    <!-- Brand / Home Link + mobile close button -->
+    <div class="flex items-center justify-between mb-2">
+        <a
+            href="{% url 'welcome' %}"
+            class="flex items-center justify-start gap-3 px-2 py-1.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 ease-out"
+            {% if trans.lang_code == 'ar' %}dir="rtl"{% endif %}
         >
-        <span class="text-xl font-black tracking-tight leading-none select-none bg-gradient-to-r from-white via-indigo-100 to-indigo-300 bg-clip-text text-transparent" style="font-family: 'Cairo', sans-serif; font-weight: 900; letter-spacing: -0.01em;">
-            {% if trans.lang_code == 'ar' %}بصيرة{% else %}Baseera{% endif %}
-        </span>
-    </a>
+            <img
+                src="{% static 'dashboard/img/logo.png' %}"
+                alt="Basira Logo"
+                class="h-10 w-10 shrink-0 object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
+            >
+            <span class="text-xl font-black tracking-tight leading-none select-none bg-gradient-to-r from-white via-indigo-100 to-indigo-300 bg-clip-text text-transparent" style="font-family: 'Cairo', sans-serif; font-weight: 900; letter-spacing: -0.01em;">
+                {% if trans.lang_code == 'ar' %}بصيرة{% else %}Baseera{% endif %}
+            </span>
+        </a>
+        <button type="button" onclick="closeMobileSidebar()"
+            class="mobile-sidebar-close-btn items-center justify-center h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 shrink-0 transition"
+            aria-label="{% if trans.lang_code == 'ar' %}إغلاق القائمة{% else %}Close menu{% endif %}">
+            <i data-lucide="x" class="h-4.5 w-4.5"></i>
+        </button>
+    </div>
 
     <!-- WORKSPACE SECTION -->
     <div class="mb-1 px-2 text-[10px] font-semibold tracking-wider text-white/40 uppercase">
@@ -172,3 +250,40 @@
     </div>
     {% endif %}
 </aside>
+
+<script>
+  // Mobile off-canvas sidebar drawer. Desktop (lg+) is unaffected -- these
+  // functions only ever toggle a class that the media query above scopes
+  // to screens under 1024px.
+  function openMobileSidebar() {
+    const aside = document.getElementById('appSidebar');
+    const overlay = document.getElementById('mobileSidebarOverlay');
+    if (aside) aside.classList.add('mobile-sidebar-open');
+    if (overlay) overlay.classList.add('mobile-sidebar-open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMobileSidebar() {
+    const aside = document.getElementById('appSidebar');
+    const overlay = document.getElementById('mobileSidebarOverlay');
+    if (aside) aside.classList.remove('mobile-sidebar-open');
+    if (overlay) overlay.classList.remove('mobile-sidebar-open');
+    document.body.style.overflow = '';
+  }
+
+  function toggleMobileSidebar() {
+    const aside = document.getElementById('appSidebar');
+    if (aside && aside.classList.contains('mobile-sidebar-open')) {
+      closeMobileSidebar();
+    } else {
+      openMobileSidebar();
+    }
+  }
+
+  // Closing the drawer when the viewport is resized back up to desktop
+  // avoids a stale "open" state (and the body scroll lock) surviving a
+  // rotation or a resize past the mobile breakpoint.
+  window.addEventListener('resize', function () {
+    if (window.innerWidth >= 1024) closeMobileSidebar();
+  });
+</script>
