@@ -427,3 +427,74 @@ class SuggestedActionsAPITests(TestCase):
         text, actions = _extract_sse(response.streaming_content)
         self.assertIsNone(actions)
         self.assertNotIn("لم أتمكن من العثور على المستند المطلوب", text)
+
+
+class RetrievalLayerTests(TestCase):
+    """
+    Section 5: Retrieval Layer. Exercises the full pipeline end-to-end —
+    validate_financial_file -> index_accepted_sheets -> search_relevant_sheets
+    — and the literal-term-wins-over-generic-overlap guarantee.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="retrieval_user", password="pw123456")
+
+    def test_only_accepted_sheets_get_indexed_end_to_end(self):
+        from dashboard.services.retrieval_service import index_accepted_sheets
+
+        content = _make_xlsx_bytes({
+            "junk": [{"Unnamed": "IMG"}],
+            "المبيعات": [
+                {"التاريخ": "2024-01-01", "السعر": "100", "الكمية": 2},
+                {"التاريخ": "2024-01-02", "السعر": "150", "الكمية": 1},
+                {"التاريخ": "2024-01-03", "السعر": "200", "الكمية": 3},
+            ],
+        })
+        upload = SimpleUploadedFile(
+            "sales.xlsx", content,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        validation = validate_financial_file(upload)
+        self.assertTrue(validation["is_valid"])
+
+        upload.seek(0)
+        pf = ProjectFile.objects.create(user=self.user, excel_file=upload)
+        created = index_accepted_sheets(pf, validation["accepted_sheets"])
+
+        self.assertEqual(len(created), 1)
+        self.assertEqual(created[0].sheet_name, "المبيعات")
+        self.assertEqual(created[0].category, "sales")
+        self.assertIn("السعر", created[0].columns)
+        self.assertEqual(created[0].date_range_start, datetime.date(2024, 1, 1))
+        self.assertEqual(created[0].date_range_end, datetime.date(2024, 1, 3))
+        # The rejected "junk" sheet must never appear in the retrieval index.
+        self.assertEqual(FileSheetMetadata.objects.filter(project_file=pf).count(), 1)
+        self.assertFalse(FileSheetMetadata.objects.filter(sheet_name="junk").exists())
+
+    def test_literal_term_outranks_generic_category_overlap(self):
+        """
+        Two files both mention 'مبيعات' (sales), but only one is literally
+        about 'دجاج' (chicken). A query for chicken must rank that file
+        first, not the generic meat file, despite the shared category token.
+        """
+        from dashboard.services.retrieval_service import search_relevant_sheets
+
+        pf_meat = ProjectFile.objects.create(user=self.user, excel_file="excel_files/meat.xlsx")
+        FileSheetMetadata.objects.create(
+            project_file=pf_meat, sheet_name="مبيعات اللحوم", status="accept",
+            columns=["التاريخ", "السعر"], row_count=10, category="sales",
+            keywords=["مبيعات", "لحوم", "لحم"],
+        )
+        pf_chicken = ProjectFile.objects.create(user=self.user, excel_file="excel_files/chicken.xlsx")
+        FileSheetMetadata.objects.create(
+            project_file=pf_chicken, sheet_name="مبيعات الدجاج", status="accept",
+            columns=["التاريخ", "السعر"], row_count=10, category="sales",
+            keywords=["مبيعات", "دجاج"],
+        )
+
+        results = search_relevant_sheets(self.user.id, "توقعات شراء الدجاج القادمة", top_k=5)
+
+        self.assertTrue(results)
+        self.assertEqual(results[0]["sheet_name"], "مبيعات الدجاج")
+        if len(results) > 1:
+            self.assertGreater(results[0]["score"], results[1]["score"])
