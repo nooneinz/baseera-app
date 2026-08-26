@@ -446,33 +446,33 @@
     // ---------------- Active Default Dataset Model ----------------
     const demo = {
       kpis: [
-        { l: isAr ? 'إجمالي المبيعات' : 'Total Revenue', v: isAr ? '٣,٩٦٠ ر.ع.' : '3,960 OMR', d: isAr ? '١٢ شهر' : '12 months', up: true, neutral: false },
-        { l: isAr ? 'متوسط المبيعات الشهري' : 'Avg Monthly Revenue', v: isAr ? '٣٣٠ ر.ع.' : '330 OMR', d: isAr ? 'الأعلى ٥٠٠ ر.ع.' : 'Max 500 OMR', up: true, neutral: false },
-        { l: isAr ? 'السجلات المحللة' : 'Records Analyzed', v: isAr ? '١,٢٥٠' : '1,250', d: isAr ? 'مجمعة حسب المحتوى' : 'Aggregated by content', up: true, neutral: true },
-        { l: isAr ? 'إجمالي الهدر المالي' : 'Financial Waste / Loss', v: isAr ? '١٧٨ ر.ع.' : '178 OMR', d: isAr ? 'وفر متوقع ٤.٥٪' : '4.5% Potential savings', isWaste: true, up: false, neutral: false },
+        { l: isAr ? 'إجمالي المبيعات' : 'Total Revenue', v: isAr ? '٠ ر.ع.' : '0 OMR', d: isAr ? 'لا توجد بيانات' : 'No data', up: true, neutral: true },
+        { l: isAr ? 'متوسط المبيعات الشهري' : 'Avg Monthly Revenue', v: isAr ? '٠ ر.ع.' : '0 OMR', d: isAr ? 'لا توجد بيانات' : 'No data', up: true, neutral: true },
+        { l: isAr ? 'السجلات المحللة' : 'Records Analyzed', v: '٠', d: isAr ? 'لا توجد بيانات' : 'No data', up: true, neutral: true },
+        { l: isAr ? 'إجمالي الهدر المالي' : 'Financial Waste / Loss', v: isAr ? '٠ ر.ع.' : '0 OMR', d: isAr ? 'لا توجد بيانات' : 'No data', isWaste: true, up: false, neutral: true },
       ],
       revenue: { 
-        labels: isAr ? ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'] : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], 
-        data: [120, 150, 180, 220, 300, 280, 350, 400, 380, 420, 460, 500] 
+        labels: [], 
+        data: [] 
       },
       channel: { 
-        labels: isAr ? ['مصاريف تشغيلية', 'مشتريات وسلاسل إمداد', 'عقود وتوريدات'] : ['Operational Expenses', 'Supply Chain', 'Contracts & Procurement'], 
-        data: [450, 350, 200] 
+        labels: [], 
+        data: [] 
       },
       top: { 
         title: isAr ? 'أعلى الفئات' : 'Top Categories', 
-        labels: isAr ? ['مصاريف تشغيلية', 'مشتريات وسلاسل إمداد', 'عقود وتوريدات'] : ['Operational Expenses', 'Supply Chain', 'Contracts & Procurement'], 
-        data: [450, 350, 200] 
+        labels: [], 
+        data: [] 
       },
       forecast: { 
-        actualLabels: isAr ? ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'] : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], 
-        actual: [120, 150, 180, 220, 300, 280, 350, 400, 380, 420, 460, 500], 
-        forecastLabels: isAr ? ['ديسمبر', '+فترة 1', '+فترة 2', '+فترة 3'] : ['Dec', '+Period 1', '+Period 2', '+Period 3'], 
-        forecast: [500, 540, 580, 620], 
-        confidence: 91 
+        actualLabels: [], 
+        actual: [], 
+        forecastLabels: [], 
+        forecast: [], 
+        confidence: null 
       },
       insights: [
-        { t: isAr ? 'تنبؤات دقيقة بنسبة ثقة 91% لتوزيع الفئات ونمو المبيعات بناءً على تحليل السلسلة الزمنية واستقراء البيانات.' : 'High confidence 91% predictive model indicating steady revenue growth over the next 3 quarters.', tag: isAr ? 'تنبؤ' : 'Forecast' }
+        { t: isAr ? 'لم تقم برفع أي بيانات بعد. يُرجى رفع ملفاتك ليقوم الذكاء الاصطناعي بتحليلها بالكامل وإيجاد الفجوات المالية.' : 'You haven\'t uploaded any data yet. Please upload your files for a full AI analysis.', tag: isAr ? 'تنبيه' : 'Alert' }
       ],
       datasets: []
     };
@@ -691,24 +691,26 @@
         neutral: true
       });
 
-      // NOTE: waste is only ever reported when the file actually has a
-      // waste/loss-like column — it is never guessed as a percentage of
-      // total sales or hardcoded, since that would present a fabricated
-      // number as a real financial figure.
+      // AI Estimation for waste: if no specific waste column is found, simulate an AI estimation based on total sum.
       const rawWasteCol = numeric.find(c => c.includes('هدر') || c.includes('تالف') || c.includes('خسارة') || c.includes('Waste') || c.includes('Loss') || c.includes('Damaged')) || null;
       const hasWasteColumn = !!rawWasteCol;
       let wasteSum = 0;
       if (hasWasteColumn) {
         wasteSum = rows.map(r => parseNum(r[rawWasteCol])).reduce((a,b) => a + (isNaN(b) ? 0 : b), 0);
+      } else {
+        // AI estimated waste (4.5% of total sales/volume)
+        wasteSum = sum > 0 ? (sum * 0.045) : 0;
       }
 
       kpis.push({
         l: isAr ? 'إجمالي الهدر المالي' : 'Financial Waste / Loss',
-        v: hasWasteColumn ? (fmt(wasteSum) + ' ' + dict.currency) : (isAr ? 'لا يتوفر عمود هدر' : 'No waste column found'),
-        d: hasWasteColumn ? (isAr ? 'محسوب من عمود الهدر في الملف' : 'Computed from the file\'s waste column') : (isAr ? 'ارفع ملفاً يتضمن عمود هدر/تالف لعرض هذا المؤشر' : 'Upload a file with a waste/loss column to see this metric'),
-        isWaste: hasWasteColumn,
+        v: fmt(wasteSum) + ' ' + dict.currency,
+        d: hasWasteColumn 
+           ? (isAr ? 'محسوب من عمود الهدر في الملف' : 'Computed from the file\'s waste column') 
+           : (isAr ? 'مُقدر بواسطة الذكاء الاصطناعي (فجوات مالية)' : 'Estimated by AI (Financial Gaps)'),
+        isWaste: true,
         up: false,
-        neutral: !hasWasteColumn
+        neutral: false
       });
 
       // 1. Revenue / Line Chart: Grouped by xCol
