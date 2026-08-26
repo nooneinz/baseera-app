@@ -2,6 +2,8 @@
 __pycache__/
 *.py[cod]
 *.sqlite3
+*.sqlite3.bak
+*.bak
 *.log
 .env
 .env.*
