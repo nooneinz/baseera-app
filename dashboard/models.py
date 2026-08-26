@@ -1,5 +1,60 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
+
+def validate_strategic_priorities(value):
+    allowed_priorities = {"cash_preservation", "growth", "profitability", "cost_reduction", "long_term_stability"}
+    if not isinstance(value, list):
+        raise ValidationError("Strategic priorities must be a list.")
+    if len(value) != 5:
+        raise ValidationError("You must provide exactly 5 priorities.")
+    if set(value) != allowed_priorities:
+        raise ValidationError("Invalid or duplicate priorities provided.")
+
+class CompanyStrategicProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='company_profile')
+    
+    company_name = models.CharField(max_length=255)
+    sector = models.CharField(max_length=100, choices=[
+        ('retail', 'تجزئة'),
+        ('restaurant', 'مطاعم'),
+        ('manufacturing', 'تصنيع'),
+        ('services', 'خدمات'),
+        ('ecommerce', 'تجارة إلكترونية'),
+        ('other', 'أخرى')
+    ])
+    size = models.CharField(max_length=50, choices=[
+        ('micro', 'متناهية الصغر (1-5)'),
+        ('small', 'صغيرة (6-49)'),
+        ('medium', 'متوسطة (50-249)'),
+        ('large', 'كبيرة (250+)')
+    ])
+
+    growth_stage = models.CharField(max_length=50, choices=[
+        ('startup', 'تأسيس / بداية'),
+        ('growth', 'نمو وتوسع'),
+        ('mature', 'استقرار وتشغيل'),
+        ('turnaround', 'إعادة هيكلة / تخفيض تكاليف')
+    ])
+
+    strategic_priorities_ranking = models.JSONField(default=list, validators=[validate_strategic_priorities])
+
+    risk_tolerance = models.CharField(max_length=20, choices=[
+        ('conservative', 'محافظ (Conservative)'),
+        ('balanced', 'متوازن (Balanced)'),
+        ('aggressive', 'جريء (Aggressive)')
+    ])
+
+    max_investment_limit = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    cash_reserve_floor = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+
+    active_agents = models.JSONField(default=list)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Strategic Profile for {self.company_name}"
 
 
 class Profile(models.Model):

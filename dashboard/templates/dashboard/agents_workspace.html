@@ -195,6 +195,13 @@
         // Render markdown-like elements simple for now
         let htmlContent = content.replace(/\n/g, '<br>');
         
+        // Parse agent_state
+        if (htmlContent.includes('<agent_state>')) {
+            htmlContent = htmlContent.replace(/<agent_state>([\s\S]*?)(?:<\/agent_state>|$)/g, function(match, p1) {
+                return `<div class="text-[11px] text-slate-500 italic bg-slate-100 dark:bg-slate-700/50 p-2 rounded-md border border-slate-200 dark:border-slate-600 font-mono mt-1 mb-1" dir="auto">${p1.trim().replace(/\\n/g, '<br>')}</div>`;
+            });
+        }
+        
         // Custom UI Cards for Document Generation
         if(htmlContent.includes('<file_proposal>')) {
             htmlContent = `
@@ -337,6 +344,13 @@
                                 // Parse internal tags to avoid showing them to user
                                 if (formattedResponse.includes('<internal_simulation>')) {
                                     formattedResponse = formattedResponse.replace(/<internal_simulation>[\s\S]*?(<\/internal_simulation>|$)/g, '<div class="text-xs text-slate-400 mb-3 border-r-2 border-slate-300 pr-3 font-medium">يقوم الوكيل بتحليل البيانات وبناء التوصية...</div>');
+                                }
+                                
+                                // Parse agent_state for agent thinking
+                                if (formattedResponse.includes('<agent_state>')) {
+                                    formattedResponse = formattedResponse.replace(/<agent_state>([\s\S]*?)(?:<\/agent_state>|$)/g, function(match, p1) {
+                                        return `<div class="text-[11px] text-slate-500 italic bg-slate-100 dark:bg-slate-700/50 p-2 rounded-md border border-slate-200 dark:border-slate-600 font-mono mt-1 mb-1" dir="auto">${p1.trim().replace(/\\n/g, '<br>')}</div>`;
+                                    });
                                 }
                                 
                                 streamDiv.querySelector('.msg-content').innerHTML = formattedResponse;

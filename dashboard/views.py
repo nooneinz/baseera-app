@@ -224,14 +224,22 @@ def portal(request):
     if request.method == "POST" and request.FILES.get("excel_file"):
         excel = request.FILES.get("excel_file")
         try:
-            validate_uploaded_file(excel)
-        except ValueError as exc:
-            messages.error(request, str(exc))
+            from dashboard.services.validation_service import validate_financial_file
+            is_valid, status, msg, accepted_sheets = validate_financial_file(excel)
+            if not is_valid:
+                messages.error(request, msg)
+                return redirect("portal")
+            elif status == "warning":
+                messages.warning(request, msg)
+        except Exception as exc:
+            messages.error(request, f"حدث خطأ أثناء فحص الملف: {str(exc)}")
             return redirect("portal")
+            
+        excel.seek(0)
 
         excel.name = build_safe_filename(excel.name)
         project_file = ProjectFile.objects.create(user=request.user, excel_file=excel)
-        success, error_msg = process_excel_to_db(project_file, request.user)
+        success, error_msg = process_excel_to_db(project_file, request.user, accepted_sheets)
         if success:
             request.session['active_file_id'] = project_file.id
             
@@ -356,7 +364,7 @@ def parse_pdf_to_df(file_path):
         print(f"Error parsing PDF file: {e}")
         return None
 
-def process_excel_to_db(project_file, user):
+def process_excel_to_db(project_file, user, accepted_sheets=None):
     try:
         file_path = project_file.excel_file.path
         if not os.path.exists(file_path):
@@ -384,7 +392,14 @@ def process_excel_to_db(project_file, user):
         elif ext in ['.xlsx', '.xls']:
             try:
                 import pandas as pd
-                df = pd.read_excel(file_path)
+                if accepted_sheets and len(accepted_sheets) > 0:
+                    dfs = []
+                    xls = pd.ExcelFile(file_path)
+                    for sheet in accepted_sheets:
+                        dfs.append(xls.parse(sheet))
+                    df = pd.concat(dfs, ignore_index=True)
+                else:
+                    df = pd.read_excel(file_path)
             except Exception as ex_err:
                 print(f"Excel read error: {ex_err}")
                 df = read_file_to_df(file_path)
@@ -987,14 +1002,22 @@ def datasets(request):
             messages.error(request, "حجم الملف يتجاوز الحد المسموح به (20 ميجابايت). يرجى اختيار ملف أصغر. / File size exceeds maximum limit (20MB).")
             return redirect('datasets')
 
-        ext = os.path.splitext(excel.name)[1].lower()
-        allowed_exts = ['.csv', '.xlsx', '.xls', '.pdf', '.txt', '.png', '.jpg', '.jpeg']
-        if ext not in allowed_exts:
-            messages.error(request, "صيغة الملف غير مدعومة. يرجى رفع ملف بصيغة (CSV, Excel, PDF, Images). / Unsupported file format. Please upload (CSV, Excel, PDF, Image).")
-            return redirect('datasets')
+        try:
+            from dashboard.services.validation_service import validate_financial_file
+            is_valid, status, msg, accepted_sheets = validate_financial_file(excel)
+            if not is_valid:
+                messages.error(request, msg)
+                return redirect("datasets")
+            elif status == "warning":
+                messages.warning(request, msg)
+        except Exception as exc:
+            messages.error(request, f"حدث خطأ أثناء فحص الملف: {str(exc)}")
+            return redirect("datasets")
+            
+        excel.seek(0)
 
         project_file = ProjectFile.objects.create(user=request.user, excel_file=excel)
-        success, error_msg = process_excel_to_db(project_file, request.user)
+        success, error_msg = process_excel_to_db(project_file, request.user, accepted_sheets)
         
         if not success:
             project_file.delete()

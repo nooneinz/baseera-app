@@ -1445,10 +1445,10 @@
                 <details id="logs-accordion-${loadingId}" class="bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden w-fit group hidden">
                     <summary class="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition list-none">
                         <i data-lucide="cpu" class="h-4 w-4 text-[var(--glow)] animate-pulse"></i>
-                        <span>${isAr ? 'نشاط الوكلاء (جاري التحليل...)' : 'Agents Activity (Analyzing...)'}</span>
+                        <span>${isAr ? 'نشاط وتفكير الوكلاء' : 'Agents Activity & Reasoning'}</span>
                         <i data-lucide="chevron-down" class="h-4 w-4 ml-2 group-open:rotate-180 transition"></i>
                     </summary>
-                    <div class="px-4 py-3 border-t border-slate-200 dark:border-slate-700 flex flex-col gap-1.5" id="logs-container-${loadingId}">
+                    <div class="px-4 py-3 border-t border-slate-200 dark:border-slate-700 flex flex-col gap-1.5" id="logs-container-${loadingId}" dir="auto">
                     </div>
                 </details>
                 
@@ -1513,8 +1513,37 @@
                                         }
                                     }
 
+                                    // Capture agent_state thinking process
+                                    const stateRegex = /<agent_state>([\s\S]*?)(?:<\/agent_state>|$)/g;
+                                    let stateMatch;
+                                    while ((stateMatch = stateRegex.exec(fullReply)) !== null) {
+                                        const stateMsg = stateMatch[1].trim();
+                                        // A simple check to avoid duplicate rendering of the same growing thinking block
+                                        // We clear and re-render the agent_state if it's growing, or just append uniquely.
+                                        // Easiest is to assign an ID to the thinking block and update it.
+                                    }
+                                    
+                                    // Wait, it's better to just extract the latest full agent_state and put it in a specific div.
+                                    const allStates = [...fullReply.matchAll(/<agent_state>([\s\S]*?)(?:<\/agent_state>|$)/g)];
+                                    if (allStates.length > 0) {
+                                        const latestState = allStates[allStates.length - 1][1].trim();
+                                        let thinkingDiv = document.getElementById(`thinking-${loadingId}`);
+                                        if (!thinkingDiv) {
+                                            thinkingDiv = document.createElement('div');
+                                            thinkingDiv.id = `thinking-${loadingId}`;
+                                            thinkingDiv.className = "text-[11px] text-slate-500 italic bg-slate-100 dark:bg-slate-700/50 p-2 rounded-md border border-slate-200 dark:border-slate-600 font-mono mt-1 mb-1";
+                                            thinkingDiv.setAttribute("dir", "auto");
+                                            logsContainer.appendChild(thinkingDiv);
+                                        }
+                                        if (latestState && thinkingDiv.innerHTML !== latestState.replace(/\n/g, '<br>')) {
+                                            thinkingDiv.innerHTML = latestState.replace(/\n/g, '<br>');
+                                            addedLogs = true;
+                                        }
+                                    }
+
                                     if (addedLogs) {
-                                        accordion.style.display = 'block';
+                                        accordion.classList.remove('hidden');
+                                        if (!accordion.hasAttribute('open')) accordion.setAttribute('open', '');
                                         if (typeof lucide !== 'undefined') lucide.createIcons();
                                     }
 

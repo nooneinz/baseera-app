@@ -163,6 +163,20 @@ Code Execution:
 
     def get_agent_meta(self, agent_id, user_id=None, lang="ar"):
         """Returns isolated metadata and persona prompt for a given agent_id."""
+        # Fetch Company Strategic Profile if user_id is provided
+        company_context_ar = ""
+        company_context_en = ""
+        if user_id:
+            try:
+                from dashboard.models import CompanyStrategicProfile
+                profile = CompanyStrategicProfile.objects.get(user_id=user_id)
+                company_context_ar = f"\n\n--- الملف الاستراتيجي للشركة ---\nالقطاع: {profile.get_sector_display()}\nالمرحلة: {profile.get_growth_stage_display()}\nمستوى المخاطرة: {profile.get_risk_tolerance_display()}\nترتيب الأولويات الاستراتيجية: {', '.join(profile.strategic_priorities_ranking)}\n------------------------------\nهام جداً: كمدير تنفيذي (Orchestrator)، يجب عليك الاعتماد الحصري على هذه الأولويات الاستراتيجية والمخاطرة المسموحة عند حسم أي تعارض بين توصيات الوكلاء. كما يجب رفض الإجابة على أي أسئلة طوارئ خارج السياق التجاري والمالي."
+                company_context_en = f"\n\n--- Company Strategic Profile ---\nSector: {profile.sector}\nStage: {profile.growth_stage}\nRisk Tolerance: {profile.risk_tolerance}\nStrategic Priorities Ranking: {', '.join(profile.strategic_priorities_ranking)}\n------------------------------\nCRITICAL: As the Executive Orchestrator, you must rely exclusively on these strategic priorities and risk tolerance when resolving conflicts between agents' recommendations. You must also refuse to answer any questions outside the business/financial context."
+            except Exception:
+                # Fallback handler for fallback handling
+                company_context_ar = "\n\nهام جداً: يرجى التركيز حصراً على تقديم رؤى استراتيجية ومالية وتجارية. في حال وجود تعارض بين توصيات الوكلاء، اعتمد على الحفاظ على السيولة كأولوية قصوى. لا تجب على أي أسئلة خارج هذا السياق التخصصي."
+                company_context_en = "\n\nCRITICAL: Please focus exclusively on providing strategic, financial, and commercial insights. If there is a conflict between agents, prioritize cash preservation. Do not answer questions outside this specialized context."
+
         standard_agents = {
             "general": {
                 "id": "general",
@@ -170,8 +184,8 @@ Code Execution:
                 "role_title": "المنسق الاستراتيجي التنفيذي" if lang == "ar" else "Strategic Orchestrator",
                 "icon": "bot",
                 "color": "indigo",
-                "system_prompt_ar": "أنت المساعد التنفيذي العام والمنسق الاستراتيجي لمنصة بصيرة (Executive Orchestrator). تقدم رؤية شمولية متكاملة لصناع القرار وتنسق الرؤى المختلفة بنبرة قيادية رصينة ومباشرة.",
-                "system_prompt_en": "You are the Executive General Assistant and Strategic Orchestrator for Baseera. You provide holistic, high-level business direction and synthesize insights directly for decision makers."
+                "system_prompt_ar": "أنت المساعد التنفيذي العام والمنسق الاستراتيجي لمنصة بصيرة (Executive Orchestrator). تقدم رؤية شمولية متكاملة لصناع القرار وتنسق الرؤى المختلفة بنبرة قيادية رصينة ومباشرة." + company_context_ar,
+                "system_prompt_en": "You are the Executive General Assistant and Strategic Orchestrator for Baseera. You provide holistic, high-level business direction and synthesize insights directly for decision makers." + company_context_en
             },
             "financial": {
                 "id": "financial",
@@ -680,6 +694,7 @@ As your **{agent_title} ({role_title})**, I have analyzed your inquiry and opera
 1. التزم حصرياً بدورك وتخصصك ({meta['role_title']}) ولا تتقمص أدوار زملائك.
 2. تفاعل مباشرة وبذكاء مع ما طرحه زملاؤك أعلاه في اللجنة: أيد النقاط الصائبة، انتقد الثغرات من منظور تخصصك، أو قدم حلولاً وتوصيات تكميلية تنبع من مجال خبرتك.
 3. ابدأ ردك مباشرة بالتحليل والمداخلة دون تكرار مقدمات عامة.
+4. قاعدة ذهبية (تدقيق مالي صارم): يُمنع منعاً باتاً استنتاج أو اختلاق أي أرقام غير موجودة في البيانات المرفقة. إذا وجدت زميلاً قدم رقماً خاطئاً أو استنتج بيانات غير دقيقة، قم بتصحيحه فوراً وقم بحل النزاع بناءً على البيانات الفعلية فقط.
 """
                     else:
                         committee_context = f"""
@@ -692,6 +707,7 @@ Requirements:
 1. Strictly maintain your own specific domain role ({meta['role_title']}).
 2. Explicitly review and interact with the prior agents' statements above: agree, challenge, or expand on their arguments from your domain angle.
 3. Dive straight into your specialized analysis.
+4. GOLDEN RULE (Strict Financial Audit): You are strictly forbidden from hallucinating or inventing any numbers not present in the provided data. If a colleague presents a wrong number or inaccurate deduction, correct them immediately and resolve the conflict based ONLY on actual data.
 """
                 
                 base_system = self.system_prompt_ar if lang == "ar" else self.system_prompt_en
