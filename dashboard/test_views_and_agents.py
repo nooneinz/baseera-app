@@ -254,3 +254,31 @@ class BaseeraAgentsTests(TestCase):
         self.assertIn("بصيرة", service.system_prompt_ar)
         self.assertIn("Baseera", service.system_prompt_en)
         self.assertIn("Strict Formatting Rules", service.system_prompt_en)
+
+    def test_ar_and_en_system_prompts_grant_the_same_capabilities(self):
+        """
+        Regression guard: the Arabic and English main system prompts must
+        describe the exact same tools/behavior, just in a different
+        language -- one language must never be told about a capability
+        (like RUN_PYTHON code execution) that the other isn't. This exact
+        asymmetry once caused an English-only code-execution capability
+        that, when ported to Arabic to "match", broke a mandatory spec
+        test live against the real model (it started running Python for a
+        scenario that should have gone straight to a file-not-found
+        answer) -- so parity was restored by trimming English back down to
+        Arabic's verified scope instead, and this test pins that scope.
+        """
+        service = GeminiAIService()
+        # Both prompts must be silent on RUN_PYTHON / code execution --
+        # that capability code path in generate_chat_stream is never
+        # advertised to either language.
+        self.assertNotIn("RUN_PYTHON", service.system_prompt_ar)
+        self.assertNotIn("RUN_PYTHON", service.system_prompt_en)
+        # Both prompts must describe the same 3 Decision Platform actions.
+        for action in ("UPDATE_DECISION_METRIC", "RESOLVE_RISK", "RESOLVE_LEAK"):
+            self.assertIn(action, service.system_prompt_ar)
+            self.assertIn(action, service.system_prompt_en)
+        # Both prompts must describe file_proposal / approval_checkpoint.
+        for tag in ("file_proposal", "approval_checkpoint", "internal_simulation"):
+            self.assertIn(tag, service.system_prompt_ar)
+            self.assertIn(tag, service.system_prompt_en)

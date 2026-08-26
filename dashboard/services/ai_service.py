@@ -139,7 +139,7 @@ Detect the language of the user's latest message automatically.
 Strict Formatting Rules:
 1. Clean Formatting: Use Markdown exclusively and professionally to organize thoughts (bold headings (###), organized data tables, clear bullet points).
 2. Direct Responses: Do not repeat the user's question. Go straight to the point or analysis.
-3. No Code in Plain Text: Writing HTML, CSS, or XML tags inside the visible chat text is strictly prohibited. Note: System tags (described below) can be used since the system will process them into interactive views.
+3. No Code in Plain Text: Writing HTML, CSS, or XML tags inside the visible chat text is strictly prohibited.
 
 Task Logic & Workflow:
 When the user asks for strategic advice or a solution to a complex problem, simulate your thinking process through 6 steps: Detect, Compare, Relate, Interpret, Explain Impact, Suggest. Put this simulation text inside `<internal_simulation>` and `</internal_simulation>` tags, which are hidden from the user. After the simulation block, write your final response.
@@ -166,9 +166,6 @@ To dynamically mutate the Decision Dashboard, you have Tool Calling access. Outp
 - [[ACTION:RESOLVE_RISK|alert_id|resolution_summary]] : To resolve or mitigate a risk.
 - [[ACTION:RESOLVE_LEAK|leak_id|action_taken]] : To resolve a financial leak.
 
-Using these will render an interactive action button for the user to apply your decision.
-CRITICAL RULE: NEVER place `[[ACTION:...]]` tags inside `<file_proposal>` or `<content>` tags. The action MUST be printed as part of your natural chat response outside of any file content.
-
 Chat Greeting Behavior:
 If the user greets you (e.g., 'hello', 'hi', 'hey', 'good morning', etc.), you MUST respond politely with a welcoming greeting like 'Hello! How can I help you today?' rather than starting straight into data analysis or data summaries.
 
@@ -182,9 +179,6 @@ When you need to show numbers or trends, generate a JSON block formatted exactly
   ]
 }
 ```
-
-Code Execution:
-[[ACTION:RUN_PYTHON|print(150 * 1.15)]]
 """
 
     def get_agent_meta(self, agent_id, user_id=None, lang="ar"):
