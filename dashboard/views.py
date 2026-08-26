@@ -1220,9 +1220,22 @@ def export_excel_report(request):
                     except Exception as e:
                         print(f"Error parsing file {pf.id}: {e}")
 
+    # Reconciliation Layer (spec section 6): verify the report's aggregated
+    # numbers against the source rows BEFORE any file is generated. rows_data
+    # already only ever comes from DynamicRecord (populated exclusively from
+    # ACCEPTED sheets, see process_excel_to_db) or a freshly-parsed accepted
+    # file, so a rejected sheet's data can never reach this point either way.
+    from dashboard.services.reconciliation_service import reconcile_report_items, ReconciliationError
+
+    try:
+        verified_items = reconcile_report_items(rows_data, lang=user_lang.lower())
+    except ReconciliationError as recon_err:
+        return HttpResponse(recon_err.message, status=409, content_type="text/plain; charset=utf-8")
+
     client_payload = {
         "company_name": profile.company_name if profile.company_name else (request.user.get_full_name() or request.user.username),
-        "items": rows_data
+        "items": rows_data,
+        "_normalized_items": verified_items,
     }
 
     buffer = io.BytesIO()

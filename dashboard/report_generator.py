@@ -52,6 +52,79 @@ def find_str_val(rdata: dict, keywords: list, default_val="") -> str:
     return default_val
 
 
+# Field-detection keyword lists shared between the report generator and the
+# Reconciliation Layer (dashboard/services/reconciliation_service), so both
+# always speak the same "language" when scanning arbitrary source rows.
+REPORT_FIELD_KEYWORDS = {
+    "code": ["كود", "رمز", "معرف", "code", "sku", "id", "ticket", "inv"],
+    "name": ["اسم", "منتج", "سلعة", "صنف", "بند", "name", "title", "product", "item", "description"],
+    "category": ["فئة", "تصنيف", "قسم", "نوع", "category", "type", "dept", "group"],
+    "qty_sold": ["كمية مباعة", "كمية", "عدد", "qty_sold", "qty", "sold", "quantity", "orders"],
+    "unit_price": ["سعر البيع", "سعر الوحدة", "سعر", "مبلغ", "إيراد", "unit_price", "price", "rate", "revenue"],
+    "unit_cost": ["تكلفة الوحدة", "تكلفة", "مصروف", "unit_cost", "cost", "cogs"],
+    "qty_wasted": ["كمية مهدرة", "هدر", "خسارة", "تالف", "qty_wasted", "waste", "loss"],
+    # Used only by the Reconciliation Layer's ground-truth checksum (not by
+    # normalize_report_items itself) to prefer an explicit per-row total
+    # already present in the source data over a qty*price guess.
+    "row_total": ["إجمالي المبيعات", "الإجمالي", "اجمالي", "total sales", "total amount",
+                  "grand total", "row total", "line total"],
+}
+
+
+def normalize_report_items(raw_items, lang="AR"):
+    """
+    Turns arbitrary source rows (e.g. DynamicRecord.row_data dicts with
+    whatever column names the original file used) into the normalized shape
+    the Excel report table renders (code/name/category/qty_sold/unit_price/
+    unit_cost/qty_wasted). Extracted out of generate_baseera_excel so the
+    Reconciliation Layer (spec section 6) can compute the exact same numbers
+    the report will actually contain BEFORE the file is generated, and check
+    them against an independent ground-truth checksum of the source rows.
+
+    NOTE: the "is this actually a unit price or an already-multiplied row
+    total?" heuristic below (unit_price > 100 and qty_sold > 1 => divide) is
+    exactly the kind of silent transformation that can make a report's
+    numbers drift from the source file — which is precisely what the
+    Reconciliation Layer's checksum is designed to catch.
+    """
+    items = []
+    kw_code = REPORT_FIELD_KEYWORDS["code"]
+    kw_name = REPORT_FIELD_KEYWORDS["name"]
+    kw_cat = REPORT_FIELD_KEYWORDS["category"]
+    kw_qty = REPORT_FIELD_KEYWORDS["qty_sold"]
+    kw_price = REPORT_FIELD_KEYWORDS["unit_price"]
+    kw_cost = REPORT_FIELD_KEYWORDS["unit_cost"]
+    kw_wasted = REPORT_FIELD_KEYWORDS["qty_wasted"]
+
+    for idx, item_dict in enumerate(raw_items or []):
+        code = find_str_val(item_dict, kw_code, f"SKU-{(idx+1):02d}")
+        name = find_str_val(item_dict, kw_name, f"منتج {idx+1}")
+        category = find_str_val(item_dict, kw_cat, "عام" if lang == "AR" else "General")
+
+        qty_sold = find_num_val(item_dict, kw_qty, 1.0)
+        unit_price = find_num_val(item_dict, kw_price, 0.0)
+        unit_cost = find_num_val(item_dict, kw_cost, 0.0)
+
+        if unit_price > 100.0 and qty_sold > 1:
+            unit_price = round(unit_price / qty_sold, 3)
+
+        if unit_cost == 0.0 and unit_price > 0:
+            unit_cost = round(unit_price * 0.65, 3)
+
+        qty_wasted = find_num_val(item_dict, kw_wasted, 0.0)
+
+        items.append({
+            "code": code,
+            "name": name,
+            "category": category,
+            "qty_sold": qty_sold,
+            "unit_price": unit_price,
+            "unit_cost": unit_cost,
+            "qty_wasted": qty_wasted,
+        })
+    return items
+
+
 def generate_baseera_excel(
     user_language="AR", client_data=None, output_target="تقرير_بصيرة.xlsx", output_filename=None
 ):
@@ -73,43 +146,16 @@ def generate_baseera_excel(
     if not raw_items and isinstance(client_data, list):
         raw_items = client_data
 
-    items = []
-    kw_code = ["كود", "رمز", "معرف", "code", "sku", "id", "ticket", "inv"]
-    kw_name = ["اسم", "منتج", "سلعة", "صنف", "بند", "name", "title", "product", "item", "description"]
-    kw_cat = ["فئة", "تصنيف", "قسم", "نوع", "category", "type", "dept", "group"]
-    kw_qty = ["كمية مباعة", "كمية", "عدد", "qty_sold", "qty", "sold", "quantity", "orders"]
-    kw_price = ["سعر البيع", "سعر الوحدة", "سعر", "مبلغ", "إيراد", "unit_price", "price", "rate", "revenue"]
-    kw_cost = ["تكلفة الوحدة", "تكلفة", "مصروف", "unit_cost", "cost", "cogs"]
-    kw_wasted = ["كمية مهدرة", "هدر", "خسارة", "تالف", "qty_wasted", "waste", "loss"]
+    # Allow a caller (e.g. the Reconciliation Layer) to pass already
+    # normalized+verified items directly, bypassing re-normalization.
+    pre_normalized = payload.get("_normalized_items")
 
-    if raw_items:
-        for idx, item_dict in enumerate(raw_items):
-            code = find_str_val(item_dict, kw_code, f"SKU-{(idx+1):02d}")
-            name = find_str_val(item_dict, kw_name, f"منتج {idx+1}")
-            category = find_str_val(item_dict, kw_cat, "عام" if lang == "AR" else "General")
-
-            qty_sold = find_num_val(item_dict, kw_qty, 1.0)
-            unit_price = find_num_val(item_dict, kw_price, 0.0)
-            unit_cost = find_num_val(item_dict, kw_cost, 0.0)
-
-            if unit_price > 100.0 and qty_sold > 1:
-                unit_price = round(unit_price / qty_sold, 3)
-
-            if unit_cost == 0.0 and unit_price > 0:
-                unit_cost = round(unit_price * 0.65, 3)
-
-            qty_wasted = find_num_val(item_dict, kw_wasted, 0.0)
-
-            items.append({
-                "code": code,
-                "name": name,
-                "category": category,
-                "qty_sold": qty_sold,
-                "unit_price": unit_price,
-                "unit_cost": unit_cost,
-                "qty_wasted": qty_wasted,
-            })
+    if pre_normalized is not None:
+        items = pre_normalized
+    elif raw_items:
+        items = normalize_report_items(raw_items, lang=lang)
     else:
+        items = []
         sample_cats = ["هواتف", "إكسسوارات", "مشروبات", "مواد غذائية", "مخبوزات"] if lang == "AR" else ["Phones", "Accessories", "Drinks", "Groceries", "Bakery"]
         sample_names = ["آيفون 15 بروماكس", "شاحن سريع 20 واط", "عصير برتقال طبيعي", "أرز بسمتي 5KG", "خبز توست أبيض"] if lang == "AR" else ["iPhone 15 Pro Max", "20W Fast Charger", "Natural Orange Juice", "Basmati Rice 5kg", "White Bread Pack"]
 

@@ -19,7 +19,10 @@ from django.core.exceptions import ValidationError
 
 from dashboard.services.validation_service import validate_financial_file
 from dashboard.services import orchestrator
-from dashboard.models import CompanyStrategicProfile, ProjectFile, FileSheetMetadata
+from dashboard.services.reconciliation_service import (
+    reconcile_report_items, compute_grand_total, ReconciliationError,
+)
+from dashboard.models import CompanyStrategicProfile, ProjectFile, FileSheetMetadata, DynamicRecord
 
 
 # --------------------------------------------------------------------------
@@ -498,3 +501,88 @@ class RetrievalLayerTests(TestCase):
         self.assertEqual(results[0]["sheet_name"], "مبيعات الدجاج")
         if len(results) > 1:
             self.assertGreater(results[0]["score"], results[1]["score"])
+
+
+class ReconciliationLayerTests(TestCase):
+    """Section 6: Reconciliation Layer. Spec test-plan item 5."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="recon_user", password="pw123456")
+        self.client.force_login(self.user)
+
+    # --- Test 5: "اختبار المطابقة" (happy path) -----------------------------
+    def test_5_report_total_matches_source_exactly(self):
+        """A sales file whose rows sum to exactly 6,000,000 must produce a
+        report whose grand total matches 6,000,000 exactly."""
+        rows = [
+            {"السعر": "3000000", "الكمية": 1},
+            {"السعر": "2000000", "الكمية": 1},
+            {"السعر": "500000", "الكمية": 2},
+        ]  # 3,000,000 + 2,000,000 + 1,000,000 = 6,000,000
+
+        verified_items = reconcile_report_items(rows, lang="ar")
+        self.assertEqual(compute_grand_total(verified_items), Decimal("6000000"))
+
+        pf = ProjectFile.objects.create(user=self.user, excel_file="excel_files/big_sales.xlsx")
+        for row in rows:
+            DynamicRecord.objects.create(user=self.user, project_file=pf, schema_hash="x", row_data=row)
+
+        response = self.client.get(f"/export-excel/?file_id={pf.id}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(response.content), data_only=False)
+        ws = wb.active
+        start_r = 9
+        grand_total = Decimal("0")
+        for i in range(len(rows)):
+            qty = Decimal(str(ws.cell(row=start_r + i, column=4).value))
+            price = Decimal(str(ws.cell(row=start_r + i, column=5).value))
+            grand_total += qty * price
+        self.assertEqual(grand_total, Decimal("6000000"))
+
+    # --- Test 5: conflict must abort, never show a wrong number -----------
+    def test_5_irreconcilable_mismatch_aborts_generation(self):
+        """
+        Every row carries an explicit 'الإجمالي' total that legitimately
+        disagrees with qty*price (e.g. a per-row discount not reflected in
+        the raw price/qty columns) — the checksum can never be satisfied by
+        re-deriving qty*price, so generation must abort rather than emit a
+        wrong number.
+        """
+        rows = [
+            {"السعر": "1000", "الكمية": 5, "الإجمالي": "3000"},   # true qty*price = 5000, declared total = 3000
+            {"السعر": "2000", "الكمية": 2, "الإجمالي": "1000"},   # true qty*price = 4000, declared total = 1000
+        ]
+
+        with self.assertRaises(ReconciliationError) as ctx:
+            reconcile_report_items(rows, lang="ar")
+        self.assertIn("حدث خطأ في عملية مطابقة الأرقام", ctx.exception.message)
+
+        pf = ProjectFile.objects.create(user=self.user, excel_file="excel_files/inconsistent_sales.xlsx")
+        for row in rows:
+            DynamicRecord.objects.create(user=self.user, project_file=pf, schema_hash="x", row_data=row)
+
+        response = self.client.get(f"/export-excel/?file_id={pf.id}")
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("حدث خطأ في عملية مطابقة الأرقام", response.content.decode("utf-8"))
+
+    def test_rejected_sheet_data_never_reaches_a_report(self):
+        """A sheet rejected by the Validation Layer must never produce
+        DynamicRecord rows, so it structurally cannot appear in a report."""
+        content = _make_xlsx_bytes({
+            "junk": [{"Unnamed": "IMG"}],
+            "المبيعات": [
+                {"التاريخ": "2024-01-01", "السعر": "100", "الكمية": 2},
+                {"التاريخ": "2024-01-02", "السعر": "150", "الكمية": 1},
+                {"التاريخ": "2024-01-03", "السعر": "200", "الكمية": 3},
+            ],
+        })
+        upload = SimpleUploadedFile(
+            "sales.xlsx", content,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        validation = validate_financial_file(upload)
+        self.assertTrue(any("junk" in r for r in validation["rejected_sheets"]))
+        self.assertEqual(validation["accepted_sheets"], ["المبيعات"])
