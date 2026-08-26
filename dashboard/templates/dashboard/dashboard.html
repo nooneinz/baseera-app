@@ -37,7 +37,7 @@
 
 <!-- Provide server dataset to JS -->
 <script id="server-dataset" type="application/json">
-    {{ latest_file_json|safe|default:"null" }}
+    {{ latest_file_json|default:"null"|safe }}
 </script>
 
 <div class="flex flex-col lg:flex-row min-h-screen p-3 gap-3">
@@ -90,6 +90,10 @@
             </p>
         </div>
     </header>
+
+    <!-- Populated by JS (processDataset): confirms which uploaded file the
+         dashboard below is built from, or that no file exists yet. -->
+    <div id="dataBanner" class="hidden mb-4 rounded-xl px-4 py-2.5 text-xs font-semibold flex items-center justify-between gap-3 animate-fade-up"></div>
 
     {% if not files %}
     <!-- First Time Onboarding Banner (When No Datasets Exist) -->
@@ -429,6 +433,18 @@
   document.addEventListener('DOMContentLoaded', function() {
     lucide.createIcons();
 
+    // Chart.js instance handles (bar/line/pie/doughnut). These MUST be
+    // declared before first use: renderRevenueChart/renderChannelChart/
+    // renderTopChart/renderForecastChart all read them (e.g.
+    // "if (revenueChartInstance) revenueChartInstance.destroy()") before
+    // ever assigning them, and reading a never-declared identifier throws
+    // ReferenceError in JS — which was silently aborting every chart render
+    // on first load.
+    let revenueChartInstance = null;
+    let channelChartInstance = null;
+    let topChartInstance = null;
+    let forecastChartInstance = null;
+
     // ---------------- Active Default Dataset Model ----------------
     const demo = {
       kpis: [
@@ -480,6 +496,10 @@
       const parsed = parseFloat(cleaned);
       return isNaN(parsed) ? 0 : parsed;
     }
+    // Exposed globally: updateSalesGoalProgress() lives outside this
+    // DOMContentLoaded closure (it's called from goal-modal code too) and
+    // needs this helper, which was otherwise only visible in here.
+    window.parseNum = parseNum;
     function isDateLike(v){ if(v===null||v===undefined||v===''||isNumeric(v)) return false; return !isNaN(Date.parse(v)); }
 
     function classifyColumns(rows, columns) {
@@ -503,6 +523,8 @@
       if (Math.abs(n) >= 1000) return n.toLocaleString(locale, { maximumFractionDigits: 0 });
       return n.toLocaleString(locale, { maximumFractionDigits: 2 });
     }
+    // Same reason as window.parseNum above: needed by updateSalesGoalProgress().
+    window.fmt = fmt;
 
     function linearRegression(values) {
       const n = values.length;
@@ -602,7 +624,14 @@
       }
 
       const { numeric, dateCols, categorical } = classifyColumns(rows, columns);
-      const rawPrimary = numeric.find(c => c.includes('مبلغ') || c.includes('Total') || c.includes('إجمالي') || c.includes('Sales') || c.includes('مبيعات') || c.includes('Amount') || c.includes('سعر')) || numeric[0] || null;
+      // Prefer an explicit "total/إجمالي" style column (e.g. "إجمالي المبيعات")
+      // over a merely price-ish column (e.g. "سعر الوحدة" - a unit price) so
+      // the headline KPI reflects real total revenue rather than accidentally
+      // summing unit prices just because that column happens to appear first.
+      const rawPrimary =
+        numeric.find(c => c.includes('مبلغ') || c.includes('Total') || c.includes('إجمالي') || c.includes('Amount')) ||
+        numeric.find(c => c.includes('Sales') || c.includes('مبيعات') || c.includes('سعر')) ||
+        numeric[0] || null;
       const rawSecondary = numeric.find(c => (c.includes('ربح') || c.includes('Profit') || c.includes('تكلفة') || c.includes('Cost')) && c !== rawPrimary) || numeric[1] || null;
       const rawXCol = dateCols[0] || categorical.find(c => c.includes('تاريخ') || c.includes('Date') || c.includes('شهر') || c.includes('Month') || c.includes('فترة') || c.includes('يوم')) || categorical[0] || null;
       const rawCatCol = categorical.find(c => c.includes('فئة') || c.includes('Category') || c.includes('نوع') || c.includes('Type') || c.includes('قسم') || c.includes('صنف') || c.includes('بند')) || categorical[0] || null;
@@ -627,28 +656,33 @@
       if (primary) {
         primaryVals = rows.map(r => parseNum(r[primary])).filter(v => typeof v === 'number' && !isNaN(v) && v !== null);
       }
-      if (!primaryVals.length) {
-        primaryVals = [120, 150, 180, 220, 300, 280, 350, 400, 380, 420, 460, 500];
-      }
+      // NOTE: never substitute a hardcoded numeric array here. If no numeric
+      // "sales-like" column was detected (or none of its values parsed),
+      // primaryVals legitimately stays empty and the KPI must say so
+      // honestly instead of presenting fabricated numbers as if computed
+      // from the user's uploaded file.
+      const hasPrimaryData = primaryVals.length > 0;
 
       const sum = primaryVals.reduce((a,b) => a + (isNaN(b) ? 0 : b), 0);
       const avg = primaryVals.length ? (sum / primaryVals.length) : 0;
       const maxVal = primaryVals.reduce((a, b) => Math.max(a, isNaN(b) ? 0 : b), 0);
-      
+
+      const noDataLabel = isAr ? 'لا تتوفر بيانات رقمية كافية' : 'Not enough numeric data';
+
       kpis.push({
         l: getKpiLabel(dict.total, dispPrimary || (isAr ? 'المبيعات' : 'Sales')),
-        v: fmt(sum) + ' ' + dict.currency,
-        d: `${primaryVals.length.toLocaleString(isAr ? 'ar-OM' : 'en-US')} ${dict.values}`,
+        v: hasPrimaryData ? (fmt(sum) + ' ' + dict.currency) : noDataLabel,
+        d: hasPrimaryData ? `${primaryVals.length.toLocaleString(isAr ? 'ar-OM' : 'en-US')} ${dict.values}` : (isAr ? 'لم يُعثر على عمود رقمي مناسب في الملف' : 'No matching numeric column found in the file'),
         up: true,
-        neutral: false
+        neutral: !hasPrimaryData
       });
 
       kpis.push({
         l: `${dict.avg} ${dispPrimary || (isAr ? 'المبيعات' : 'Sales')}`,
-        v: fmt(avg) + ' ' + dict.currency,
-        d: `${dict.max} ${fmt(maxVal)}`,
+        v: hasPrimaryData ? (fmt(avg) + ' ' + dict.currency) : noDataLabel,
+        d: hasPrimaryData ? `${dict.max} ${fmt(maxVal)}` : '',
         up: true,
-        neutral: false
+        neutral: !hasPrimaryData
       });
 
       kpis.push({
@@ -659,23 +693,24 @@
         neutral: true
       });
 
+      // NOTE: waste is only ever reported when the file actually has a
+      // waste/loss-like column — it is never guessed as a percentage of
+      // total sales or hardcoded, since that would present a fabricated
+      // number as a real financial figure.
       const rawWasteCol = numeric.find(c => c.includes('هدر') || c.includes('تالف') || c.includes('خسارة') || c.includes('Waste') || c.includes('Loss') || c.includes('Damaged')) || null;
+      const hasWasteColumn = !!rawWasteCol;
       let wasteSum = 0;
-      if (rawWasteCol) {
+      if (hasWasteColumn) {
         wasteSum = rows.map(r => parseNum(r[rawWasteCol])).reduce((a,b) => a + (isNaN(b) ? 0 : b), 0);
-      } else if (sum > 0) {
-        wasteSum = Math.round(sum * 0.045);
-      } else {
-        wasteSum = 178;
       }
 
       kpis.push({
         l: isAr ? 'إجمالي الهدر المالي' : 'Financial Waste / Loss',
-        v: fmt(wasteSum) + ' ' + dict.currency,
-        d: isAr ? 'وفر متوقع ٤.٥٪' : '4.5% Potential savings',
-        isWaste: true,
+        v: hasWasteColumn ? (fmt(wasteSum) + ' ' + dict.currency) : (isAr ? 'لا يتوفر عمود هدر' : 'No waste column found'),
+        d: hasWasteColumn ? (isAr ? 'محسوب من عمود الهدر في الملف' : 'Computed from the file\'s waste column') : (isAr ? 'ارفع ملفاً يتضمن عمود هدر/تالف لعرض هذا المؤشر' : 'Upload a file with a waste/loss column to see this metric'),
+        isWaste: hasWasteColumn,
         up: false,
-        neutral: false
+        neutral: !hasWasteColumn
       });
 
       // 1. Revenue / Line Chart: Grouped by xCol
@@ -701,12 +736,16 @@
         }
       }
 
+      // Never substitute the demo trend here: an empty/all-zero result means
+      // this specific file has no usable date/period column to group by,
+      // which the chart must show honestly as "no data" rather than
+      // silently rendering unrelated sample numbers.
       if (!revenue.data || !revenue.data.length || revenue.data.every(v => v === 0)) {
-        revenue = demo.revenue;
+        revenue = { labels: [], data: [] };
       }
 
       // 2. Forecast Curve Extrapolation
-      let forecast = demo.forecast;
+      let forecast = { actualLabels: [], actual: [], forecastLabels: [], forecast: [], confidence: null };
       if (revenue.data && revenue.data.length >= 2) {
         const reg = linearRegression(revenue.data);
         const n = revenue.data.length;
@@ -759,7 +798,7 @@
       }
 
       if (!channel.data || !channel.data.length || channel.data.every(v => v === 0)) {
-        channel = demo.channel;
+        channel = { labels: [], data: [] };
       }
 
       // 4. Top Ranking Bar
@@ -785,7 +824,7 @@
       }
 
       if (!top.data || !top.data.length || top.data.every(v => v === 0)) {
-        top = demo.top;
+        top = { title: top.title, labels: [], data: [] };
       }
 
       // 5. Data-driven insights
@@ -823,6 +862,31 @@
         forecast,
         insights
       };
+    }
+
+    // Shared "no data for this chart" state: used instead of ever silently
+    // substituting the sample/demo numbers when the user's real uploaded
+    // file simply doesn't have the column a specific chart needs.
+    function showNoDataMessage(canvasId, text) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      canvas.style.display = 'none';
+      let msgEl = document.getElementById(canvasId + '-nodata');
+      if (!msgEl) {
+        msgEl = document.createElement('div');
+        msgEl.id = canvasId + '-nodata';
+        msgEl.className = 'flex items-center justify-center h-full text-xs text-slate-400 text-center px-6 py-8';
+        canvas.parentElement.appendChild(msgEl);
+      }
+      msgEl.textContent = text;
+      msgEl.style.display = 'flex';
+    }
+
+    function hideNoDataMessage(canvasId) {
+      const canvas = document.getElementById(canvasId);
+      if (canvas) canvas.style.display = '';
+      const msgEl = document.getElementById(canvasId + '-nodata');
+      if (msgEl) msgEl.style.display = 'none';
     }
 
     function renderKpis(kpis) {
@@ -938,8 +1002,12 @@
       const chartEl = document.getElementById('revenueChart');
       if (!chartEl) return;
       if (!revenue || !revenue.data || !revenue.data.length) {
-        revenue = demo.revenue;
+        showNoDataMessage('revenueChart', isAr
+          ? 'لا توجد بيانات كافية لعرض هذا الرسم من الملف المرفوع.'
+          : 'Not enough data in the uploaded file to render this chart.');
+        return;
       }
+      hideNoDataMessage('revenueChart');
 
       if (typeof Chart === 'undefined') {
         drawNativeLineChart('revenueChart', revenue.data, (revenue.labels || []).map(fixArabicVisualText), '#7c6cf0');
@@ -1066,12 +1134,23 @@
       if (channel) currentChannelData = channel;
       else if (currentChannelData) channel = currentChannelData;
 
+      const channelEl = document.getElementById('channelChart');
+      if (!channelEl || !channel) return;
+
+      if (!channel.data || !channel.data.length) {
+        showNoDataMessage('channelChart', isAr
+          ? 'لا توجد بيانات كافية لعرض هذا الرسم من الملف المرفوع.'
+          : 'Not enough data in the uploaded file to render this chart.');
+        const legendEl0 = document.getElementById('channelLegend');
+        if (legendEl0) legendEl0.innerHTML = '';
+        return;
+      }
+      hideNoDataMessage('channelChart');
+
       if (typeof Chart === 'undefined') {
         setTimeout(() => renderChannelChart(channel), 200);
         return;
       }
-      const channelEl = document.getElementById('channelChart');
-      if (!channelEl || !channel) return;
       const ctx = channelEl.getContext('2d');
       if (channelChartInstance) channelChartInstance.destroy();
       channelChartInstance = new Chart(ctx, {
@@ -1115,9 +1194,18 @@
 
       const titleEl = document.getElementById('topTitle');
       if (titleEl) titleEl.textContent = top.title || (isAr ? 'أعلى الفئات' : 'Top categories');
-      
+
       const topEl = document.getElementById('topChart');
       if (!topEl) return;
+
+      if (!top.data || !top.data.length) {
+        showNoDataMessage('topChart', isAr
+          ? 'لا توجد بيانات كافية لعرض هذا الرسم من الملف المرفوع.'
+          : 'Not enough data in the uploaded file to render this chart.');
+        return;
+      }
+      hideNoDataMessage('topChart');
+
       const ctx = topEl.getContext('2d');
       if (topChartInstance) topChartInstance.destroy();
 
@@ -1218,11 +1306,7 @@
           btnPie.classList.add(...inactiveClasses);
         }
 
-        if (currentForecastData) {
-          renderForecastChart(currentForecastData);
-        } else {
-          renderForecastChart(demo.forecast);
-        }
+        renderForecastChart(currentForecastData);
       } else if (mode === 'pie') {
         if (forecastView) forecastView.classList.add('hidden');
         if (pieView) pieView.classList.remove('hidden');
@@ -1236,31 +1320,36 @@
           btnForecast.classList.add(...inactiveClasses);
         }
 
-        if (typeof currentChannelData !== 'undefined' && currentChannelData) {
-          renderChannelChart(currentChannelData);
-        } else {
-          renderChannelChart(demo.channel);
-        }
+        renderChannelChart(currentChannelData);
       }
     }
     window.switchForecastMode = switchForecastMode;
 
         function renderForecastChart(forecast) {
-      if (!forecast || !forecast.actualLabels || !forecast.forecast) {
-        forecast = demo.forecast;
-      }
-      currentForecastData = forecast;
-      const badge = document.getElementById('confidenceBadge');
-      if (badge && forecast && forecast.confidence) {
-        badge.textContent = `${dict.confidence} ${forecast.confidence}%`;
-      }
       const forecastEl = document.getElementById('forecastChart');
       if (!forecastEl) return;
 
-      const actualLabels = (forecast.actualLabels && forecast.actualLabels.length) ? forecast.actualLabels : (demo.forecast.actualLabels || []);
-      const forecastLabels = (forecast.forecastLabels && forecast.forecastLabels.length) ? forecast.forecastLabels : (demo.forecast.forecastLabels || []);
-      const actual = (forecast.actual && forecast.actual.length) ? forecast.actual : (demo.forecast.actual || []);
-      const fc = (forecast.forecast && forecast.forecast.length) ? forecast.forecast : (demo.forecast.forecast || []);
+      if (!forecast || !forecast.actual || !forecast.actual.length || !forecast.forecast || !forecast.forecast.length) {
+        currentForecastData = forecast || null;
+        const badge0 = document.getElementById('confidenceBadge');
+        if (badge0) badge0.textContent = '';
+        showNoDataMessage('forecastChart', isAr
+          ? 'لا توجد بيانات زمنية كافية في الملف المرفوع لبناء تنبؤ.'
+          : 'Not enough time-series data in the uploaded file to build a forecast.');
+        return;
+      }
+      hideNoDataMessage('forecastChart');
+
+      currentForecastData = forecast;
+      const badge = document.getElementById('confidenceBadge');
+      if (badge && forecast.confidence) {
+        badge.textContent = `${dict.confidence} ${forecast.confidence}%`;
+      }
+
+      const actualLabels = forecast.actualLabels || [];
+      const forecastLabels = forecast.forecastLabels || [];
+      const actual = forecast.actual || [];
+      const fc = forecast.forecast || [];
 
       const labels = [...actualLabels, ...forecastLabels.slice(1)].map(fixArabicVisualText);
       const actualData = [...actual, ...Array(Math.max(0, forecastLabels.length - 1)).fill(null)];
@@ -1418,8 +1507,19 @@
               ? `قامت بصيرة بتحليل ملف ${cleanFileName} وتوليد لوحة المعلومات الحالية.`
               : `Basira analyzed ${cleanFileName} and generated this dashboard.`;
           }
+        } else if (banner) {
+          // No real file at all: say so plainly instead of leaving sample
+          // numbers on screen unlabeled (dict.noDatasetUploaded).
+          banner.classList.remove('hidden');
+          banner.classList.add('bg-amber-50','border','border-amber-200','text-amber-700');
+          banner.innerHTML = `
+            <span class="flex items-center gap-2">
+              <i data-lucide="info" class="h-3.5 w-3.5"></i>
+              ${dict.noDatasetUploaded}
+            </span>
+          `;
         }
-          
+
         if (document.getElementById('revenueTitle') && built.revenueTitle) document.getElementById('revenueTitle').textContent = built.revenueTitle;
         if (document.getElementById('revenueSub') && built.revenueSub) document.getElementById('revenueSub').textContent = built.revenueSub;
         if (document.getElementById('channelTitle') && built.channelTitle) document.getElementById('channelTitle').textContent = built.channelTitle;
