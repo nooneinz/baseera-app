@@ -184,7 +184,7 @@ async function deletePlan(planId) {
                             <i data-lucide="upload" class="h-3.5 w-3.5 text-slate-300 group-hover:text-blue-500 transition"></i>
                             <form method="POST" enctype="multipart/form-data" class="hidden">
                                 {% csrf_token %}
-                                <input type="file" name="excel_file" accept=".csv,.xlsx,.xls,.pdf,.txt" class="hidden" onchange="validateAndSubmitDatasetUpload(this)" id="bankFileDropInput"/>
+                                <input type="file" name="excel_file" accept=".csv,.xlsx,.xls,.pdf,.txt,image/*" class="hidden" onchange="validateAndSubmitDatasetUpload(this)" id="bankFileDropInput"/>
                             </form>
                             <span onclick="document.getElementById('bankFileDropInput').click(); closeUploadDropdown()"></span>
                         </label>
@@ -316,7 +316,7 @@ async function deletePlan(planId) {
                     {% csrf_token %}
                     <label class="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[var(--nile)] to-[var(--glow)] px-6 py-3 text-sm font-semibold text-white shadow-xl shadow-indigo-500/30 cursor-pointer hover:opacity-90 transition">
                         <i data-lucide="upload" class="h-4 w-4"></i> {% if trans.lang_code == 'ar' %}ارفع ملف المبيعات الأول{% else %}Upload your first file{% endif %}
-                        <input type="file" name="excel_file" accept=".csv,.xlsx,.xls,.pdf,.txt" class="hidden" onchange="validateAndSubmitDatasetUpload(this)" id="emptyStateFileInput" />
+                        <input type="file" name="excel_file" accept=".csv,.xlsx,.xls,.pdf,.txt,image/*" class="hidden" onchange="validateAndSubmitDatasetUpload(this)" id="emptyStateFileInput" />
                     </label>
                 </form>
             </div>

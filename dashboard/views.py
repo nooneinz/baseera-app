@@ -241,7 +241,10 @@ def portal(request):
 
         excel.name = build_safe_filename(excel.name)
         project_file = ProjectFile.objects.create(user=request.user, excel_file=excel)
-        success, error_msg = process_excel_to_db(project_file, request.user, accepted_sheets)
+        success, error_msg = process_excel_to_db(
+            project_file, request.user, accepted_sheets,
+            extracted_rows=validation.get("extracted_rows"),
+        )
         if success:
             request.session['active_file_id'] = project_file.id
             try:
@@ -371,7 +374,7 @@ def parse_pdf_to_df(file_path):
         print(f"Error parsing PDF file: {e}")
         return None
 
-def process_excel_to_db(project_file, user, accepted_sheets=None):
+def process_excel_to_db(project_file, user, accepted_sheets=None, extracted_rows=None):
     try:
         file_path = project_file.excel_file.path
         if not os.path.exists(file_path):
@@ -439,27 +442,24 @@ def process_excel_to_db(project_file, user, accepted_sheets=None):
                 except Exception as ai_txt_err:
                     print(f"AI TXT extract error: {ai_txt_err}")
         elif ext in ['.png', '.jpg', '.jpeg']:
-            try:
-                from dashboard.services.ai_service import GeminiAIService
-                import pandas as pd
-                ai_service = GeminiAIService()
-                extracted_data = ai_service.extract_structured_data_from_file(file_path)
-                if extracted_data and isinstance(extracted_data, list) and len(extracted_data) > 0:
-                    df = pd.DataFrame(extracted_data)
-                else:
-                    df = pd.DataFrame([{
-                        "اسم الملف": os.path.basename(file_path),
-                        "نوع المستند": "صورة / فاتورة ضوئية",
-                        "الحالة": "تم استلام الصورة بنجاح وتجهيزها للتحليل المالي"
-                    }])
-            except Exception as img_err:
-                print(f"Image extract error: {img_err}")
-                import pandas as pd
-                df = pd.DataFrame([{
-                    "اسم الملف": os.path.basename(file_path),
-                    "نوع المستند": "صورة / فاتورة ضوئية",
-                    "الحالة": "تم استلام الصورة وتوثيقها"
-                }])
+            import pandas as pd
+            # The Validation Layer (validate_financial_file) already ran the
+            # financial vision OCR pass before this file was ever saved --
+            # reuse those rows instead of paying for a second AI call, and
+            # never fall back to a placeholder row with no real numbers in
+            # it (a real image only reaches here once validation confirmed
+            # it had genuine extractable financial content).
+            if extracted_rows:
+                df = pd.DataFrame(extracted_rows)
+            else:
+                try:
+                    from dashboard.services.ai_service import GeminiAIService
+                    ai_service = GeminiAIService()
+                    extracted_data = ai_service.extract_structured_data_from_file(file_path)
+                    if extracted_data and isinstance(extracted_data, list) and len(extracted_data) > 0:
+                        df = pd.DataFrame(extracted_data)
+                except Exception as img_err:
+                    print(f"Image extract error: {img_err}")
         else:
             df = read_file_to_df(file_path)
 
@@ -1073,7 +1073,10 @@ def datasets(request):
         excel.seek(0)
 
         project_file = ProjectFile.objects.create(user=request.user, excel_file=excel)
-        success, error_msg = process_excel_to_db(project_file, request.user, accepted_sheets)
+        success, error_msg = process_excel_to_db(
+            project_file, request.user, accepted_sheets,
+            extracted_rows=validation.get("extracted_rows"),
+        )
 
         if not success:
             project_file.delete()

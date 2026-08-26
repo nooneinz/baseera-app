@@ -11,7 +11,7 @@ FINANCIAL_KEYWORDS = ['سعر', 'تكلفة', 'إجمالي', 'كمية', 'تا�
                       'revenue', 'expense', 'invoice']
 
 
-def validate_financial_file(file_obj) -> Dict:
+def validate_financial_file(file_obj, ai_service=None) -> Dict:
     """
     Returns a dict:
     {
@@ -20,7 +20,13 @@ def validate_financial_file(file_obj) -> Dict:
         "message": str,               # رسالة عرض للمستخدم
         "accepted_sheets": List[str],  # أسماء الأوراق/الجداول المقبولة فعلياً (بيانات منظمة)
         "rejected_sheets": List[str],
+        "extracted_rows": List[dict],  # فقط للصور: الحركات المستخرجة عبر OCR، لتفادي إعادة تحليلها لاحقاً
     }
+
+    ai_service: an optional GeminiAIService instance, used only for image
+    uploads (financial vision OCR). If omitted, a real one is created
+    lazily so this stays a drop-in call for every existing caller; tests can
+    inject a fake/mocked service instead.
     """
 
     result = {
@@ -34,11 +40,11 @@ def validate_financial_file(file_obj) -> Dict:
     # ==========================================
     # المرحلة 1: الفحص الشكلي (قبل فتح الملف)
     # ==========================================
-    allowed_extensions = ['.xlsx', '.xls', '.csv', '.pdf']
+    allowed_extensions = ['.xlsx', '.xls', '.csv', '.pdf', '.jpg', '.jpeg', '.png']
     ext = os.path.splitext(file_obj.name)[1].lower()
 
     if ext not in allowed_extensions:
-        result["message"] = "الصيغة غير مدعومة، الرجاء رفع ملف بصيغة Excel أو CSV أو PDF فاتورة."
+        result["message"] = "الصيغة غير مدعومة، الرجاء رفع ملف بصيغة Excel أو CSV أو PDF أو صورة (JPG/PNG) لمستند مالي."
         return result
 
     if file_obj.size < 1024:
@@ -65,6 +71,9 @@ def validate_financial_file(file_obj) -> Dict:
         return result
     if ext == '.pdf' and 'pdf' not in file_mime:
         result["message"] = "محتوى الملف ليس PDF حقيقي."
+        return result
+    if ext in ['.jpg', '.jpeg', '.png'] and not file_mime.startswith('image/'):
+        result["message"] = "محتوى الملف ليس صورة حقيقية."
         return result
 
     # ==========================================
@@ -205,6 +214,40 @@ def validate_financial_file(file_obj) -> Dict:
             logger.exception("PDF validation failed for %s", file_obj.name)
             result["message"] = "فشل في معالجة الفاتورة. تأكد أن الملف سليم."
             return result
+
+    # ==========================================
+    # المرحلة 4: الفحص البصري لصور المستندات المالية (كشوفات مصورة/دفاتر يدوية)
+    # ==========================================
+    elif ext in ['.jpg', '.jpeg', '.png']:
+        from dashboard.services.vision_ocr_service import ocr_extract_financial_rows
+
+        if ai_service is None:
+            try:
+                from dashboard.services.ai_service import GeminiAIService
+                ai_service = GeminiAIService()
+            except Exception:
+                ai_service = None
+
+        try:
+            ocr_result = ocr_extract_financial_rows(file_obj, ai_service=ai_service)
+        except Exception:
+            logger.exception("Image OCR validation failed for %s", file_obj.name)
+            result["message"] = "فشل في تحليل الصورة. تأكد أن الملف سليم وحاول مرة أخرى."
+            return result
+
+        result["message"] = ocr_result["message"]
+        if ocr_result["status"] == "reject":
+            return result
+
+        image_label = file_obj.name
+        result.update(
+            is_valid=True,
+            status=ocr_result["status"],
+            accepted_sheets=[image_label],
+        )
+        result["extracted_rows"] = ocr_result["rows"]
+        result["document_type"] = ocr_result["document_type"]
+        return result
 
     result["message"] = "خطأ غير معروف."
     return result

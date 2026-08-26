@@ -98,7 +98,7 @@ def index_accepted_sheets(project_file, accepted_sheets):
     FileSheetMetadata.objects.filter(project_file=project_file).delete()
 
     try:
-        if ext == '.pdf':
+        if ext in ('.pdf', '.jpg', '.jpeg', '.png'):
             for sheet_name in accepted_sheets:
                 meta = FileSheetMetadata.objects.create(
                     project_file=project_file,
