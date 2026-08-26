@@ -1,44 +1,74 @@
 import os
-import magic # for true MIME type checking
+import magic  # python-magic, for true MIME type checking
 import pandas as pd
-from typing import Tuple, Optional, List
+import logging
+from typing import Dict
 
-FINANCIAL_KEYWORDS = ['سعر', 'تكلفة', 'إجمالي', 'كمية', 'تاريخ', 'إيراد', 'مصروف', 'فاتورة', 
-                      'رقم الفاتورة', 'price', 'cost', 'total', 'amount', 'qty', 'date', 
+logger = logging.getLogger(__name__)
+
+FINANCIAL_KEYWORDS = ['سعر', 'تكلفة', 'إجمالي', 'كمية', 'تاريخ', 'إيراد', 'مصروف', 'فاتورة',
+                      'رقم الفاتورة', 'price', 'cost', 'total', 'amount', 'qty', 'date',
                       'revenue', 'expense', 'invoice']
 
-def validate_financial_file(file_obj) -> Tuple[bool, str, str, List[str]]:
+
+def validate_financial_file(file_obj) -> Dict:
     """
-    Returns: (is_valid, status: 'accept'|'warning'|'reject', message, accepted_sheets_list)
+    Returns a dict:
+    {
+        "is_valid": bool,
+        "status": "accept" | "warning" | "reject",
+        "message": str,               # رسالة عرض للمستخدم
+        "accepted_sheets": List[str],  # أسماء الأوراق/الجداول المقبولة فعلياً (بيانات منظمة)
+        "rejected_sheets": List[str],
+    }
     """
-    
+
+    result = {
+        "is_valid": False,
+        "status": "reject",
+        "message": "",
+        "accepted_sheets": [],
+        "rejected_sheets": [],
+    }
+
     # ==========================================
     # المرحلة 1: الفحص الشكلي (قبل فتح الملف)
     # ==========================================
     allowed_extensions = ['.xlsx', '.xls', '.csv', '.pdf']
     ext = os.path.splitext(file_obj.name)[1].lower()
-    
+
     if ext not in allowed_extensions:
-        return False, 'reject', "الصيغة غير مدعومة، الرجاء رفع ملف بصيغة Excel أو CSV أو PDF فاتورة.", []
-        
-    if file_obj.size < 1024:  # أقل من 1KB
-        return False, 'reject', "الملف فارغ أو صغير جداً.", []
-        
-    if file_obj.size > 20 * 1024 * 1024: # أكبر من 20MB
-        return False, 'reject', "حجم الملف يتجاوز الحد الأقصى (20MB).", []
-        
-    # فحص MIME الفعلي
-    file_mime = magic.from_buffer(file_obj.read(2048), mime=True)
+        result["message"] = "الصيغة غير مدعومة، الرجاء رفع ملف بصيغة Excel أو CSV أو PDF فاتورة."
+        return result
+
+    if file_obj.size < 1024:
+        result["message"] = "الملف فارغ أو صغير جداً."
+        return result
+
+    if file_obj.size > 20 * 1024 * 1024:
+        result["message"] = "حجم الملف يتجاوز الحد الأقصى (20MB)."
+        return result
+
+    # NOTE: python-magic needs more than the first 2KB to reliably tell a real
+    # .xlsx/.xls (an OOXML zip container) apart from a generic "application/zip":
+    # with only 2048 bytes it frequently misses the "[Content_Types].xml" zip
+    # entry and reports plain "application/zip", which would reject a 100%
+    # valid spreadsheet. Verified empirically that 8KB is enough in practice
+    # (small test fixtures already fail at 2048 and pass at 4096+), so we
+    # widen the sniff window here without changing anything else about the
+    # validation contract.
+    file_mime = magic.from_buffer(file_obj.read(8192), mime=True)
     file_obj.seek(0)
-    
-    # التأكد من تطابق MIME مع الامتداد
+
     if ext in ['.xlsx', '.xls'] and 'spreadsheet' not in file_mime and 'excel' not in file_mime:
-         return False, 'reject', "محتوى الملف لا يتطابق مع امتداده. يرجى التأكد من صحة الملف.", []
+        result["message"] = "محتوى الملف لا يتطابق مع امتداده. يرجى التأكد من صحة الملف."
+        return result
     if ext == '.pdf' and 'pdf' not in file_mime:
-         return False, 'reject', "محتوى الملف ليس PDF حقيقي.", []
+        result["message"] = "محتوى الملف ليس PDF حقيقي."
+        return result
 
     # ==========================================
-    # المرحلة 2: الفحص الهيكلي لـ Excel/CSV
+    # المرحلة 2: الفحص الهيكلي لـ Excel/CSV — لكل ورقة على حدة
     # ==========================================
     if ext in ['.xlsx', '.xls', '.csv']:
         try:
@@ -51,114 +81,130 @@ def validate_financial_file(file_obj) -> Tuple[bool, str, str, List[str]]:
                     df_sheet = xls.parse(sheet_name)
                     if not df_sheet.empty:
                         dfs_to_validate[sheet_name] = df_sheet
-                
+
                 if not dfs_to_validate:
-                     return False, 'reject', "الملف لا يحتوي على أي بيانات جدولية مقروءة (جميع الأوراق فارغة).", []
-            
+                    result["message"] = "الملف لا يحتوي على أي بيانات جدولية مقروءة (جميع الأوراق فارغة)."
+                    return result
+
             accepted_sheets = []
             rejected_sheets = []
             warnings = []
 
             for sheet_name, df in dfs_to_validate.items():
-                # القاعدة 1: وجود صف رؤوس (Header Row)
                 if df.empty or len(df.columns) == 0:
-                    rejected_sheets.append(f"الورقة '{sheet_name}' (بدون رؤوس)")
-                    continue
-                    
-                # القاعدة 2: الحد الأدنى للصفوف
-                if len(df) < 3:
-                    rejected_sheets.append(f"الورقة '{sheet_name}' (أقل من 3 صفوف)")
-                    continue
-                    
-                # القاعدة 3: تحويل النصوص لأرقام أو تواريخ وتحديد الأعمدة الصالحة
-                for col in df.columns:
-                    if df[col].dtype == 'object':
-                        # 1. محاولة التحويل لتاريخ أولاً
-                        try:
-                            date_attempt = pd.to_datetime(df[col], errors='coerce')
-                            if date_attempt.notna().sum() > (len(df) * 0.5):
-                                df[col] = date_attempt
-                                continue # نجح كعمود تاريخ، ننتقل للعمود التالي
-                        except:
-                            pass
-                            
-                        # 2. إذا لم ينجح، نحاول التنظيف وتحويله لرقم
-                        cleaned = df[col].astype(str).str.replace(r'[^\d\.\-]', '', regex=True)
-                        try:
-                            numeric_attempt = pd.to_numeric(cleaned, errors='coerce')
-                            if numeric_attempt.notna().sum() > (len(df) * 0.5):
-                                df[col] = numeric_attempt
-                        except:
-                            pass
-                            
-                numeric_cols = df.select_dtypes(include=['number']).columns
-                date_cols = df.select_dtypes(include=['datetime']).columns
-                total_valid_cols = len(numeric_cols) + len(date_cols)
-                
-                if total_valid_cols < 2:
-                    rejected_sheets.append(f"الورقة '{sheet_name}' (بيانات رقمية غير كافية)")
+                    rejected_sheets.append(f"{sheet_name} (بدون رؤوس)")
                     continue
 
-                # القاعدة 4: رؤوس ذات دلالة مالية/تجارية
-                headers = [str(col).lower() for col in df.columns]
-                has_financial_keyword = any(any(keyword in header for keyword in FINANCIAL_KEYWORDS) for header in headers)
-                
-                if not has_financial_keyword:
-                    rejected_sheets.append(f"الورقة '{sheet_name}' (غياب دلالات مالية)")
+                if len(df) < 3:
+                    rejected_sheets.append(f"{sheet_name} (أقل من 3 صفوف)")
                     continue
-                    
-                # القاعدة 5: نسبة الخلايا الفارغة
-                empty_ratio = df[numeric_cols].isnull().sum().sum() / (len(df) * len(numeric_cols)) if len(numeric_cols) > 0 else 0
-                if empty_ratio > 0.70:
-                    warnings.append(f"الورقة '{sheet_name}' تحتوي على أكثر من 70% بيانات فارغة.")
-                
+
+                # محاولة تحويل الأعمدة النصية إلى أرقام أو تواريخ
+                for col in df.columns:
+                    if df[col].dtype == 'object':
+                        # محاولة التحويل إلى رقم (بعد تنظيف الرموز المالية).
+                        # ملاحظة: تنظيف الحروف غير الرقمية حرفاً بحرف (إزالة كل ما ليس رقماً
+                        # أو نقطة أو إشارة سالب) يفشل مع رموز عملات تحتوي نقاطاً داخلية
+                        # مثل "ر.س" (مثال: "1,200.50 ر.س" تتحول إلى "1200.50." وهي رقم غير
+                        # صالح). لذلك نزيل الفواصل أولاً ثم نستخرج أول رمز رقمي صالح فقط.
+                        cleaned = df[col].astype(str).str.replace(',', '', regex=False)
+                        numeric_token = cleaned.str.extract(r'(-?\d+\.?\d*)', expand=False)
+                        numeric_attempt = pd.to_numeric(numeric_token, errors='coerce')
+                        if numeric_attempt.notna().sum() > (len(df) * 0.5):
+                            df[col] = numeric_attempt
+                            continue
+
+                        # محاولة التحويل إلى تاريخ (إصلاح مضاف)
+                        date_attempt = pd.to_datetime(df[col], errors='coerce')
+                        if date_attempt.notna().sum() > (len(df) * 0.5):
+                            df[col] = date_attempt
+
+                numeric_cols = df.select_dtypes(include=['number']).columns
+                date_cols = df.select_dtypes(include=['datetime', 'datetime64[ns]']).columns
+                total_valid_cols = len(numeric_cols) + len(date_cols)
+
+                if total_valid_cols < 2:
+                    rejected_sheets.append(f"{sheet_name} (بيانات رقمية/تاريخية غير كافية)")
+                    continue
+
+                headers = [str(col).lower() for col in df.columns]
+                has_financial_keyword = any(
+                    any(keyword in header for keyword in FINANCIAL_KEYWORDS) for header in headers
+                )
+
+                if not has_financial_keyword:
+                    rejected_sheets.append(f"{sheet_name} (غياب دلالات مالية)")
+                    continue
+
+                if len(numeric_cols) > 0:
+                    empty_ratio = df[numeric_cols].isnull().sum().sum() / (len(df) * len(numeric_cols))
+                    if empty_ratio > 0.70:
+                        warnings.append(f"{sheet_name} (نسبة بيانات مفقودة > 70%)")
+
                 accepted_sheets.append(sheet_name)
+
+            result["accepted_sheets"] = accepted_sheets
+            result["rejected_sheets"] = rejected_sheets
 
             if not accepted_sheets:
                 reasons = ", ".join(rejected_sheets)
-                return False, 'reject', f"تم رفض جميع الجداول لعدم مطابقتها للمعايير المالية: {reasons}", []
+                result["message"] = f"تم رفض جميع الجداول لعدم مطابقتها للمعايير المالية: {reasons}"
+                return result
 
-            msg = f"تم قبول {len(accepted_sheets)} جدول."
+            msg = f"تم قبول {len(accepted_sheets)} جدول: {', '.join(accepted_sheets)}."
             if rejected_sheets:
                 msg += f" وتم تجاهل جداول غير صالحة: {', '.join(rejected_sheets)}."
+
             if warnings:
                 msg += f" تحذير: {', '.join(warnings)}"
-                return True, 'warning', msg, accepted_sheets
+                result.update(is_valid=True, status='warning', message=msg)
+                return result
 
-            return True, 'accept', msg, accepted_sheets
+            result.update(is_valid=True, status='accept', message=msg)
+            return result
 
         except Exception as e:
-            return False, 'reject', "فشل في قراءة بيانات الملف. تأكد من خلوه من التشفير والفساد وأن بنيته سليمة.", []
+            logger.exception("File validation failed for %s", file_obj.name)
+            result["message"] = "فشل في قراءة بيانات الملف. تأكد من خلوه من التشفير والفساد وأن بنيته سليمة."
+            return result
 
     # ==========================================
     # المرحلة 3: الفحص الهيكلي لـ PDF
     # ==========================================
     elif ext == '.pdf':
+        import pdfplumber
         try:
-            import pdfplumber
             with pdfplumber.open(file_obj) as pdf:
                 if len(pdf.pages) == 0:
-                    return False, 'reject', "ملف الـ PDF فارغ.", []
-                
+                    result["message"] = "ملف الـ PDF فارغ."
+                    return result
+
                 text = ""
-                for page in pdf.pages[:3]: # فحص أول 3 صفحات
+                for page in pdf.pages[:3]:
                     extracted = page.extract_text()
-                    if extracted: text += extracted
-                    
+                    if extracted:
+                        text += extracted
+
                 if not text.strip():
-                    return False, 'reject', "لم يتم العثور على نص قابل للاستخراج في الفاتورة (Scan غير مدعوم حالياً).", []
-                
-                # البحث عن مؤشرات فواتير
+                    result["message"] = "لم يتم العثور على نص قابل للاستخراج في الفاتورة (Scan غير مدعوم حالياً)."
+                    return result
+
                 text_lower = text.lower()
                 has_invoice_keyword = any(kw in text_lower for kw in FINANCIAL_KEYWORDS)
                 has_numbers = any(char.isdigit() for char in text)
-                
+
                 if not (has_invoice_keyword and has_numbers):
-                    return False, 'reject', "الملف لا يحتوي على بيانات فاتورة مالية مقروءة.", []
-                    
-            return True, 'accept', "تم قبول الفاتورة بنجاح.", [file_obj.name]
-            
+                    result["message"] = "الملف لا يحتوي على بيانات فاتورة مالية مقروءة."
+                    return result
+
+            result.update(is_valid=True, status='accept', message="تم قبول الفاتورة بنجاح.",
+                           accepted_sheets=["invoice"])
+            return result
+
         except Exception as e:
-             return False, 'reject', "فشل في معالجة الفاتورة. تأكد أن الملف سليم.", []
-             
-    return False, 'reject', "خطأ غير معروف.", []
+            logger.exception("PDF validation failed for %s", file_obj.name)
+            result["message"] = "فشل في معالجة الفاتورة. تأكد أن الملف سليم."
+            return result
+
+    result["message"] = "خطأ غير معروف."
+    return result

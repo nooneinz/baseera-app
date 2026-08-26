@@ -127,6 +127,22 @@
                     </div>
                 </form>
 
+                <!-- PART 1.5: Company Strategic Profile Link -->
+                <div class="border-b border-slate-100 dark:border-slate-800 pb-8">
+                    <a href="{% url 'strategic_profile' %}" class="flex items-center justify-between p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/70 transition group">
+                        <div class="flex items-center gap-3">
+                            <div class="h-9 w-9 rounded-xl bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center font-black shrink-0">
+                                <i data-lucide="target" class="h-4.5 w-4.5"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-extrabold text-slate-800 dark:text-white">{% if trans.lang_code == 'ar' %}الملف الاستراتيجي للشركة{% else %}Company Strategic Profile{% endif %}</p>
+                                <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{% if trans.lang_code == 'ar' %}أولويات القرار وحدود المخاطرة والحدود المالية الصلبة التي يلتزم بها المستشار الذكي{% else %}The priorities, risk tolerance, and hard financial limits the AI orchestrator must respect{% endif %}</p>
+                            </div>
+                        </div>
+                        <i data-lucide="{% if trans.lang_code == 'ar' %}chevron-left{% else %}chevron-right{% endif %}" class="h-4 w-4 text-emerald-600 dark:text-emerald-400 group-hover:translate-x-0.5 transition"></i>
+                    </a>
+                </div>
+
                 <!-- PART 2: Preferences Section -->
                 <div class="space-y-4 border-b border-slate-100 dark:border-slate-800 pb-8">
                     <div class="flex items-center gap-2.5">

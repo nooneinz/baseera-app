@@ -225,7 +225,9 @@ def portal(request):
         excel = request.FILES.get("excel_file")
         try:
             from dashboard.services.validation_service import validate_financial_file
-            is_valid, status, msg, accepted_sheets = validate_financial_file(excel)
+            validation = validate_financial_file(excel)
+            is_valid, status, msg = validation["is_valid"], validation["status"], validation["message"]
+            accepted_sheets = validation["accepted_sheets"]
             if not is_valid:
                 messages.error(request, msg)
                 return redirect("portal")
@@ -234,7 +236,7 @@ def portal(request):
         except Exception as exc:
             messages.error(request, f"حدث خطأ أثناء فحص الملف: {str(exc)}")
             return redirect("portal")
-            
+
         excel.seek(0)
 
         excel.name = build_safe_filename(excel.name)
@@ -242,7 +244,12 @@ def portal(request):
         success, error_msg = process_excel_to_db(project_file, request.user, accepted_sheets)
         if success:
             request.session['active_file_id'] = project_file.id
-            
+            try:
+                from dashboard.services.retrieval_service import index_accepted_sheets
+                index_accepted_sheets(project_file, accepted_sheets)
+            except Exception as idx_err:
+                print(f"Retrieval indexing error: {idx_err}")
+
             SystemLog.objects.create(
                 user=request.user,
                 action_type="رفع ملف / Upload",
@@ -1004,7 +1011,9 @@ def datasets(request):
 
         try:
             from dashboard.services.validation_service import validate_financial_file
-            is_valid, status, msg, accepted_sheets = validate_financial_file(excel)
+            validation = validate_financial_file(excel)
+            is_valid, status, msg = validation["is_valid"], validation["status"], validation["message"]
+            accepted_sheets = validation["accepted_sheets"]
             if not is_valid:
                 messages.error(request, msg)
                 return redirect("datasets")
@@ -1013,19 +1022,25 @@ def datasets(request):
         except Exception as exc:
             messages.error(request, f"حدث خطأ أثناء فحص الملف: {str(exc)}")
             return redirect("datasets")
-            
+
         excel.seek(0)
 
         project_file = ProjectFile.objects.create(user=request.user, excel_file=excel)
         success, error_msg = process_excel_to_db(project_file, request.user, accepted_sheets)
-        
+
         if not success:
             project_file.delete()
             messages.error(request, f"فشل في قراءة وتجميع بيانات الملف. التفاصيل: {error_msg}")
             return redirect('datasets')
 
+        try:
+            from dashboard.services.retrieval_service import index_accepted_sheets
+            index_accepted_sheets(project_file, accepted_sheets)
+        except Exception as idx_err:
+            print(f"Retrieval indexing error: {idx_err}")
+
         request.session['active_file_id'] = project_file.id
-        
+
         import threading
         def bg_ai_tasks(user, project_file_path):
             from .models import Notification
@@ -1348,6 +1363,34 @@ def user_settings(request):
             return redirect("welcome")
 
     return render(request, "dashboard/settings.html", {"profile": profile})
+
+
+@login_required
+def strategic_profile(request):
+    """
+    Company Strategic Profile — the hard constraints & priority ranking that
+    the Orchestrator (see dashboard/services/orchestrator.py) must consult
+    before resolving any conflict between agent recommendations.
+    """
+    from .forms import CompanyStrategicProfileForm
+    from .models import CompanyStrategicProfile
+
+    instance = CompanyStrategicProfile.objects.filter(user=request.user).first()
+
+    if request.method == "POST":
+        form = CompanyStrategicProfileForm(request.POST, instance=instance)
+        if form.is_valid():
+            profile = form.save(commit=False)
+            profile.user = request.user
+            profile.save()
+            messages.success(request, "تم حفظ الملف الاستراتيجي للشركة بنجاح. / Company strategic profile saved successfully.")
+            return redirect("strategic_profile")
+        else:
+            messages.error(request, "يرجى تصحيح الأخطاء أدناه. / Please correct the errors below.")
+    else:
+        form = CompanyStrategicProfileForm(instance=instance)
+
+    return render(request, "dashboard/strategic_profile.html", {"form": form, "instance": instance})
 
 
 def password_reset(request):

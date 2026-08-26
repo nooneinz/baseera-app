@@ -1,0 +1,176 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}{% if trans.lang_code == 'ar' %}الملف الاستراتيجي للشركة | بصيرة{% else %}Company Strategic Profile | Baseera{% endif %}{% endblock %}
+
+{% block content %}
+<div class="flex min-h-screen p-3 gap-3 bg-[#F3F5F8] dark:bg-slate-950 font-sans">
+    {% include 'dashboard/sidebar.html' with active_page='settings' %}
+
+    <main class="flex-1 flex flex-col gap-4 min-w-0 text-{{ trans.align }}">
+        {% include 'dashboard/topbar.html' %}
+
+        <div class="animate-fade-up pb-6">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-6 sm:p-8 space-y-8 max-w-4xl mx-auto">
+
+                <div class="flex items-center gap-3.5 border-b border-slate-100 dark:border-slate-800 pb-5">
+                    <div class="h-12 w-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center font-black shrink-0">
+                        <i data-lucide="target" class="h-6 w-6"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                            {% if trans.lang_code == 'ar' %}الملف الاستراتيجي للشركة{% else %}Company Strategic Profile{% endif %}
+                        </h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {% if trans.lang_code == 'ar' %}هذه البيانات هي المرجع الحصري الذي يعتمد عليه المستشار الذكي (Orchestrator) عند حسم أي تعارض بين توصيات الوكلاء.{% else %}This is the exclusive reference the AI Orchestrator relies on to resolve conflicts between agent recommendations.{% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                {% if form.non_field_errors %}
+                <div class="rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-bold p-4">
+                    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                </div>
+                {% endif %}
+
+                <form method="POST" class="space-y-8">
+                    {% csrf_token %}
+
+                    <!-- Basics -->
+                    <div class="space-y-4">
+                        <h3 class="text-sm font-black text-slate-800 dark:text-white">{% if trans.lang_code == 'ar' %}البيانات الأساسية{% else %}Basic Details{% endif %}</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">{{ form.company_name.label }}</label>
+                                {{ form.company_name }}
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">{{ form.sector.label }}</label>
+                                {{ form.sector }}
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">{{ form.size.label }}</label>
+                                {{ form.size }}
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">{{ form.growth_stage.label }}</label>
+                                {{ form.growth_stage }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ranking -->
+                    <div class="space-y-4 border-t border-slate-100 dark:border-slate-800 pt-6">
+                        <div>
+                            <h3 class="text-sm font-black text-slate-800 dark:text-white">{% if trans.lang_code == 'ar' %}ترتيب الأولويات الاستراتيجية{% else %}Strategic Priorities Ranking{% endif %}</h3>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                {% if trans.lang_code == 'ar' %}رتّب الأولويات الخمس من الأهم (1) إلى الأقل أهمية (5). كل أولوية تُستخدم مرة واحدة فقط.{% else %}Rank all 5 priorities from most important (1) to least important (5). Each priority can only be used once.{% endif %}
+                            </p>
+                        </div>
+                        <div id="priority-ranking-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                            {% for field in form %}
+                                {% if 'priority_rank_' in field.name %}
+                                <div class="rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700 p-3">
+                                    <label class="text-[10px] font-extrabold text-slate-600 dark:text-slate-300 block mb-1.5">{{ field.label }}</label>
+                                    {{ field }}
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% if form.priority_rank_1.errors or form.non_field_errors %}
+                        <p id="priority-error-msg" class="text-xs font-bold text-rose-600 dark:text-rose-400"></p>
+                        {% else %}
+                        <p id="priority-error-msg" class="text-xs font-bold text-rose-600 dark:text-rose-400 hidden"></p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Risk & Limits -->
+                    <div class="space-y-4 border-t border-slate-100 dark:border-slate-800 pt-6">
+                        <h3 class="text-sm font-black text-slate-800 dark:text-white">{% if trans.lang_code == 'ar' %}حدود المخاطرة والحدود المالية الصلبة{% else %}Risk Tolerance & Hard Financial Constraints{% endif %}</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">{{ form.risk_tolerance.label }}</label>
+                                {{ form.risk_tolerance }}
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">{% if trans.lang_code == 'ar' %}الحد الأقصى للاستثمار{% else %}Max Investment Limit{% endif %}</label>
+                                {{ form.max_investment_limit }}
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">{% if trans.lang_code == 'ar' %}الحد الأدنى للسيولة النقدية{% else %}Cash Reserve Floor{% endif %}</label>
+                                {{ form.cash_reserve_floor }}
+                            </div>
+                        </div>
+                        <p class="text-[11px] text-amber-600 dark:text-amber-400 font-bold">
+                            {% if trans.lang_code == 'ar' %}أي توصية تتجاوز هذين الحدين تُرفض تلقائياً من قبل المستشار الذكي، حتى لو كانت الأعلى عائداً.{% else %}Any recommendation that violates these two limits is auto-rejected by the AI Orchestrator, even if it has the highest return.{% endif %}
+                        </p>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                        <button type="submit" class="px-6 py-3 rounded-2xl bg-[#0E585E] hover:bg-[#0a4247] text-white text-xs font-black shadow-sm transition">
+                            {% if trans.lang_code == 'ar' %}حفظ الملف الاستراتيجي{% else %}Save Strategic Profile{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+</div>
+
+<style>
+#priority-ranking-grid select,
+.strategic-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    background: rgba(248, 250, 252, 0.5);
+    padding: 0.625rem 0.9rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgb(30 41 59);
+    outline: none;
+}
+.dark #priority-ranking-grid select,
+.dark .strategic-input {
+    border-color: rgb(51 65 85);
+    background: rgba(30, 41, 59, 0.5);
+    color: white;
+}
+</style>
+
+<script>
+(function () {
+    // Apply consistent styling to all Django-rendered inputs on this form.
+    document.querySelectorAll('form select, form input[type="text"], form input[type="number"]').forEach(function (el) {
+        el.classList.add('strategic-input');
+    });
+
+    // Client-side guard: disable already-picked priority values in the other selects
+    // so the same priority cannot be ranked twice (server still enforces this too).
+    var selects = Array.prototype.slice.call(document.querySelectorAll('#priority-ranking-grid select'));
+    var errorMsg = document.getElementById('priority-error-msg');
+    var arMsg = "لا يمكن اختيار نفس الأولوية أكثر من مرة.";
+    var enMsg = "The same priority cannot be selected more than once.";
+    var isAr = document.documentElement.getAttribute('dir') === 'rtl' || document.documentElement.lang === 'ar';
+
+    function refreshOptions() {
+        var chosen = selects.map(function (s) { return s.value; }).filter(Boolean);
+        var hasDuplicate = new Set(chosen).size !== chosen.length && chosen.length > 0;
+        selects.forEach(function (select) {
+            Array.prototype.forEach.call(select.options, function (opt) {
+                if (!opt.value) return;
+                var chosenElsewhere = chosen.indexOf(opt.value) !== -1 && select.value !== opt.value;
+                opt.disabled = chosenElsewhere;
+            });
+        });
+        if (errorMsg) {
+            errorMsg.textContent = hasDuplicate ? (isAr ? arMsg : enMsg) : '';
+            errorMsg.classList.toggle('hidden', !hasDuplicate);
+        }
+    }
+
+    selects.forEach(function (s) { s.addEventListener('change', refreshOptions); });
+    refreshOptions();
+})();
+</script>
+{% endblock %}
