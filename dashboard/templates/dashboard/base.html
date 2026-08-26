@@ -180,7 +180,12 @@
         box-shadow: 0 12px 35px rgba(99, 102, 241, 0.2);
       }
       
-      /* Bank Muscat Style Dot Masking for Sensitive Numeric Values */
+      /* Bank Muscat Style Dot Masking for Sensitive Numeric Values.
+         word-break/overflow-wrap/max-width guard against the case where
+         this class ends up on longer text (a sentence, not just a KPI
+         number): without them, letter-spacing on a masked long string can
+         render as one unbroken line that overflows its card and overlaps
+         whatever sits below/beside it. */
       .is-masked .sensitive-value,
       .is-masked .maskable-number,
       .is-masked .privacy-sensitive,
@@ -193,6 +198,11 @@
         -webkit-user-select: none !important;
         opacity: 0.88 !important;
         transition: none !important;
+        display: inline-block;
+        max-width: 100%;
+        white-space: normal !important;
+        word-break: break-word;
+        overflow-wrap: anywhere;
       }
 
       .glass-strong {

@@ -62,89 +62,21 @@
                     </div>
                     {% endfor %}
                 {% else %}
-                    <!-- Sample Reports for immediate demonstration -->
-                    <!-- Card 1: Main Sales Report -->
-                    <div class="card rounded-2xl p-5 border border-white/80 glass-strong hover:-translate-y-0.5 transition shadow-sm flex flex-col justify-between">
-                        <div>
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-[var(--nile)]/10 to-[var(--lavender)]/20 grid place-items-center">
-                                    <i data-lucide="bar-chart-3" class="h-5 w-5 text-[var(--glow)]"></i>
-                                </div>
-                                <span class="text-[10px] uppercase tracking-wider font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">{% if trans.lang_code == 'ar' %}تقرير شامل{% else %}Full Report{% endif %}</span>
-                            </div>
-                            <h3 class="text-sm font-extrabold mb-1 truncate text-ink">{% if trans.lang_code == 'ar' %}تقرير المبيعات الإجمالي والربحية 2026{% else %}Total Revenue & Profitability 2026{% endif %}</h3>
-                            <p class="text-xs text-gray-400 mb-4">{% if trans.lang_code == 'ar' %}تحليل تفصيلي لمبيعات المطعم والأصناف والمؤشرات{% else %}Detailed sales, item trends and KPI analysis{% endif %}</p>
+                    <!-- Honest empty state: no uploaded files means no real report to
+                         generate yet. Previously this showed 3 canned "ready to
+                         download" report cards (specific titles like "Total Revenue
+                         & Profitability 2026") even with zero data behind them --
+                         clicking them produced an empty export, but the UI implied a
+                         real report already existed. Matches the empty state used on
+                         the Documents page instead of fabricating report cards. -->
+                    <div class="col-span-full flex flex-col items-center justify-center py-20 text-center">
+                        <div class="h-20 w-20 rounded-3xl bg-gradient-to-br from-[var(--nile)]/10 to-[var(--lavender)]/20 grid place-items-center mb-5">
+                            <i data-lucide="file-bar-chart" class="h-8 w-8 text-[var(--glow)]"></i>
                         </div>
-                        
-                        <div class="space-y-2">
-                            <!-- Download Excel Button -->
-                            <button onclick="downloadExcelReport('تقرير_المبيعات_الإجمالي_2026')" class="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-3 text-xs font-bold transition shadow-sm">
-                                <i data-lucide="file-spreadsheet" class="h-4 w-4"></i>
-                                <span>{% if trans.lang_code == 'ar' %}تنزيل تقرير بصيرة (.xlsx){% else %}Download Baseera Report (.xlsx){% endif %}</span>
-                            </button>
-
-                            <!-- Download Note Button -->
-                            <button onclick="downloadNoteReport('تقرير_المبيعات_الإجمالي_2026')" class="w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white/70 hover:bg-white text-slate-700 py-2.5 px-3 text-xs font-bold transition">
-                                <i data-lucide="file-text" class="h-4 w-4 text-indigo-600"></i>
-                                <span>{% if trans.lang_code == 'ar' %}تنزيل نوت نصي (.txt){% else %}Download Text Note (.txt){% endif %}</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Card 2: Product & Category Analysis -->
-                    <div class="card rounded-2xl p-5 border border-white/80 glass-strong hover:-translate-y-0.5 transition shadow-sm flex flex-col justify-between">
-                        <div>
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-[var(--nile)]/10 to-[var(--lavender)]/20 grid place-items-center">
-                                    <i data-lucide="pie-chart" class="h-5 w-5 text-indigo-600"></i>
-                                </div>
-                                <span class="text-[10px] uppercase tracking-wider font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">{% if trans.lang_code == 'ar' %}أداء الأصناف{% else %}Item Analysis{% endif %}</span>
-                            </div>
-                            <h3 class="text-sm font-extrabold mb-1 truncate text-ink">{% if trans.lang_code == 'ar' %}تحليل أداء الأصناف والأعلى مبيعاً{% else %}Top Products & Category Performance{% endif %}</h3>
-                            <p class="text-xs text-gray-400 mb-4">{% if trans.lang_code == 'ar' %}جدول الأصناف الأكثر ربحية وتوزّع المبيعات{% else %}Profitability by item and product line distribution{% endif %}</p>
-                        </div>
-                        
-                        <div class="space-y-2">
-                            <!-- Download Excel Button -->
-                            <button onclick="downloadExcelReport('تحليل_أداء_الأصناف')" class="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-3 text-xs font-bold transition shadow-sm">
-                                <i data-lucide="file-spreadsheet" class="h-4 w-4"></i>
-                                <span>{% if trans.lang_code == 'ar' %}تنزيل تقرير بصيرة (.xlsx){% else %}Download Baseera Report (.xlsx){% endif %}</span>
-                            </button>
-
-                            <!-- Download Note Button -->
-                            <button onclick="downloadNoteReport('تحليل_أداء_الأصناف')" class="w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white/70 hover:bg-white text-slate-700 py-2.5 px-3 text-xs font-bold transition">
-                                <i data-lucide="file-text" class="h-4 w-4 text-indigo-600"></i>
-                                <span>{% if trans.lang_code == 'ar' %}تنزيل نوت نصي (.txt){% else %}Download Text Note (.txt){% endif %}</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Card 3: AI Recommendations & Insights -->
-                    <div class="card rounded-2xl p-5 border border-white/80 glass-strong hover:-translate-y-0.5 transition shadow-sm flex flex-col justify-between">
-                        <div>
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-[var(--nile)]/10 to-[var(--lavender)]/20 grid place-items-center">
-                                    <i data-lucide="sparkles" class="h-5 w-5 text-amber-500"></i>
-                                </div>
-                                <span class="text-[10px] uppercase tracking-wider font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">{% if trans.lang_code == 'ar' %}توصيات بصيرة{% else %}AI Recommendations{% endif %}</span>
-                            </div>
-                            <h3 class="text-sm font-extrabold mb-1 truncate text-ink">{% if trans.lang_code == 'ar' %}تقرير التوصيات والرؤى الإستراتيجية{% else %}Strategic AI Insights & Action Plan{% endif %}</h3>
-                            <p class="text-xs text-gray-400 mb-4">{% if trans.lang_code == 'ar' %}فرص تقليل التكاليف وزيادة أرباح المبيعات{% else %}Cost-saving actions & revenue growth strategy{% endif %}</p>
-                        </div>
-                        
-                        <div class="space-y-2">
-                            <!-- Download Excel Button -->
-                            <button onclick="downloadExcelReport('تقرير_التوصيات_الإستراتيجية')" class="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-3 text-xs font-bold transition shadow-sm">
-                                <i data-lucide="file-spreadsheet" class="h-4 w-4"></i>
-                                <span>{% if trans.lang_code == 'ar' %}تنزيل تقرير بصيرة (.xlsx){% else %}Download Baseera Report (.xlsx){% endif %}</span>
-                            </button>
-
-                            <!-- Download Note Button -->
-                            <button onclick="downloadNoteReport('تقرير_التوصيات_الإستراتيجية')" class="w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white/70 hover:bg-white text-slate-700 py-2.5 px-3 text-xs font-bold transition">
-                                <i data-lucide="file-text" class="h-4 w-4 text-indigo-600"></i>
-                                <span>{% if trans.lang_code == 'ar' %}تنزيل نوت نصي (.txt){% else %}Download Text Note (.txt){% endif %}</span>
-                            </button>
-                        </div>
+                        <p class="text-sm text-muted-foreground max-w-sm mb-6">{% if trans.lang_code == 'ar' %}لا توجد تقارير بعد. ارفع ملف مبيعات أو مصروفات أولاً ليولّد بصيرة تقارير حقيقية (.xlsx و .txt) بناءً على بياناتك الفعلية.{% else %}No reports yet. Upload a sales or expense file first so Baseera can generate real (.xlsx and .txt) reports from your actual data.{% endif %}</p>
+                        <a href="{% url 'datasets' %}" class="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[var(--nile)] to-[var(--glow)] px-6 py-3 text-sm font-semibold text-white shadow-xl shadow-indigo-500/30 hover:opacity-90 transition">
+                            <i data-lucide="upload" class="h-4 w-4"></i> {% if trans.lang_code == 'ar' %}ارفع ملف المبيعات الأول{% else %}Upload your first file{% endif %}
+                        </a>
                     </div>
                 {% endif %}
             </div>

@@ -19,7 +19,10 @@
     to { transform: rotate(360deg); }
   }
 
-  /* Bank Muscat Style Masking with Clean Dots */
+  /* Bank Muscat Style Masking with Clean Dots. word-break/overflow-wrap/
+     max-width guard against long masked text overflowing its card (see
+     base.html for the full rationale -- kept identical here since this
+     page duplicates the rule). */
   .is-masked .sensitive-value,
   .is-masked .maskable-number,
   .is-masked .privacy-sensitive,
@@ -32,6 +35,11 @@
     -webkit-user-select: none !important;
     opacity: 0.88 !important;
     transition: none !important;
+    display: inline-block;
+    max-width: 100%;
+    white-space: normal !important;
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 </style>
 
@@ -254,9 +262,9 @@
                         <!-- Summary line -->
                         <p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 leading-relaxed mb-4 pb-3 border-b border-slate-100 dark:border-slate-800/50">
                             {% if weekly_digest and weekly_digest.summary_text %}
-                                {{ weekly_digest.summary_text|translate_digest:trans.lang_code }}
+                                {{ weekly_digest.summary_text|translate_digest:trans.lang_code|mask_sensitive_numbers }}
                             {% elif weekly_digest and weekly_digest.summary %}
-                                {{ weekly_digest.summary|translate_digest:trans.lang_code }}
+                                {{ weekly_digest.summary|translate_digest:trans.lang_code|mask_sensitive_numbers }}
                             {% else %}
                                 {% if trans.lang_code == 'ar' %}لا توجد بيانات ليتم تحليلها حتى الآن. يرجى رفع ملفات للحصول على تقرير نبض الأعمال.{% else %}No data analyzed yet. Please upload files to get the business pulse report.{% endif %}
                             {% endif %}
@@ -273,7 +281,7 @@
                                 {% for risk in weekly_digest.top_risks %}
                                 <li class="flex items-start gap-2 text-xs sm:text-[13px] font-medium text-rose-950/85 dark:text-rose-200/90 leading-relaxed">
                                     <span class="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0 mt-1.5"></span>
-                                    <span>{{ risk|translate_digest:trans.lang_code }}</span>
+                                    <span>{{ risk|translate_digest:trans.lang_code|mask_sensitive_numbers }}</span>
                                 </li>
                                 {% empty %}
                                 <li class="text-xs text-rose-600/70">{% if trans.lang_code == 'ar' %}لا توجد مخاطر مسجلة.{% else %}No risks logged.{% endif %}</li>
@@ -291,7 +299,7 @@
                                 {% for action in weekly_digest.action_plan %}
                                 <li class="flex items-start gap-2 text-xs sm:text-[13px] font-medium text-emerald-950/85 dark:text-emerald-200/90 leading-relaxed">
                                     <i data-lucide="check" class="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5"></i>
-                                    <span>{{ action|translate_digest:trans.lang_code }}</span>
+                                    <span>{{ action|translate_digest:trans.lang_code|mask_sensitive_numbers }}</span>
                                 </li>
                                 {% empty %}
                                 <li class="text-xs text-emerald-600/70">{% if trans.lang_code == 'ar' %}لا توجد إجراءات مسجلة.{% else %}No actions logged.{% endif %}</li>
@@ -903,7 +911,7 @@
           <div class="mt-2 text-3xl font-bold ${k.isWaste ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-white'} sensitive-value" ${k.isWaste ? 'id="wasteKpiValue"' : ''}>${k.v}</div>
           <div class="mt-2 inline-flex items-center gap-1 text-xs sm:text-sm font-medium ${k.isWaste ? 'text-rose-500' : (k.neutral ? 'text-slate-400' : (k.up ? 'text-emerald-500' : 'text-rose-500'))}">
             ${k.isWaste ? `<i data-lucide="alert-triangle" class="h-4 w-4 text-rose-500"></i>` : (k.neutral ? '' : `<i data-lucide="${k.up ? 'trending-up' : 'trending-down'}" class="h-4 w-4"></i>`)}
-            <span class="sensitive-value" ${k.isWaste ? 'id="wasteKpiDetail"' : ''}>${k.d}</span>${k.neutral || k.isWaste ? '' : (isAr ? ' مقارنة بالشهر السابق' : ' vs last month')}
+            <span class="${k.isWaste ? '' : 'sensitive-value'}" ${k.isWaste ? 'id="wasteKpiDetail"' : ''}>${k.d}</span>${k.neutral || k.isWaste ? '' : (isAr ? ' مقارنة بالشهر السابق' : ' vs last month')}
           </div>
           ${k.isWaste ? '<div id="wasteAiPanel" class="mt-3 text-xs text-slate-500 dark:text-slate-400 leading-relaxed hidden"></div>' : ''}
         </div>
