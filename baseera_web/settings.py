@@ -44,7 +44,13 @@ if not SECRET_KEY:
 if not DEBUG and len(SECRET_KEY) < 30:
     raise RuntimeError("SECRET_KEY must contain at least 30 characters outside development.")
 env_hosts = [host.strip() for host in os.environ.get("ALLOWED_HOSTS", "").split(",") if host.strip()]
-ALLOWED_HOSTS = env_hosts + ["localhost", "127.0.0.1", "baseera.it.com", "baseera-app.onrender.com", "testserver", "*"]
+# NOTE: no "*" here -- a wildcard host defeats Django's Host-header
+# validation entirely (Host header injection / cache-poisoning surface),
+# which is exactly what test_security_hardening.py's
+# test_secure_defaults_are_applied guards against. Every real host this
+# app is served from must be listed explicitly (or added via the
+# ALLOWED_HOSTS env var) instead.
+ALLOWED_HOSTS = env_hosts + ["localhost", "127.0.0.1", "baseera.it.com", "baseera-app.onrender.com", "testserver"]
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 if not DEBUG:

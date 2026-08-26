@@ -738,9 +738,19 @@ def delete_plan_api(request, plan_id):
             import os
             from django.conf import settings
             plan = ApprovedPlan.objects.get(id=plan_id, user=request.user)
-            full_path = os.path.join(settings.BASE_DIR, plan.file_path)
-            if os.path.exists(full_path):
-                os.remove(full_path)
+            # plan.file_path can be "" (the model's default, or an older
+            # row created before a real file was ever attached). Joining an
+            # empty string onto BASE_DIR resolves to BASE_DIR itself, and
+            # os.path.exists() is True for a directory too -- os.remove()
+            # then raised IsADirectoryError instead of just skipping a
+            # plan with no real file to clean up. isfile() is the correct
+            # guard: it is False for both a missing path AND a directory.
+            if plan.file_path and plan.file_path.strip():
+                full_path = os.path.join(settings.BASE_DIR, plan.file_path)
+                if not os.path.isfile(full_path):
+                    full_path = os.path.join(settings.MEDIA_ROOT, plan.file_path.replace('sandbox/', ''))
+                if os.path.isfile(full_path):
+                    os.remove(full_path)
             plan.delete()
             return JsonResponse({"status": "success", "message": "Plan deleted successfully"})
         except Exception as e:

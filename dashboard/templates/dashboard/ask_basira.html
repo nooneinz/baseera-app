@@ -2351,9 +2351,37 @@ function dismissAutoSaveToast() {
     }
 }
 
-function executeAgentAction(btn, actionPayload) {
+async function executeAgentAction(btn, actionPayload) {
     if(!actionPayload) return;
-    
+
+    const isAr = "{% if trans.lang_code == 'ar' %}yes{% endif %}" === "yes";
+
+    // Explicit consent gate: the agent is PROPOSING a decision here, not
+    // deciding it. Nothing gets written to Approved Plans / the Decision
+    // Platform until the user actually confirms -- a click on the
+    // suggestion chip is not itself consent.
+    if (typeof Swal !== 'undefined') {
+        const confirmResult = await Swal.fire({
+            title: isAr ? 'اعتماد هذه التوصية؟' : 'Approve this recommendation?',
+            text: isAr
+                ? 'سيتم نقل هذه التوصية إلى منصة القرارات كخطة معتمدة يمكنك متابعة تنفيذها.'
+                : 'This recommendation will be moved to the Decision Platform as an approved plan you can track.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#6366f1',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: isAr ? 'نعم، اعتمد الخطة' : 'Yes, approve it',
+            cancelButtonText: isAr ? 'إلغاء' : 'Cancel',
+            background: 'var(--card-bg)',
+            color: 'var(--card-fg)'
+        });
+        if (!confirmResult.isConfirmed) return;
+    } else if (!window.confirm(isAr
+        ? 'هل توافق على اعتماد هذه التوصية ونقلها إلى منصة القرارات؟'
+        : 'Do you approve this recommendation and want it moved to the Decision Platform?')) {
+        return;
+    }
+
     // Extract the full plan content from the parent message bubble
     let planContent = '';
     const bubble = btn.closest('.chat-bubble-bot') || btn.closest('.markdown-content') || btn.closest('.flex-col') || btn.parentElement;
@@ -2362,7 +2390,7 @@ function executeAgentAction(btn, actionPayload) {
         clone.querySelectorAll('button, svg, i, script').forEach(el => el.remove());
         planContent = (clone.innerText || clone.textContent || '').trim();
     }
-    
+
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>{% if trans.lang_code == "ar" %}جاري تطبيق القرار وتحديث منصة القرارات...{% else %}Applying recommendation to Decision Platform...{% endif %}';
     btn.style.pointerEvents = 'none';
 
