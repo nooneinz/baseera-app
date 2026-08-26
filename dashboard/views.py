@@ -766,6 +766,53 @@ def api_update_sales_goal(request):
 
 
 @login_required
+@rate_limit(requests_per_minute=15, key_prefix="analyze_waste")
+def api_analyze_waste(request):
+    """
+    Real AI-driven waste detection (spec: 'الذكاء الاصطناعي يحلل الملف بناءً
+    عليه يكشف الهدر'). Only called from the dashboard when the uploaded file
+    has no literal waste/loss column -- the deterministic pre-pass in
+    waste_analyzer infers leakage from price/cost/quantity patterns instead,
+    and the LLM only interprets those verified numbers, never invents its own.
+    """
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+    except (ValueError, TypeError):
+        data = {}
+
+    file_id = data.get("file_id")
+
+    from .models import DynamicRecord, CompanyStrategicProfile
+    from .services.waste_analyzer import analyze_waste
+
+    records_qs = DynamicRecord.objects.filter(user=request.user)
+    if file_id and str(file_id) != "all":
+        records_qs = records_qs.filter(project_file_id=file_id)
+    rows = list(records_qs.values_list("row_data", flat=True)[:10000])
+
+    lang = request.session.get("lang") or request.COOKIES.get("lang", "ar")
+
+    ai_service = None
+    try:
+        from .services.ai_service import GeminiAIService
+        ai_service = GeminiAIService()
+    except Exception as e:
+        print(f"Waste analysis: AI service unavailable, using deterministic-only mode: {e}")
+
+    company_profile = CompanyStrategicProfile.objects.filter(user=request.user).first()
+
+    try:
+        result = analyze_waste(rows, ai_service=ai_service, lang=lang, company_profile=company_profile)
+        result["status"] = "success"
+        return JsonResponse(result)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=500)
+
+
+@login_required
 @rate_limit(requests_per_minute=30, key_prefix="dismiss_anomaly")
 def api_dismiss_anomaly(request, alert_id):
     from .models import AnomalyAlert

@@ -64,6 +64,7 @@ urlpatterns = [
     path("api/custom-agents/delete/<int:agent_id>/", views.api_delete_custom_agent, name="api_delete_custom_agent"),
     path("api/boardroom/debate/", views.api_boardroom_debate, name="api_boardroom_debate"),
     path("api/goals/update/", views.api_update_sales_goal, name="api_update_sales_goal"),
+    path("api/analyze-waste/", views.api_analyze_waste, name="api_analyze_waste"),
     path("api/notifications/mark-read/", views.api_mark_notifications_read, name="api_mark_notifications_read"),
     path("api/notifications/delete/<int:notif_id>/", views.api_delete_notification, name="api_delete_notification"),
     path("api/anomalies/dismiss/<int:alert_id>/", views.api_dismiss_anomaly, name="api_dismiss_anomaly"),
