@@ -367,3 +367,63 @@ class OrchestratorRouterTests(TestCase):
         kept, rejected = orchestrator.filter_options_by_hard_constraints(options, None)
         self.assertEqual(kept, options)
         self.assertEqual(rejected, [])
+
+
+def _extract_sse(streaming_content):
+    """Parses the SSE body into (streamed_text, suggested_actions)."""
+    body = b"".join(streaming_content).decode("utf-8")
+    text = ""
+    actions = None
+    for line in body.splitlines():
+        if line.startswith("data: "):
+            payload = json.loads(line[len("data: "):])
+            if "suggested_actions" in payload:
+                actions = payload["suggested_actions"]
+            candidates = payload.get("candidates")
+            if candidates:
+                text += candidates[0]["content"]["parts"][0]["text"]
+    return text, actions
+
+
+class SuggestedActionsAPITests(TestCase):
+    """Section 4.3: dynamic suggested_actions surfaced through the chat API."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="actions_user", password="pw123456")
+        self.client.force_login(self.user)
+
+    def test_ambiguous_or_missing_file_query_returns_suggested_actions(self):
+        response = self.client.post(
+            "/api/insights/chat",
+            data=json.dumps({"message": "كم كانت مبيعاتي الشهر الماضي؟", "lang": "ar"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        text, actions = _extract_sse(response.streaming_content)
+        self.assertIsNotNone(actions)
+        action_ids = [a["action_id"] for a in actions]
+        self.assertIn("upload_new_file", action_ids)
+        self.assertIn("لم أتمكن من العثور على المستند المطلوب", text)
+
+    def test_confirmed_sheet_round_trip_skips_ambiguity_and_proceeds(self):
+        pf = ProjectFile.objects.create(user=self.user, excel_file="excel_files/sales.xlsx")
+        FileSheetMetadata.objects.create(
+            project_file=pf, sheet_name="المبيعات", status="accept",
+            columns=["التاريخ", "السعر"], row_count=5, category="sales",
+            keywords=["مبيعات", "التاريخ", "السعر"],
+        )
+        response = self.client.post(
+            "/api/insights/chat",
+            data=json.dumps({
+                "message": "كم كانت المبيعات؟",
+                "lang": "ar",
+                "confirmed_sheet": {"project_file_id": pf.id, "sheet_name": "المبيعات"},
+            }),
+            content_type="application/json",
+        )
+        # A confirmed match must not be answered with the direct off-topic/
+        # missing-file bypass stream -> it proceeds to the (fallback) agent.
+        self.assertEqual(response.status_code, 200)
+        text, actions = _extract_sse(response.streaming_content)
+        self.assertIsNone(actions)
+        self.assertNotIn("لم أتمكن من العثور على المستند المطلوب", text)

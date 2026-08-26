@@ -610,6 +610,53 @@
     let currentActiveAgent = selectedAgentIds[0];
     let currentActiveAgentName = ALL_AGENTS[currentActiveAgent] ? ALL_AGENTS[currentActiveAgent].name : 'المساعد العام';
 
+    // Orchestrator/Router dynamic actions (spec 4.3): set right before a
+    // confirm_file_* button is clicked, consumed by the next sendMessage()
+    // call, then cleared. Never a fixed frontend agent/file list.
+    let pendingConfirmedSheet = null;
+
+    function renderSuggestedActions(containerId, actions) {
+        const container = document.getElementById(containerId);
+        if (!container || !Array.isArray(actions) || actions.length === 0) return;
+
+        const row = document.createElement('div');
+        row.className = 'flex flex-wrap gap-2 mt-1';
+        actions.forEach(function (action) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'px-3.5 py-2 rounded-xl text-xs font-bold border border-[var(--glow)]/40 text-[var(--glow)] bg-[var(--glow)]/5 hover:bg-[var(--glow)]/15 transition';
+            btn.textContent = action.label;
+            btn.addEventListener('click', function () {
+                sendSuggestedAction(action.action_id, action.label);
+                row.querySelectorAll('button').forEach(b => b.disabled = true);
+                row.classList.add('opacity-50', 'pointer-events-none');
+            });
+            row.appendChild(btn);
+        });
+        container.appendChild(row);
+    }
+
+    function sendSuggestedAction(actionId, label) {
+        if (actionId === 'upload_new_file') {
+            window.location.href = '/datasets/';
+            return;
+        }
+        if (actionId && actionId.startsWith('confirm_file_')) {
+            const rest = actionId.substring('confirm_file_'.length);
+            const sepIdx = rest.indexOf('_');
+            if (sepIdx > -1) {
+                const projectFileId = parseInt(rest.substring(0, sepIdx), 10);
+                const sheetName = rest.substring(sepIdx + 1);
+                if (!isNaN(projectFileId)) {
+                    pendingConfirmedSheet = { project_file_id: projectFileId, sheet_name: sheetName };
+                }
+            }
+        }
+        const input = document.getElementById('chatInput');
+        input.value = label;
+        sendMessage();
+    }
+
     function saveChatHistory() {
         if (chatHistory.length === 0) return;
         const sessionIndex = webChatSessions.findIndex(s => s.id === currentSessionId);
@@ -1413,9 +1460,11 @@
                     fileContext: fileContextSummary,
                     agent_ids: selectedAgentIds,
                     agent_id: selectedAgentIds[0],
-                    lang: currentLang
+                    lang: currentLang,
+                    confirmed_sheet: pendingConfirmedSheet
                 })
             });
+            pendingConfirmedSheet = null;
 
               if (!response.ok) {
                   let realErrorMsg = "API call failed";
@@ -1492,6 +1541,12 @@
                         const dataStr = line.substring(6);
                         try {
                             const data = JSON.parse(dataStr);
+                            if (data.suggested_actions) {
+                                // Orchestrator-driven dynamic actions (spec 4.3): rendered
+                                // as-is from the API response, never a static frontend list.
+                                renderSuggestedActions(`response-container-${loadingId}`, data.suggested_actions);
+                                continue;
+                            }
                             if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
                                 const textPart = data.candidates[0].content.parts[0].text;
                                 if (textPart) {

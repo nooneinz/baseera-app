@@ -311,14 +311,16 @@ def route_message(user_id, message, lang="ar", ai_service=None, confirmed_sheet=
     candidates = search_relevant_sheets(user_id, message, top_k=5)
 
     if not candidates:
-        # No file at all matches this data-flavored question.
+        # No file at all matches this data-flavored question (spec section 5 /
+        # system-prompt rule 3): ask instead of guessing, regardless of
+        # whether the user has ever uploaded anything.
+        result["needs_confirmation"] = True
+        result["direct_reply"] = missing_file_reply(lang)
+        actions = []
         if has_files:
-            result["needs_confirmation"] = True
-            result["direct_reply"] = missing_file_reply(lang)
-            result["suggested_actions"] = [
-                {"label": "استخدام ملف آخر" if lang == "ar" else "Use a different file", "action_id": "switch_file"},
-                {"label": "رفع ملف جديد" if lang == "ar" else "Upload a new file", "action_id": "upload_new_file"},
-            ]
+            actions.append({"label": "استخدام ملف آخر" if lang == "ar" else "Use a different file", "action_id": "switch_file"})
+        actions.append({"label": "رفع ملف جديد" if lang == "ar" else "Upload a new file", "action_id": "upload_new_file"})
+        result["suggested_actions"] = actions
         return result
 
     top = candidates[0]
