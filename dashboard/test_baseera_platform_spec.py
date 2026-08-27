@@ -502,6 +502,38 @@ class RetrievalLayerTests(TestCase):
         if len(results) > 1:
             self.assertGreater(results[0]["score"], results[1]["score"])
 
+    def test_arabic_question_mark_does_not_pollute_the_last_token(self):
+        """
+        Regression test for a reported bug: Arabic questions are almost
+        always written with "؟" attached directly to the last word (e.g.
+        "...الإيرادات؟"). The tokenizer's character class ([\\w؀-ۿ]) covers
+        the whole Arabic Unicode block, which also contains Arabic
+        punctuation (؟ ، ؛), so that trailing "؟" was being swallowed into
+        the word's own token ("الإيرادات؟") -- which then never exact-
+        matched the clean "الإيرادات" keyword indexed from the file's own
+        column name, silently breaking retrieval for the last word of
+        nearly every Arabic question.
+        """
+        from dashboard.services.retrieval_service import _tokenize, search_relevant_sheets
+
+        self.assertIn("الإيرادات", _tokenize("أسباب ارتفاع الإيرادات؟"))
+        self.assertNotIn("الإيرادات؟", _tokenize("أسباب ارتفاع الإيرادات؟"))
+        # A few other Arabic punctuation marks that live in the same
+        # Unicode block and could cause the same silent failure.
+        self.assertIn("الهدر", _tokenize("ما سبب ارتفاع الهدر؟"))
+        self.assertIn("التكلفة", _tokenize("قارن التكلفة، والإيراد؛ من فضلك"))
+
+        pf = ProjectFile.objects.create(user=self.user, excel_file="excel_files/revenue.xlsx")
+        FileSheetMetadata.objects.create(
+            project_file=pf, sheet_name="Sheet1", status="accept",
+            columns=["المنتج", "الإيرادات", "الشهر"], row_count=3, category="sales",
+            keywords=["المنتج", "الإيرادات", "الشهر", "sheet1"],
+        )
+
+        results = search_relevant_sheets(self.user.id, "أسباب ارتفاع الإيرادات؟", top_k=5)
+        self.assertTrue(results, "the exact keyword 'الإيرادات' should match despite the trailing '؟'")
+        self.assertEqual(results[0]["sheet_name"], "Sheet1")
+
 
 class ReconciliationLayerTests(TestCase):
     """Section 6: Reconciliation Layer. Spec test-plan item 5."""
