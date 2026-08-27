@@ -2367,7 +2367,7 @@ function autoSaveAnalysisToDocuments(userQuery, replyText) {
             title: docTitle,
             content: replyText,
             category: '{% if trans.lang_code == "ar" %}تحليلات واستراتيجيات تنفيذية{% else %}Executive Insights & Strategies{% endif %}',
-            source: 'Ask Basira',
+            source: '{% if trans.lang_code == "ar" %}اسأل بصيرة{% else %}Ask Basira{% endif %}',
             user_query: userQuery
         })
     })

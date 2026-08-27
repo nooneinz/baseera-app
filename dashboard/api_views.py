@@ -656,20 +656,33 @@ def download_plan_api(request, plan_id):
         import urllib.parse
         from django.conf import settings
         
+        # Task: the downloaded document's own structural labels ("Approval
+        # date", "Approved by", the footer, ...) were hardcoded in Arabic
+        # regardless of the user's language setting -- meaning switching
+        # the whole app to English still produced a document mixing
+        # English content inside an Arabic-only template. This follows the
+        # same lang-detection convention already used elsewhere (views.py).
+        lang = request.session.get("lang") or request.COOKIES.get("lang", "ar")
+        is_ar = (lang == "ar")
+
         plan = ApprovedPlan.objects.get(id=plan_id, user=request.user)
         raw_content = ""
-        
+
         if plan.file_path and plan.file_path.strip():
             full_path = os.path.join(settings.BASE_DIR, plan.file_path)
             if not os.path.isfile(full_path):
                 full_path = os.path.join(settings.MEDIA_ROOT, plan.file_path.replace('sandbox/', ''))
-            
+
             if os.path.isfile(full_path):
                 with open(full_path, 'r', encoding='utf-8', errors='replace') as f:
                     raw_content = f.read()
 
         if not raw_content:
-            raw_content = plan.justification or "خطة عمل استراتيجية وتوصية تنفيذية معتمدة عبر منصة بصيرة للذكاء الاصطناعي."
+            raw_content = plan.justification or (
+                "خطة عمل استراتيجية وتوصية تنفيذية معتمدة عبر منصة بصيرة للذكاء الاصطناعي."
+                if is_ar else
+                "A strategic action plan and executive recommendation approved via the Baseera AI platform."
+            )
 
         # Clean all internal simulation and agent tags
         cleaned = re.sub(r'<internal_simulation>.*?</internal_simulation>', '', raw_content, flags=re.DOTALL)
@@ -689,32 +702,52 @@ def download_plan_api(request, plan_id):
 
         created_str = plan.created_at.strftime('%Y-%m-%d %H:%M') if hasattr(plan, 'created_at') and plan.created_at else ""
 
-        formatted_lines = [
-            "=" * 72,
-            "               وثيقة الخطة التنفيذية والقرار المعتمد",
-            f"                     {plan.file_name}",
-            "=" * 72,
-            f"تاريخ ووقت الاعتماد: {created_str}",
-            f"المستخدم المعتمد: {request.user.username}",
-        ]
-
-        if plan.justification:
+        if is_ar:
+            formatted_lines = [
+                "=" * 72,
+                "               وثيقة الخطة التنفيذية والقرار المعتمد",
+                f"                     {plan.file_name}",
+                "=" * 72,
+                f"تاريخ ووقت الاعتماد: {created_str}",
+                f"المستخدم المعتمد: {request.user.username}",
+            ]
+            if plan.justification:
+                formatted_lines.append(f"المبرر الاستراتيجي والبيان: {plan.justification}")
             formatted_lines.extend([
-                f"المبرر الاستراتيجي والبيان: {plan.justification}",
+                "-" * 72,
+                "تفاصيل الخطة وإجراءات التنفيذ:",
+                "-" * 72,
+                "",
+                body_text,
+                "",
+                "=" * 72,
+                "تم التوثيق والاعتماد بواسطة: منصة بصيرة لإدارة الأعمال والذكاء الاصطناعي (Baseera.om)",
+                "جميع الحقوق محفوظة 2026",
+                "=" * 72,
             ])
-
-        formatted_lines.extend([
-            "-" * 72,
-            "تفاصيل الخطة وإجراءات التنفيذ:",
-            "-" * 72,
-            "",
-            body_text,
-            "",
-            "=" * 72,
-            "تم التوثيق والاعتماد بواسطة: منصة بصيرة لإدارة الأعمال والذكاء الاصطناعي (Baseera.om)",
-            "جميع الحقوق محفوظة 2026",
-            "=" * 72,
-        ])
+        else:
+            formatted_lines = [
+                "=" * 72,
+                "               EXECUTIVE PLAN & APPROVED DECISION DOCUMENT",
+                f"                     {plan.file_name}",
+                "=" * 72,
+                f"Approval date & time: {created_str}",
+                f"Approved by: {request.user.username}",
+            ]
+            if plan.justification:
+                formatted_lines.append(f"Strategic rationale & source: {plan.justification}")
+            formatted_lines.extend([
+                "-" * 72,
+                "Plan details & execution steps:",
+                "-" * 72,
+                "",
+                body_text,
+                "",
+                "=" * 72,
+                "Documented and approved via: Baseera AI Business Management Platform (Baseera.om)",
+                "All rights reserved 2026",
+                "=" * 72,
+            ])
 
         final_content = "\n".join(formatted_lines)
         response = HttpResponse(final_content, content_type='text/plain; charset=utf-8')
