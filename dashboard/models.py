@@ -50,6 +50,15 @@ class CompanyStrategicProfile(models.Model):
     max_investment_limit = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     cash_reserve_floor = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
 
+    # The revenue-share threshold (as a percentage, e.g. 3.00 for 3%) above
+    # which the escalation chain (agent_escalation_chain.run_escalation_chain)
+    # treats a flagged financial impact as material enough to also pull in
+    # the Pricing agent for an immediate-liquidity recommendation. Same
+    # optional/owner-configurable pattern as max_investment_limit and
+    # cash_reserve_floor above: null means "use the platform default"
+    # (agent_escalation_chain.MATERIALITY_REVENUE_SHARE), not zero.
+    materiality_threshold_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+
     active_agents = models.JSONField(default=list, blank=True)
 
     updated_at = models.DateTimeField(auto_now=True)

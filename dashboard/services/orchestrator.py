@@ -129,7 +129,22 @@ DOMAIN_AGENT_MAP = {
               'reconcil', 'waste'],
     'retention': ['ولاء', 'عملاء', 'انسحاب', 'استبقاء', 'loyalty', 'churn', 'retention',
                   'customer lifetime'],
+    'marketing': ['تسويق', 'حملة', 'حملات', 'إعلان', 'اعلان', 'علامة تجارية', 'دعاية', 'ترويج',
+                  'marketing', 'campaign', 'advertis', 'brand', 'acquisition', 'promotion'],
 }
+
+
+# Arabic diacritics (tashkeel) -- fatha, damma, kasra, the three tanwin
+# marks, shadda, sukun, superscript alef -- plus tatweel (ـ), the
+# elongation character. None of these carry distinct meaning for keyword
+# matching, but their presence breaks an exact/substring comparison against
+# an un-diacritized keyword list -- e.g. "اهلاً" (with a trailing tanwin
+# fathatan) failing to match the plain "اهلا" entry in GREETING_OPENERS and
+# falling through to a "couldn't find the document" refusal on a bare
+# greeting (reported bug). Stripped in the same normalization pass as the
+# ة/ه substitution below so every keyword-list comparison in this module is
+# immune to both classes of typo at once.
+_ARABIC_DIACRITICS_RE = re.compile(r'[ً-ْٰـ]')
 
 
 def _normalize_arabic_letters(text):
@@ -143,9 +158,11 @@ def _normalize_arabic_letters(text):
     strategic multi-agent committee, purely because BUSINESS_DOMAIN_
     KEYWORDS only had the "ة" spelling). Applied to both sides of every
     keyword-list comparison below so this class of typo can never break a
-    match.
+    match. Diacritics (see _ARABIC_DIACRITICS_RE) are stripped in the same
+    pass for the same reason.
     """
-    return (text or "").replace("ة", "ه")
+    normalized = _ARABIC_DIACRITICS_RE.sub("", text or "")
+    return normalized.replace("ة", "ه")
 
 
 def _matches_any(patterns, text_lower):
@@ -166,15 +183,20 @@ def _is_pure_greeting(text_lower):
     خطة") returns False -- that has to go through normal routing, not a
     canned hello.
     """
-    stripped = text_lower.strip(" ,.!؟?")
+    # Normalized both sides -- without this, a diacritic on the incoming
+    # text (e.g. "اهلاً" with a trailing tanwin fathatan) fails to match the
+    # plain "اهلا" entry in GREETING_OPENERS below and the message falls
+    # through to normal routing instead of being recognized as a greeting.
+    stripped = _normalize_arabic_letters(text_lower.strip(" ,.!؟?"))
     if not stripped:
         return False
-    if stripped in GREETING_OPENERS:
+    normalized_openers = [_normalize_arabic_letters(o) for o in GREETING_OPENERS]
+    if stripped in normalized_openers:
         return True
-    for opener in GREETING_OPENERS:
+    for opener in normalized_openers:
         if stripped.startswith(opener):
-            remainder = stripped[len(opener):].strip(" ,.!؟?")
-            if not remainder or remainder in _SMALL_TALK_FILLERS:
+            remainder = _normalize_arabic_letters(stripped[len(opener):].strip(" ,.!؟?"))
+            if not remainder or remainder in {_normalize_arabic_letters(f) for f in _SMALL_TALK_FILLERS}:
                 return True
     return False
 
@@ -296,6 +318,18 @@ def select_committee_agents(message, max_agents=3):
     for domain, keywords in DOMAIN_AGENT_MAP.items():
         if any(kw in text_lower for kw in keywords):
             matched.append(domain)
+
+    # Reported bug: a strategic question with zero domain-keyword hits (e.g.
+    # "أعطيني خطة تسويقية للمشروع" before 'marketing' existed as a domain)
+    # used to fall straight into the financial/supply_chain/pricing trio
+    # below regardless of relevance -- every specialist in that trio then
+    # replies "outside my expertise" to the SAME unrelated question, which
+    # reads as a scripted, fake committee rather than a real one. When
+    # nothing matched at all, route to the two agents actually built to
+    # handle a general/undomained strategic ask instead of forcing
+    # irrelevant specialists to all decline in unison.
+    if not matched:
+        return ['general', 'marketing'][:max_agents]
 
     if 'financial' not in matched:
         matched.insert(0, 'financial')

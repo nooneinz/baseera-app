@@ -892,8 +892,24 @@ def api_escalation_chain(request):
     except Exception as e:
         print(f"Escalation chain: AI service unavailable, using deterministic-only mode: {e}")
 
+    # Owner-configurable materiality threshold (spec section 4.1's
+    # max_investment_limit/cash_reserve_floor pattern): a business owner may
+    # want a lower or higher bar than the platform default 3% before the
+    # chain escalates to Pricing. Absent/unset -> run_escalation_chain falls
+    # back to its own MATERIALITY_REVENUE_SHARE default.
+    materiality_threshold = None
     try:
-        result = run_escalation_chain(rows, ai_service=ai_service, lang=lang)
+        from .models import CompanyStrategicProfile
+        profile = CompanyStrategicProfile.objects.filter(user=request.user).first()
+        if profile and profile.materiality_threshold_percent is not None:
+            materiality_threshold = float(profile.materiality_threshold_percent) / 100
+    except Exception as e:
+        print(f"Escalation chain: could not load materiality threshold override: {e}")
+
+    try:
+        result = run_escalation_chain(
+            rows, ai_service=ai_service, lang=lang, materiality_threshold=materiality_threshold,
+        )
         result["status"] = "success"
         # Task 5 (UI transparency): tell the frontend outright when the
         # analysis only covered a prefix of the data, instead of silently

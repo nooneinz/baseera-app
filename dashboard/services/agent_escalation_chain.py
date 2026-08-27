@@ -275,6 +275,19 @@ def _run_supply_chain_stage(waste, ai_service, lang):
     return {
         "agent_id": "supply_chain", "agent_name": agent_name, "triggered": True,
         "skip_reason": None, "finding": finding, "narrative": narrative, "ai_used": ai_used,
+        # Tier-2 ("one click to apply", never auto-executed) suggestion, consumed
+        # by the dashboard's "Apply" button -- reuses the existing
+        # /api/dashboard/apply-agent-decision/ endpoint and its
+        # ApprovedPlan/Notification/DecisionMetric pipeline rather than a new one.
+        # payload_hint deliberately carries no invented numbers -- the real
+        # figures already live in `narrative`, which the frontend sends as
+        # plan_content.
+        "suggested_action": {
+            "type": "SUPPLY_CHAIN_PROCUREMENT_FIX",
+            "label_ar": "تطبيق توصية سلاسل الإمداد",
+            "label_en": "Apply supply chain recommendation",
+            "payload_hint": "supply_chain_inventory_action",
+        },
     }
 
 
@@ -337,16 +350,38 @@ def _run_pricing_stage(rows, cash_impact_ratio, ai_service, lang):
                 "file lacks sufficient price/cost/product columns to identify healthy-margin items for "
                 "a specific offer."
             )
-    return {
+    stage = {
         "agent_id": "pricing", "agent_name": agent_name, "triggered": True,
         "skip_reason": None, "finding": finding, "narrative": narrative, "ai_used": ai_used,
     }
+    # Only attach an applyable suggestion when there's an actual grounded offer
+    # (real healthy-margin products) to apply -- when the file lacks the
+    # columns to build one (see narrative fallback above), there is nothing
+    # concrete to click "apply" on, so no action is offered rather than
+    # inventing one.
+    if healthy_margin_products:
+        stage["suggested_action"] = {
+            "type": "PRICING_LIQUIDITY_OFFER",
+            "label_ar": "تطبيق العرض التسعيري",
+            "label_en": "Apply pricing offer",
+            "payload_hint": "pricing_liquidity_offer",
+        }
+    return stage
 
 
-def run_escalation_chain(rows, ai_service=None, lang="ar"):
+def run_escalation_chain(rows, ai_service=None, lang="ar", materiality_threshold=None):
     """
     Runs the full proactive, conditional escalation chain over a user's real
     uploaded rows.
+
+    materiality_threshold: optional float/Decimal fraction (e.g. 0.02 for
+    2%) overriding MATERIALITY_REVENUE_SHARE for this run -- lets the
+    business owner decide what counts as "material enough to escalate"
+    (CompanyStrategicProfile.materiality_threshold_percent, the same
+    owner-configurable pattern as max_investment_limit/cash_reserve_floor)
+    instead of the threshold being a fixed constant nobody on the account
+    can see or change. None (the default) keeps the existing
+    MATERIALITY_REVENUE_SHARE behavior.
 
     Returns:
       {
@@ -361,6 +396,7 @@ def run_escalation_chain(rows, ai_service=None, lang="ar"):
             "finding": {...real numbers...} | None,
             "narrative": str,
             "ai_used": bool,
+            "suggested_action": {type, label_ar, label_en, payload_hint} | absent,
           }, ...
         ],
       }
@@ -402,7 +438,10 @@ def run_escalation_chain(rows, ai_service=None, lang="ar"):
             "No procurement/inventory-related waste signals in this file.",
         ))
 
-    if cash_impact_ratio is not None and cash_impact_ratio >= MATERIALITY_REVENUE_SHARE:
+    effective_threshold = (
+        float(materiality_threshold) if materiality_threshold is not None else MATERIALITY_REVENUE_SHARE
+    )
+    if cash_impact_ratio is not None and cash_impact_ratio >= effective_threshold:
         stages.append(_run_pricing_stage(rows, cash_impact_ratio, ai_service, lang))
     else:
         stages.append(_skipped_stage(

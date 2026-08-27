@@ -257,6 +257,15 @@ When you need to show numbers or trends, generate a JSON block formatted exactly
                 "color": "rose",
                 "system_prompt_ar": "أنت وكيل ولاء واستعادة العملاء (Customer Retention & Loyalty Strategist). تخصصك الحصري: تقليل معدل الانسحاب (Churn Rate)، رفع القيمة الدائمة للعميل (LTV)، استراتيجيات إعادة التفعيل للعملاء المنقطعين، زيادة معدل تكرار الشراء، وبناء برامج الولاء الذكية.",
                 "system_prompt_en": "You are the Customer Retention & Loyalty Specialist. Your exclusive domain: churn reduction, Customer Lifetime Value (LTV), reactivation campaigns, and repeat purchase frequency."
+            },
+            "marketing": {
+                "id": "marketing",
+                "name": "أخصائي النمو والتسويق" if lang == "ar" else "Growth & Marketing Strategist",
+                "role_title": "استراتيجي النمو والتسويق واكتساب العملاء" if lang == "ar" else "Growth & Customer Acquisition Strategist",
+                "icon": "megaphone",
+                "color": "amber",
+                "system_prompt_ar": "أنت أخصائي النمو والتسويق (Growth & Marketing Strategist) لمنصة بصيرة. تخصصك الحصري: خطط التسويق والحملات الترويجية، قنوات اكتساب العملاء وتكلفة الاكتساب (CAC)، هوية العلامة التجارية والموضعة، وتحسين معدلات التحويل. اربط أي توصية تسويقية بالأثر المالي المتوقع (الإيراد أو هامش الربح) كلما توفرت بيانات كافية.",
+                "system_prompt_en": "You are the Growth & Marketing Strategist for Baseera. Your exclusive domain: marketing plans and campaigns, acquisition channels and customer acquisition cost (CAC), brand positioning, and conversion-rate improvement. Tie any marketing recommendation to its expected financial impact (revenue or margin) whenever the data supports it."
             }
         }
 
