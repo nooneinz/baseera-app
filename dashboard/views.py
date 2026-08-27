@@ -966,7 +966,6 @@ def boardroom_view(request):
     })
 
 
-@csrf_exempt
 def api_boardroom_debate(request):
     """
     API to simulate a live multi-agent debate on a business decision.
@@ -1026,7 +1025,6 @@ def api_boardroom_debate(request):
 
 
 @login_required
-@csrf_exempt
 def api_create_custom_agent(request):
     """
     API to create a new user-defined Custom Agent.
@@ -1072,7 +1070,6 @@ def api_create_custom_agent(request):
 
 
 @login_required
-@csrf_exempt
 def api_delete_custom_agent(request, agent_id):
     """
     API to delete a custom agent.
@@ -2047,9 +2044,7 @@ def _direct_reply_event_stream(text, suggested_actions=None):
     yield f"data: {json.dumps({'candidates': [{'content': {'parts': [{'text': 'STATUS___:DONE'}]}}]})}\n\n"
 
 
-@csrf_exempt
 @login_required
-@csrf_exempt
 def chat_api(request):
     if request.method == "POST":
         try:
@@ -2703,7 +2698,6 @@ def agents_workspace(request):
     return render(request, 'dashboard/agents_workspace.html', context)
 
 
-@csrf_exempt
 def api_dynamic_chat(request):
     """
     Alias for chat_api, specifically for the Multi-Agent Workspace.
@@ -2712,7 +2706,6 @@ def api_dynamic_chat(request):
 
 
 @login_required
-@csrf_exempt
 def save_receipt_record(request):
     if request.method == "POST":
         try:
@@ -2723,9 +2716,7 @@ def save_receipt_record(request):
     return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
 
 
-@csrf_exempt
 @login_required
-@csrf_exempt
 def api_committee_save_thread(request):
     """Saves or updates a multi-agent committee thread and messages."""
     if request.method == "POST":
@@ -2775,7 +2766,6 @@ def api_committee_save_thread(request):
     return JsonResponse({"status": "invalid_method"}, status=400)
 
 
-@csrf_exempt
 def api_committee_get_threads(request):
     """Retrieves all committee threads for the authenticated user."""
     if not request.user.is_authenticated:
@@ -2794,7 +2784,6 @@ def api_committee_get_threads(request):
     return JsonResponse({"status": "success", "threads": result})
 
 
-@csrf_exempt
 @login_required
 def api_auto_save_document(request):
     """
@@ -2854,7 +2843,6 @@ def api_auto_save_document(request):
     return JsonResponse({"status": "invalid_method"}, status=405)
 
 
-@csrf_exempt
 @login_required
 def api_apply_agent_decision(request):
     """
