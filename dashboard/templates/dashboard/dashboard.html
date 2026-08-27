@@ -1038,6 +1038,17 @@
     }
 
     function renderEscalationChainStages(container, stages) {
+      // Real baseline number for impact tracking: the financial stage's
+      // flagged_amount is the same figure the audit finding was quantified
+      // into, shared by both the supply_chain and pricing suggestions --
+      // never a separately invented number. Captured now so it can be
+      // stored on the ApprovedPlan at the moment of approval.
+      const financialStage = stages.find(s => s.agent_id === 'financial');
+      const baselineValue = financialStage && financialStage.finding
+        ? financialStage.finding.flagged_amount : null;
+      const baselineLabel = isAr
+        ? 'المبلغ المرصود عند اعتماد الخطة' : 'Flagged amount at plan approval';
+
       container.innerHTML = stages.map((stage, idx) => {
         const style = ESCALATION_AGENT_STYLE[stage.agent_id] || { icon: 'bot', color: 'slate' };
         if (!stage.triggered) {
@@ -1054,6 +1065,8 @@
               <button onclick="applyEscalationAction(this)"
                       data-payload="${(stage.suggested_action.payload_hint || stage.agent_id).replace(/"/g, '&quot;')}"
                       data-narrative="${(stage.narrative || '').replace(/"/g, '&quot;')}"
+                      data-baseline-value="${baselineValue !== null ? baselineValue : ''}"
+                      data-baseline-label="${baselineLabel.replace(/"/g, '&quot;')}"
                       class="mt-2.5 inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl bg-[var(--glow)]/10 text-[var(--glow)] border border-[var(--glow)]/30 hover:bg-[var(--glow)]/20 transition-all">
                 <i data-lucide="zap" class="h-3.5 w-3.5"></i>
                 ${isAr ? (stage.suggested_action.label_ar || 'تطبيق التوصية') : (stage.suggested_action.label_en || 'Apply recommendation')}
@@ -1074,6 +1087,8 @@
     async function applyEscalationAction(btn) {
       const payloadHint = btn.getAttribute('data-payload') || '';
       const narrative = btn.getAttribute('data-narrative') || '';
+      const baselineValueAttr = btn.getAttribute('data-baseline-value') || '';
+      const baselineLabel = btn.getAttribute('data-baseline-label') || '';
       const confirmMsg = isAr
         ? 'سيتم نقل هذه التوصية إلى منصة القرارات كخطة معتمدة يمكنك متابعة تنفيذها. متابعة؟'
         : 'This recommendation will be moved to the Decision Platform as an approved plan. Continue?';
@@ -1088,7 +1103,12 @@
         const res = await fetch('/api/dashboard/apply-agent-decision/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-          body: JSON.stringify({ action_payload: payloadHint, plan_content: narrative }),
+          body: JSON.stringify({
+            action_payload: payloadHint,
+            plan_content: narrative,
+            baseline_metric_value: baselineValueAttr !== '' ? Number(baselineValueAttr) : null,
+            baseline_metric_label: baselineLabel,
+          }),
         });
         const data = await res.json();
         if (data.status === 'success') {

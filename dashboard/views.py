@@ -2981,6 +2981,20 @@ def api_apply_agent_decision(request):
             plan_content = data.get("plan_content", "").strip()
             custom_title = data.get("plan_title", "").strip()
 
+            # Impact tracking (closes the detect -> decide -> act -> measured
+            # impact loop): an optional real baseline number the caller
+            # already computed deterministically (e.g. the escalation
+            # chain's flagged_amount) -- never invented here. Absent for
+            # any caller that doesn't send it (e.g. the chat's existing
+            # "تطبيق التوصية" button), which simply leaves the plan with no
+            # impact to track, same as before this field existed.
+            baseline_metric_value = data.get("baseline_metric_value")
+            baseline_metric_label = (data.get("baseline_metric_label") or "").strip()
+            try:
+                baseline_metric_value = float(baseline_metric_value) if baseline_metric_value is not None else None
+            except (TypeError, ValueError):
+                baseline_metric_value = None
+
             # Determine plan title and details
             if custom_title:
                 plan_title = custom_title
@@ -3015,7 +3029,9 @@ def api_apply_agent_decision(request):
                 user=request.user,
                 file_name=plan_title,
                 file_path=file_rel_path,
-                justification=justification
+                justification=justification,
+                baseline_metric_value=baseline_metric_value,
+                baseline_metric_label=(baseline_metric_label or None) if baseline_metric_value is not None else None,
             )
 
             # 2. Add Notification

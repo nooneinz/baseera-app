@@ -95,4 +95,5 @@ path("api/dashboard/charts-engine/", api_views.charts_engine_api, name="charts_e
     path("api/approved-plans/<int:plan_id>/update-note/", api_views.update_plan_note_api, name="update_plan_note_api"),
 path("api/approved-plans/<int:plan_id>/download/", api_views.download_plan_api, name="download_plan_api"),
     path("api/approved-plans/<int:plan_id>/delete/", api_views.delete_plan_api, name="delete_plan_api"),
+    path("api/approved-plans/<int:plan_id>/record-impact/", api_views.record_plan_impact_api, name="record_plan_impact_api"),
 ]
