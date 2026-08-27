@@ -4,12 +4,89 @@
 {% block title %}{% if trans.lang_code == 'ar' %}لوحة الإشراف العامة — بصيرة{% else %}Super Admin Dashboard — Baseera{% endif %}{% endblock %}
 
 {% block content %}
+<!-- Mobile off-canvas drawer for this page's own bespoke admin sidebar
+     (it does not include dashboard/sidebar.html, so it needs its own copy
+     of the same drawer mechanics -- topbar.html's hamburger button already
+     targets #appSidebar / #mobileSidebarOverlay and expects
+     openMobileSidebar()/closeMobileSidebar() to exist on the page). Desktop
+     (lg+) is completely untouched, same as the tenant sidebar fix. -->
+<style>
+  .mobile-sidebar-close-btn { display: none; }
+  @media (max-width: 1023.98px) {
+    #appSidebar {
+      position: fixed;
+      top: 0.75rem;
+      bottom: 0.75rem;
+      left: 0.75rem;
+      width: 17rem;
+      max-width: 85vw;
+      z-index: 10000;
+      transform: translateX(-110%);
+      transition: transform 0.3s ease-out;
+      overflow-y: auto;
+    }
+    #appSidebar.mobile-sidebar-open { transform: translateX(0); }
+    html[dir="rtl"] #appSidebar {
+      left: auto;
+      right: 0.75rem;
+      transform: translateX(110%);
+    }
+    html[dir="rtl"] #appSidebar.mobile-sidebar-open { transform: translateX(0); }
+    .mobile-sidebar-close-btn { display: flex; }
+  }
+  .mobile-sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.6);
+    z-index: 9990;
+  }
+  @media (max-width: 1023.98px) {
+    .mobile-sidebar-overlay.mobile-sidebar-open { display: block; }
+  }
+</style>
+<div id="mobileSidebarOverlay" class="mobile-sidebar-overlay" onclick="closeMobileSidebar()"></div>
+<script>
+  function openMobileSidebar() {
+    const aside = document.getElementById('appSidebar');
+    const overlay = document.getElementById('mobileSidebarOverlay');
+    if (aside) aside.classList.add('mobile-sidebar-open');
+    if (overlay) overlay.classList.add('mobile-sidebar-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeMobileSidebar() {
+    const aside = document.getElementById('appSidebar');
+    const overlay = document.getElementById('mobileSidebarOverlay');
+    if (aside) aside.classList.remove('mobile-sidebar-open');
+    if (overlay) overlay.classList.remove('mobile-sidebar-open');
+    document.body.style.overflow = '';
+  }
+  function toggleMobileSidebar() {
+    const aside = document.getElementById('appSidebar');
+    if (aside && aside.classList.contains('mobile-sidebar-open')) {
+      closeMobileSidebar();
+    } else {
+      openMobileSidebar();
+    }
+  }
+  window.addEventListener('resize', function () {
+    if (window.innerWidth >= 1024) closeMobileSidebar();
+  });
+</script>
+
 <!-- Custom Dashboard Page Container (Glassmorphic Light Theme: Blue, Teal, Lavender) -->
 <div class="flex min-h-screen p-3 gap-4 bg-gradient-to-br from-[#f3f1fb] via-[#eef2ff] to-[#f5f3ff] dark:from-[#0f172a] dark:to-[#1e1b4b] text-{{ trans.align|default:'right' }}" dir="{{ trans.dir|default:'rtl' }}">
-    
+
     <!-- ==================== LEFT SIDEBAR PANEL (Light Glassmorphic Navigation) ==================== -->
-    <aside class="w-72 shrink-0 flex flex-col gap-3">
-        
+    <aside id="appSidebar" class="w-72 shrink-0 flex flex-col gap-3">
+        <div class="flex items-center justify-end lg:hidden">
+            <button type="button" onclick="closeMobileSidebar()"
+                class="mobile-sidebar-close-btn items-center justify-center h-9 w-9 rounded-xl bg-white/70 dark:bg-slate-800/70 hover:bg-white text-[#2b2470] dark:text-slate-200 shrink-0 transition shadow-sm"
+                aria-label="{% if trans.lang_code == 'ar' %}إغلاق القائمة{% else %}Close menu{% endif %}">
+                <i data-lucide="x" class="h-4.5 w-4.5"></i>
+            </button>
+        </div>
+
         <!-- 1. Top User Profile Card (Nile Blue to Glowing Teal & Lavender Gradient) -->
         <div class="bg-gradient-to-br from-[#2b2470] via-[#5b47b8] to-[#7c6cf0] rounded-t-[32px] rounded-b-[24px] p-6 text-white text-center flex flex-col items-center relative overflow-hidden shadow-xl border border-white/30">
             <!-- Background Radial Glow -->
