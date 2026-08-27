@@ -1498,7 +1498,12 @@
             pendingConfirmedSheet = null;
 
               if (!response.ok) {
-                  let realErrorMsg = "API call failed";
+                  // Always include the real HTTP status so a genuine server
+                  // error is never indistinguishable from a network hiccup
+                  // -- without this, a non-JSON error body (e.g. a gateway
+                  // timeout page) fell back to a totally opaque generic
+                  // string that gave no diagnostic clue at all.
+                  let realErrorMsg = `Server returned an error (status ${response.status})`;
                   try {
                       const errData = await response.json();
                       realErrorMsg = errData.message || realErrorMsg;
@@ -1908,7 +1913,13 @@
             const loader = document.getElementById(loadingId);
             if (loader) loader.remove();
 
-            const isGeminiError = error && error.message && (error.message.toLowerCase().includes("gemini") || error.message.toLowerCase().includes("api key") || error.message.toLowerCase().includes("unreachable") || (error.message.toLowerCase().includes("failed") && !error.message.toLowerCase().includes("failed to fetch")));
+            // Only classify this as a Gemini/API-key problem when the
+            // message actually says so -- the generic status-code fallback
+            // above (e.g. "Server returned an error (status 500)") used to
+            // contain the substring "failed" often enough that it always
+            // false-matched here, showing a misleading "check your API key"
+            // message for what could be any server-side error at all.
+            const isGeminiError = error && error.message && (error.message.toLowerCase().includes("gemini") || error.message.toLowerCase().includes("api key") || error.message.toLowerCase().includes("unreachable"));
 
             const errDiv = document.createElement('div');
             errDiv.className = 'flex gap-3 mb-4';
@@ -1919,8 +1930,8 @@
             <div class="rounded-2xl rounded-tl-sm bg-red-50 border border-red-200 px-4 py-3 max-w-lg text-{{ trans.align }} text-red-600">
                 <p class="text-sm font-semibold">
                     ${isGeminiError
-                    ? "{% if trans.lang_code == 'ar' %}خطأ في الاتصال بـ Gemini API: يرجى التحقق من صحة مفتاح الـ API في ملف .env{% else %}Gemini API Error: Please verify the API key in .env file.{% endif %}"
-                    : "{% if trans.lang_code == 'ar' %}خطأ: تعذر الاتصال بـ \"بصيرة\". يرجى التأكد من تشغيل خادم الواجهة الخلفية (Back-End) والمحاولة مرة أخرى.{% else %}Error: Unable to connect to \"Basira\". Make sure the Back-End server is running and try again.{% endif %}"}
+                    ? "{% if trans.lang_code == 'ar' %}خطأ في الاتصال بـ Gemini API: يرجى التحقق من صحة مفتاح الـ API{% else %}Gemini API Error: please verify the API key.{% endif %}"
+                    : "{% if trans.lang_code == 'ar' %}حدث خطأ أثناء معالجة طلبك على الخادم. حاول مرة أخرى بعد قليل، وإذا تكرر الخطأ تواصل مع الدعم الفني.{% else %}An error occurred processing your request on the server. Please try again shortly, and contact support if this keeps happening.{% endif %}"}
                 </p>
                 <p class="text-[11px] text-red-500/80 mt-1 font-mono">${error.message}</p>
                 <button type="button" class="retry-send-btn mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-red-700 dark:text-red-300 hover:underline">

@@ -9,7 +9,14 @@ services:
     name: baseera-web
     env: python
     buildCommand: "./build.sh"
-    startCommand: "gunicorn baseera_web.wsgi:application --workers 4 --worker-class gthread --threads 4"
+    # --timeout 120: gunicorn's default worker timeout is 30s, which is
+    # tight for a live Gemini call (cold connections, an occasionally
+    # slower model response, or a multi-round-trip agent action) -- a
+    # worker killed mid-request returns a raw gateway error instead of a
+    # JSON response, which the frontend can't parse into a real message
+    # and previously showed as a generic, misleading "check your API key"
+    # error even though the actual cause was just running out of time.
+    startCommand: "gunicorn baseera_web.wsgi:application --workers 4 --worker-class gthread --threads 4 --timeout 120"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
