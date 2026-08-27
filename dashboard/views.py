@@ -2855,11 +2855,14 @@ def api_auto_save_document(request):
             from django.conf import settings
             from .models import ApprovedPlan, Notification
 
+            lang = request.session.get("lang") or request.COOKIES.get("lang", "ar")
+            is_ar = (lang == "ar")
+
             data = json.loads(request.body)
             title = data.get("title", "").strip()
             content = data.get("content", "").strip()
-            category = data.get("category", "Executive Insights & Strategies")
-            source = data.get("source", "Ask Basira")
+            category = data.get("category") or ("تحليلات واستراتيجيات تنفيذية" if is_ar else "Executive Insights & Strategies")
+            source = data.get("source") or ("اسأل بصيرة" if is_ar else "Ask Basira")
             user_query = data.get("user_query", "").strip()
 
             if not content or len(content) < 40:
@@ -2869,9 +2872,9 @@ def api_auto_save_document(request):
                 now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
                 if user_query:
                     clean_q = re.sub(r'[^\w\s\u0600-\u06FF]', '', user_query)[:40].strip()
-                    title = f"تقرير: {clean_q} ({now_str})"
+                    title = (f"تقرير: {clean_q} ({now_str})" if is_ar else f"Report: {clean_q} ({now_str})")
                 else:
-                    title = f"تقرير تحليلي من بصيرة ({now_str})"
+                    title = (f"تقرير تحليلي من بصيرة ({now_str})" if is_ar else f"Baseera Analytical Report ({now_str})")
 
             plans_dir = os.path.join(settings.BASE_DIR, 'sandbox', 'approved_plans')
             os.makedirs(plans_dir, exist_ok=True)
@@ -2883,7 +2886,10 @@ def api_auto_save_document(request):
             with open(full_file_path, "w", encoding="utf-8") as f:
                 f.write(doc_header + content)
 
-            justification = f"أرشفة تلقائية من {source} - {category}"
+            justification = (
+                f"أرشفة تلقائية من {source} - {category}" if is_ar
+                else f"Auto-archived from {source} - {category}"
+            )
             approved_plan = ApprovedPlan.objects.create(
                 user=request.user,
                 file_name=title,
@@ -2893,7 +2899,8 @@ def api_auto_save_document(request):
 
             return JsonResponse({
                 "status": "success",
-                "message": "تم حفظ التحليل والتوصيات في المستندات بنجاح",
+                "message": ("تم حفظ التحليل والتوصيات في المستندات بنجاح" if is_ar
+                            else "Analysis and recommendations saved to Documents successfully"),
                 "doc_id": approved_plan.id,
                 "title": title
             })
