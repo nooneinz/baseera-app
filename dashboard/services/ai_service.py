@@ -6,6 +6,8 @@ import queue
 from dotenv import load_dotenv
 from google import genai
 
+from dashboard.services.agent_tools import run_react_preloop
+
 load_dotenv()
 
 # Google retired "gemini-2.5-flash" and "gemini-2.0-flash" for new callers
@@ -424,11 +426,32 @@ When you need to show numbers or trends, generate a JSON block formatted exactly
                     q.put(None)
                     return
 
+                if iteration == 0:
+                    # Task 2 (scoped): a bounded, real-function-calling
+                    # ReAct pre-pass -- the model may autonomously run
+                    # Python, save a memory, or raise a notification via a
+                    # genuine Gemini tool call (never a regex-parsed text
+                    # tag) before the final answer is generated. Financial/
+                    # decision actions have no tool here at all; they stay
+                    # on the existing [[ACTION:...]] path below, which this
+                    # doesn't change. See agent_tools.py for the hard
+                    # constraint this enforces. Never blocks the final
+                    # answer: any failure just means no tool ran.
+                    q.put('<agent_state>' + (
+                        'يقيّم الوكيل ما إذا كان يحتاج تنفيذ إجراء مستقل (كود، تذكير، حفظ ذاكرة) قبل الرد...'
+                        if lang == 'ar' else
+                        'Agent is assessing whether it needs to autonomously run a tool (code, reminder, memory) before answering...'
+                    ) + '</agent_state>')
+                    current_prompt = run_react_preloop(
+                        self, current_prompt, user_id, GEMINI_MODEL, lang=lang,
+                        on_state=lambda msg: q.put(msg),
+                    )
+
                 stream = self.client.models.generate_content_stream(
                     model=GEMINI_MODEL,
                     contents=current_prompt
                 )
-                
+
                 full_response = ""
                 in_sim = False
                 in_action = False
