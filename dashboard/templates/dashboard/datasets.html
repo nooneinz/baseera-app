@@ -1,6 +1,8 @@
 {% extends 'dashboard/base.html' %}
 
-{% block title %}{% if trans.lang_code == 'ar' %}المستندات المرفوعة{% else %}My Documents{% endif %}
+{% block title %}{% if trans.lang_code == 'ar' %}المستندات المرفوعة{% else %}My Documents{% endif %}{% endblock %}
+
+{% block content %}
 <script>
 // Highlight and scroll to approved plans if navigated with #approved-plans
 function checkApprovedPlansHash() {
@@ -20,10 +22,6 @@ function checkApprovedPlansHash() {
 window.addEventListener('DOMContentLoaded', checkApprovedPlansHash);
 window.addEventListener('hashchange', checkApprovedPlansHash);
 </script>
-
-{% endblock %}
-
-{% block content %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 async function editPlanNote(planId, currentNote) {

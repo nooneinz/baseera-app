@@ -85,6 +85,28 @@ class BaseeraViewsTests(TestCase):
         response = self.client.get(reverse("datasets"))
         self.assertEqual(response.status_code, 200)
 
+    def test_datasets_page_title_tag_does_not_leak_a_script_block(self):
+        """
+        Regression test: datasets.html's {% block title %} was missing its
+        {% endblock %}, so it silently swallowed the page's next <script>
+        block all the way up to the following {% endblock %} -- the
+        rendered <title> literally contained the script source, which
+        browsers show as truncated garbage in the tab ("My Documents
+        <sc..."), and the script itself never actually ran since it ended
+        up inert inside <title> instead of the page body.
+        """
+        import re
+
+        self.client.login(username="analyst_test", password="SecurePassword123!")
+        response = self.client.get(reverse("datasets"))
+        html = response.content.decode("utf-8")
+        title_match = re.search(r"<title>(.*?)</title>", html, re.S)
+        self.assertIsNotNone(title_match)
+        self.assertNotIn("<script", title_match.group(1))
+        # The script must still be present (and now actually runnable) in
+        # the page body, not deleted outright.
+        self.assertIn("checkApprovedPlansHash", html)
+
     def test_reports_page_authenticated(self):
         self.client.login(username="analyst_test", password="SecurePassword123!")
         response = self.client.get(reverse("reports"))
