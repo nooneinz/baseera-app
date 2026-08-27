@@ -30,9 +30,21 @@ CATEGORY_KEYWORDS = {
 
 _TOKEN_RE = re.compile(r'[\w؀-ۿ]+', re.UNICODE)
 
+# The Arabic Unicode block (؀-ۿ, U+0600-U+06FF) used above to catch Arabic
+# letters also covers Arabic-specific PUNCTUATION in that same range --
+# notably the Arabic question mark (؟), comma (،) and semicolon (؛). Since
+# Arabic questions are almost always written with "؟" attached directly to
+# the last word with no space (e.g. "...الإيرادات؟"), _TOKEN_RE was
+# swallowing it into that word's own token ("الإيرادات؟"), which then never
+# exact-matched the clean "الإيرادات" keyword stored in FileSheetMetadata --
+# silently breaking retrieval for the last word of nearly every Arabic
+# question. Stripped out before tokenizing so it can never attach.
+_ARABIC_PUNCTUATION_RE = re.compile(r'[،؛؟٪ـ]')
+
 
 def _tokenize(text):
-    return {t for t in _TOKEN_RE.findall(str(text).lower()) if len(t) > 1}
+    cleaned = _ARABIC_PUNCTUATION_RE.sub(' ', str(text))
+    return {t for t in _TOKEN_RE.findall(cleaned.lower()) if len(t) > 1}
 
 
 def classify_sheet(sheet_name, columns):
