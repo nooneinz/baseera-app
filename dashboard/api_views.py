@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 from django.core.cache import cache
 
 @login_required
-@csrf_exempt
 def live_sync_api(request):
     if request.method == "POST":
         idem_key = request.headers.get("Idempotency-Key")
@@ -424,7 +423,6 @@ def mobile_toggle_user_status(request):
     return JsonResponse({"status": "invalid_method"}, status=405)
 
 @login_required
-@csrf_exempt
 @rate_limit(requests_per_minute=20, key_prefix="save_file")
 def save_file_api(request):
     if request.method == "POST":
@@ -466,7 +464,6 @@ def save_file_api(request):
     return JsonResponse({"status": "invalid_method"}, status=405)
 
 @login_required
-@csrf_exempt
 def workspace_files_api(request):
     if request.method == "GET":
         try:
@@ -631,7 +628,6 @@ def api_mobile_export_note(request):
     return JsonResponse({"status": "invalid_method"}, status=405)
 
 @login_required
-@csrf_exempt
 def update_plan_note_api(request, plan_id):
     if request.method == "POST":
         try:
@@ -763,7 +759,6 @@ def download_plan_api(request, plan_id):
         return HttpResponse(f"Error downloading file: {str(e)}", status=500)
 
 @login_required
-@csrf_exempt
 def delete_plan_api(request, plan_id):
     if request.method == "POST" or request.method == "DELETE":
         try:
@@ -791,6 +786,11 @@ def delete_plan_api(request, plan_id):
     return JsonResponse({"status": "invalid_method"}, status=405)
 
 
+# Justified exception: this view never mutates any state (it only reads
+# and aggregates the requesting user's own DynamicRecord rows, scoped by
+# request.user, into chart data -- there is no .save()/.create()/.delete()
+# anywhere in it), so a forged cross-site POST here has nothing to make it
+# do that CSRF protection exists to prevent.
 @csrf_exempt
 def charts_engine_api(request):
     """

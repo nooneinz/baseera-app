@@ -195,7 +195,20 @@ def social_login_dummy(request, provider):
     try:
         user = User.objects.get(username=username)
     except User.DoesNotExist:
-        user = User.objects.create_user(username=username, email=email, password="social_password")
+        # Security: this is a demo/placeholder social-login stand-in (no
+        # real Google/Facebook OAuth verification happens here) that maps
+        # every visitor for a given provider onto one shared account. It
+        # previously set a real, hardcoded password ("social_password")
+        # on that account -- since Django's normal username/password
+        # login form is not restricted to this flow, anyone who saw this
+        # string in the source could log into the shared account directly
+        # through the regular login form, bypassing this view entirely.
+        # set_unusable_password() keeps the demo redirect working exactly
+        # as before while making that account impossible to authenticate
+        # via a password at all.
+        user = User.objects.create_user(username=username, email=email)
+        user.set_unusable_password()
+        user.save()
         Profile.objects.create(
             user=user,
             company_name=f"{provider.capitalize()} User",
@@ -2580,7 +2593,13 @@ def export_note_report(request):
     company_name = profile.company_name or user.username
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    lang = request.GET.get("lang") or request.session.get("django_language") or "ar"
+    # Bug: this read request.session.get("django_language") -- a session
+    # key this app never actually sets (its own language switch, see
+    # context_processors.py, stores the choice under "lang"). That meant
+    # this report always fell through to the "ar" default regardless of
+    # the user's real language selection, unless the caller happened to
+    # pass ?lang= explicitly. Matches the convention used everywhere else.
+    lang = request.GET.get("lang") or request.session.get("lang") or request.COOKIES.get("lang", "ar")
     is_ar = (lang == "ar")
 
     file_id = request.GET.get("file_id")

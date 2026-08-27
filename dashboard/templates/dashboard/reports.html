@@ -129,9 +129,23 @@ function closeExportModal() {
     document.getElementById('exportModal').classList.add('hidden');
 }
 
+// Bug fix: per-file download buttons pass {{ file.excel_file.name }},
+// which is the FileField's raw storage path (e.g.
+// "excel_files/Bank_Statement_Mock_Oman_Baseera.pdf"), not a clean
+// display name. The backend's filename sanitizer strips any character
+// that isn't a word char/space/dash -- including the "/" and the "."
+// before the extension -- which silently collapsed that whole path into
+// one garbled run of characters ("excel_filesBank_Statement_Mock_Oman_
+// Baseerapdf"). Stripping the directory and extension here first gives
+// the backend a real name to work with.
+function cleanDownloadName(fileName) {
+    const base = (fileName || 'report').split('/').pop();
+    return base.replace(/\.[^./]+$/, '');
+}
+
 // Function 1: Download Dynamic OpenPyXL Multi-Sheet Excel (.xlsx)
 function downloadExcelReport(fileName, fileId) {
-    const safeName = encodeURIComponent(fileName);
+    const safeName = encodeURIComponent(cleanDownloadName(fileName));
     let url = `/export-excel/?filename=${safeName}`;
     if (fileId) {
         url += `&file_id=${fileId}`;
@@ -141,7 +155,7 @@ function downloadExcelReport(fileName, fileId) {
 
 // Function 2: Generate & Download Text Note (.txt)
 function downloadNoteReport(fileName, fileId) {
-    const safeName = encodeURIComponent(fileName);
+    const safeName = encodeURIComponent(cleanDownloadName(fileName));
     let url = `/export-note/?filename=${safeName}`;
     if (fileId) {
         url += `&file_id=${fileId}`;

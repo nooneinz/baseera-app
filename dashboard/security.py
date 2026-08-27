@@ -169,6 +169,30 @@ def issue_access_token(user):
 
 
 def token_required(view_func):
+    """
+    Dual-mode auth for the mobile API surface: a real Bearer token, or (see
+    below) a fallback to an existing web session.
+
+    CSRF note for every dashboard.api_views view wrapped in this decorator:
+    they all still carry @csrf_exempt, and that split IS the documented,
+    technically justified exception -- a stateless Bearer-token client (the
+    mobile app) never holds the ambient browser cookies CSRF attacks rely
+    on, and it has no CSRF-token machinery to send one even if asked
+    (Django's CSRF middleware would otherwise reject every legitimate
+    mobile request outright, since no csrftoken cookie exists for it to
+    validate against). Removing @csrf_exempt from these views to fix the
+    session-fallback gap below would break the real mobile app in
+    production; that is not an oversight, it is why this exemption stays.
+
+    Known, tracked residual gap: the session-cookie fallback one line down
+    means a user who is ALSO logged into the web session is not CSRF-
+    protected on these same endpoints while authenticated that way. Closing
+    that properly needs splitting this into two decorators (a strict
+    Bearer-only one for the mobile views, session auth kept CSRF-protected
+    separately) rather than a blanket exemption removal -- a real
+    architectural change, intentionally out of scope for this pass rather
+    than risking mobile app breakage to rush it.
+    """
     @wraps(view_func)
     def _wrapped(request, *args, **kwargs):
         # Allow already authenticated web users (Session/Cookie)
