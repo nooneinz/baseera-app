@@ -366,7 +366,10 @@ async function saveCustomAgent(e) {
     try {
         const res = await fetch('/api/custom-agents/create/', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
             body: JSON.stringify(payload)
         });
         const data = await res.json();
@@ -390,9 +393,12 @@ async function deleteCustomAgent(agentId) {
         : 'Are you sure you want to delete this custom agent?';
     if (!confirm(confirmMsg)) return;
     try {
-        const res = await fetch(`/api/custom-agents/${agentId}/delete/`, {
+        const res = await fetch(`/api/custom-agents/delete/${agentId}/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
         });
         const data = await res.json();
         if (data.status === 'success') {

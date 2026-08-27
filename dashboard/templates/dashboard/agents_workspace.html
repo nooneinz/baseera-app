@@ -296,7 +296,10 @@
         try {
             const response = await fetch('/api/dynamic-chat/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
                 body: JSON.stringify({
                     messages: [{ role: 'user', content: text }],
                     agent_id: targetAgent
