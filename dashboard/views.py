@@ -503,12 +503,32 @@ def process_excel_to_db(project_file, user, accepted_sheets=None, extracted_rows
                 AnomalyDetector.detect_anomalies(records_json, user, project_file)
             except Exception as an_err:
                 print(f"Anomaly detection error: {an_err}")
-            try:
-                from .services.ai_service import GeminiAIService
-                sample_str = json.dumps(records_json[:100], ensure_ascii=False)
-                GeminiAIService().generate_weekly_digest_for_user(sample_str, user)
-            except Exception as digest_err:
-                print(f"Digest generation error: {digest_err}")
+
+            # Speed: this used to call the live Gemini API and wait for the
+            # full response INSIDE the upload request itself, so every
+            # upload -- regardless of which page it came from -- blocked
+            # on a real network round trip before the user got any
+            # response at all. The deterministic work above (bulk_create,
+            # anomaly detection) is what the upload response actually
+            # needs; the AI-narrated Business Pulse digest is exactly the
+            # kind of supplementary narration the rest of this codebase
+            # already treats as async-safe (see the /datasets/ upload
+            # view's own bg_ai_tasks thread) -- backgrounding it here does
+            # not change what the Decision Platform ends up showing, only
+            # how long the upload itself takes to respond.
+            import threading
+
+            def _generate_digest_in_background(sample_str, target_user):
+                try:
+                    from .services.ai_service import GeminiAIService
+                    GeminiAIService().generate_weekly_digest_for_user(sample_str, target_user)
+                except Exception as digest_err:
+                    print(f"Digest generation error: {digest_err}")
+
+            sample_str = json.dumps(records_json[:100], ensure_ascii=False)
+            threading.Thread(
+                target=_generate_digest_in_background, args=(sample_str, user), daemon=True,
+            ).start()
         return True, None
     except Exception as e:
         error_details = str(e)
@@ -1188,14 +1208,13 @@ def datasets(request):
                         message=insight,
                         type=notif_type
                     )
-                    
-                    # Generate Dynamic Business Pulse Digest
-                    try:
-                        df_sample = df.head(100).to_dict(orient='records')
-                        sample_str = json.dumps(df_sample, ensure_ascii=False)
-                        ai_service.generate_weekly_digest_for_user(sample_str, user)
-                    except Exception as digest_err:
-                        print(f"Error generating dynamic digest: {digest_err}")
+                    # Note: the Business Pulse digest is no longer
+                    # generated here -- process_excel_to_db() (called
+                    # earlier in this same request, before this thread
+                    # even started) already generates it in its own
+                    # background thread for every caller. Doing it again
+                    # here was a redundant second live Gemini call for the
+                    # same digest on every upload.
                 else:
                     Notification.objects.create(
                         user=user,
