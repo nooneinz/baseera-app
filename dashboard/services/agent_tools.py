@@ -46,6 +46,64 @@ MAX_REACT_ITERATIONS = 3
 # what the model requests.
 _TOOL_NAMES = {"run_python_code", "create_notification", "save_memory"}
 
+# Latency gate: the pre-loop costs at least one extra live round trip
+# before the final answer even starts streaming, so it's only worth
+# paying for when the message plausibly needs one of the three tools --
+# an ordinary analytical question doesn't need Python executed on its
+# behalf; the file context/deterministic signals it needs are already in
+# the prompt. Deliberately narrow, matching the same keyword-gate
+# convention already used in orchestrator.py, so most turns pay zero
+# added latency and never touch this module at all.
+_REACT_TRIGGER_TERMS = [
+    "احسب", "احسبي", "احسبلي", "احسبها", "نفذ كود", "شغل كود", "شغّل كود",
+    "calculate", "compute", "run this code", "run code", "run python",
+    "احفظ", "تذكر هذا", "تذكري هذا", "لاحظ هذا",
+    "remember this", "save this note", "note this down",
+    "ذكرني", "ذكريني", "نبهني", "نبهيني",
+    "remind me", "notify me", "alert me",
+]
+
+
+def should_attempt_react(message_text):
+    """Cheap, deterministic gate deciding whether the ReAct pre-loop is
+    worth its extra round trip for this message at all."""
+    text = (message_text or "").lower()
+    return any(term in text for term in _REACT_TRIGGER_TERMS)
+
+
+def _finalize(working_prompt, tool_was_used, lang):
+    """
+    The tool trace above was appended mid-completion (right after the
+    prompt's own "model: " cue), so without this the model would often
+    just continue completing in that same bracketed/technical shape --
+    echoing the raw code or tool call back to the user instead of
+    switching into its normal final answer. This explicitly tells it the
+    trace was internal, and re-opens a clean "model: " turn so it answers
+    the same way it always does when no tool was involved at all.
+    """
+    if not tool_was_used:
+        return working_prompt
+    if lang == "ar":
+        closing = (
+            "\n\n[ملاحظة نظام: عمليات استدعاء الأداة والنتائج (Observation) أعلاه "
+            "جرت بشكل داخلي وصامت تماماً -- المستخدم لم ير أي كود أو JSON أو اسم "
+            "أداة، ويجب ألا يراها أبداً. باستخدام الأرقام/النتائج الحقيقية الواردة "
+            "أعلاه فقط، اكتب الآن ردك النهائي المعتاد بنفس الشخصية والنبرة وقواعد "
+            "التنسيق المعروفة لديك. يُمنع تماماً كتابة أي كود أو تكرار استدعاء "
+            "الأداة أو الـ JSON الخام في ردك.]\n\nmodel: "
+        )
+    else:
+        closing = (
+            "\n\n[System note: the tool call(s) and Observation(s) above "
+            "happened silently in the background -- the user has not seen "
+            "any code, JSON, or tool name, and must never see them. Using "
+            "only the real numbers/results from the Observations above, "
+            "write your normal final answer now, in your usual persona, "
+            "tone, and formatting rules. Never include a code block or "
+            "repeat the raw tool call/output in your answer.]\n\nmodel: "
+        )
+    return working_prompt + closing
+
 
 def _run_python_tool(code):
     """
@@ -200,6 +258,7 @@ def run_react_preloop(ai_service, prompt, user_id, model, lang="ar", on_state=No
 
     tool = build_agent_tools()
     working_prompt = prompt
+    tool_was_used = False
 
     for _ in range(max_iterations):
         try:
@@ -210,11 +269,11 @@ def run_react_preloop(ai_service, prompt, user_id, model, lang="ar", on_state=No
             )
         except Exception as e:
             logger.info("ReAct pre-loop call failed, proceeding without tools: %s", e)
-            return working_prompt
+            return _finalize(working_prompt, tool_was_used, lang)
 
         candidates = getattr(response, "candidates", None) or []
         if not candidates:
-            return working_prompt
+            return _finalize(working_prompt, tool_was_used, lang)
         content = getattr(candidates[0], "content", None)
         parts = getattr(content, "parts", None) or []
 
@@ -227,7 +286,7 @@ def run_react_preloop(ai_service, prompt, user_id, model, lang="ar", on_state=No
         if function_call_part is None:
             # Reflection: the model didn't ask for a tool this turn --
             # nothing more to do, hand back to the normal streaming call.
-            return working_prompt
+            return _finalize(working_prompt, tool_was_used, lang)
 
         name = function_call_part.name
         args = dict(function_call_part.args or {})
@@ -235,7 +294,7 @@ def run_react_preloop(ai_service, prompt, user_id, model, lang="ar", on_state=No
             # Hard constraint, not a soft check: only these three tools
             # are ever executed, no matter what the model asks for.
             logger.warning("ReAct pre-loop: model requested unknown/disallowed tool %s -- ignored", name)
-            return working_prompt
+            return _finalize(working_prompt, tool_was_used, lang)
 
         note(
             f"AGENT_LOG: {'الوكيل ينفذ إجراءً مستقلاً (' + name + ')...' if lang == 'ar' else 'Agent is autonomously running a tool (' + name + ')...'}"
@@ -252,11 +311,12 @@ def run_react_preloop(ai_service, prompt, user_id, model, lang="ar", on_state=No
         else:
             observation = "Tool not available."
 
+        tool_was_used = True
         working_prompt = (
             working_prompt
-            + f"\n\n[Thought: considering whether to call {name}]"
-            + f"\n[Action: {name}({json.dumps(args, ensure_ascii=False)})]"
-            + f"\n[Observation: {observation}]\n"
+            + "\n\n[Internal tool call -- not shown to the user]"
+            + f"\nAction: {name}({json.dumps(args, ensure_ascii=False)})"
+            + f"\nObservation: {observation}\n"
         )
 
-    return working_prompt
+    return _finalize(working_prompt, tool_was_used, lang)

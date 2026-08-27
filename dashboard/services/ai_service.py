@@ -6,7 +6,7 @@ import queue
 from dotenv import load_dotenv
 from google import genai
 
-from dashboard.services.agent_tools import run_react_preloop
+from dashboard.services.agent_tools import run_react_preloop, should_attempt_react
 
 load_dotenv()
 
@@ -437,15 +437,24 @@ When you need to show numbers or trends, generate a JSON block formatted exactly
                     # doesn't change. See agent_tools.py for the hard
                     # constraint this enforces. Never blocks the final
                     # answer: any failure just means no tool ran.
-                    q.put('<agent_state>' + (
-                        'يقيّم الوكيل ما إذا كان يحتاج تنفيذ إجراء مستقل (كود، تذكير، حفظ ذاكرة) قبل الرد...'
-                        if lang == 'ar' else
-                        'Agent is assessing whether it needs to autonomously run a tool (code, reminder, memory) before answering...'
-                    ) + '</agent_state>')
-                    current_prompt = run_react_preloop(
-                        self, current_prompt, user_id, GEMINI_MODEL, lang=lang,
-                        on_state=lambda msg: q.put(msg),
-                    )
+                    #
+                    # Gated behind should_attempt_react(): this costs a real
+                    # extra round trip before the final answer even starts
+                    # streaming, so it's skipped outright (zero added
+                    # latency) unless the message plausibly needs one of
+                    # the three tools -- an ordinary analytical question
+                    # doesn't need Python run on its behalf.
+                    last_user_msg_for_react = messages_list[-1]['content'] if messages_list else prompt
+                    if should_attempt_react(last_user_msg_for_react):
+                        q.put('<agent_state>' + (
+                            'يقيّم الوكيل ما إذا كان يحتاج تنفيذ إجراء مستقل (كود، تذكير، حفظ ذاكرة) قبل الرد...'
+                            if lang == 'ar' else
+                            'Agent is assessing whether it needs to autonomously run a tool (code, reminder, memory) before answering...'
+                        ) + '</agent_state>')
+                        current_prompt = run_react_preloop(
+                            self, current_prompt, user_id, GEMINI_MODEL, lang=lang,
+                            on_state=lambda msg: q.put(msg),
+                        )
 
                 stream = self.client.models.generate_content_stream(
                     model=GEMINI_MODEL,
