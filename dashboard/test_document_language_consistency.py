@@ -100,3 +100,41 @@ class AutoSaveDocumentLanguageConsistencyTests(TestCase):
         response = self._auto_save("en", title="My Custom Title")
         data = response.json()
         self.assertEqual(data["title"], "My Custom Title")
+
+
+class ExportNoteReportLanguageConsistencyTests(TestCase):
+    """
+    Regression test for a reported bug: the /export-note/ text report
+    always came back in Arabic regardless of the app's language setting.
+    Root cause: it read request.session.get("django_language") -- a
+    session key this app never actually sets (its own language switch,
+    see context_processors.py, stores the choice under "lang") -- so it
+    always fell through to the "ar" default.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="note_report_lang_user", password="pw123456")
+        self.client.login(username="note_report_lang_user", password="pw123456")
+
+    def _set_session_lang(self, lang):
+        session = self.client.session
+        session["lang"] = lang
+        session.save()
+
+    def test_english_session_lang_produces_an_english_report_with_no_query_param(self):
+        self._set_session_lang("en")
+        response = self.client.get("/export-note/")
+        text = response.content.decode("utf-8")
+        self.assertIn("Baseera Executive Intelligence Report", text)
+        self.assertNotIn("تقرير منصة بصيرة للذكاء المالي", text)
+
+    def test_arabic_session_lang_produces_an_arabic_report_with_no_query_param(self):
+        self._set_session_lang("ar")
+        response = self.client.get("/export-note/")
+        text = response.content.decode("utf-8")
+        self.assertIn("تقرير منصة بصيرة للذكاء المالي", text)
+        # The Arabic report deliberately keeps an English subtitle under
+        # the Arabic title, so check the actual body sections (which are
+        # genuinely language-exclusive) rather than that shared line.
+        self.assertIn("ملخص الأداء العام والمؤشرات المالية", text)
+        self.assertNotIn("Executive Performance Summary", text)

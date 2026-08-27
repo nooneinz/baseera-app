@@ -74,6 +74,28 @@ class CsrfProtectionEnforcedTests(TestCase):
         response = self._post_without_token("/api/committee/save-thread/", {})
         self.assertEqual(response.status_code, 403)
 
+    def test_live_sync_rejects_a_request_with_no_csrf_token(self):
+        response = self._post_without_token("/api/live-sync/", {"type": "decision", "title": "x"})
+        self.assertEqual(response.status_code, 403)
+
+    def test_save_file_rejects_a_request_with_no_csrf_token(self):
+        response = self._post_without_token("/api/save_file/", {"file_path": "x.txt", "content": "x"})
+        self.assertEqual(response.status_code, 403)
+
+    def test_update_plan_note_rejects_a_request_with_no_csrf_token(self):
+        from dashboard.models import ApprovedPlan
+
+        plan = ApprovedPlan.objects.create(user=self.user, file_name="Plan", file_path="")
+        response = self._post_without_token(f"/api/approved-plans/{plan.id}/update-note/", {"note": "x"})
+        self.assertEqual(response.status_code, 403)
+
+    def test_delete_plan_rejects_a_request_with_no_csrf_token(self):
+        from dashboard.models import ApprovedPlan
+
+        plan = ApprovedPlan.objects.create(user=self.user, file_name="Plan", file_path="")
+        response = self._post_without_token(f"/api/approved-plans/{plan.id}/delete/", {})
+        self.assertEqual(response.status_code, 403)
+
     def test_a_request_carrying_the_real_csrf_token_is_accepted(self):
         """
         Positive control: this isn't just "everything 403s" -- a request

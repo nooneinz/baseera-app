@@ -1125,7 +1125,7 @@
                                     
                                     fetch('/api/live-sync/', {
                                         method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
+                                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
                                         body: JSON.stringify({ type: 'chart', chart_type: w.type, title: w.title, labels: aggregated.labels, data: aggregated.data })
                                     }).catch(e => console.error(e));
 
@@ -2254,7 +2254,7 @@
             const content = decodeURIComponent(escape(atob(b64Content)));
             const res = await fetch('/api/save_file/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
                 body: JSON.stringify({ file_path: path, content: content, justification: "" })
             });
             const data = await res.json();
@@ -2288,7 +2288,7 @@
         sendMessage();
         fetch('/api/live-sync/', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
             body: JSON.stringify({ type: 'decision', title: title })
         }).catch(e => console.error(e));
     }
