@@ -28,6 +28,7 @@ import logging
 from decimal import Decimal
 
 from dashboard.services.ai_service import GEMINI_MODEL
+from dashboard.security import sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -343,7 +344,7 @@ def analyze_waste(rows, ai_service=None, lang="ar", company_profile=None):
 
 فيما يلي مؤشرات هدر مالي **مستخرجة حسابياً وموثقة** من ملف بيانات رفعه صاحب المنشأة:
 
-{json.dumps(computed['signals'], ensure_ascii=False, indent=2)}
+{json.dumps(sanitize_for_prompt(computed['signals']), ensure_ascii=False, indent=2)}
 
 إجمالي الهدر المحسوب: {computed['total_waste']:,.2f}
 {profile_context}

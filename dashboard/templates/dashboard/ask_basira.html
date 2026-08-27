@@ -358,6 +358,11 @@
 
         <!-- Main Chat Area -->
         <main class="flex-1 flex flex-col glass rounded-3xl p-6 min-h-0 relative shadow-xl overflow-hidden">
+            <!-- AI engine health notice (Task 3: no silent fallbacks) -->
+            <div id="aiHealthBanner" class="hidden mb-3 flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 px-4 py-2.5 text-xs font-bold text-amber-800 dark:text-amber-300" dir="{% if trans.lang_code == 'ar' %}rtl{% else %}ltr{% endif %}">
+                <i data-lucide="alert-triangle" class="h-4 w-4 shrink-0"></i>
+                <span>{% if trans.lang_code == 'ar' %}محرك الذكاء الاصطناعي الحي غير متاح حالياً — قد تكون الردود الحالية تحليلاً احتياطياً مبنياً على قواعد وليست تحليلاً حياً.{% else %}The live AI engine is currently unavailable — responses may be a rule-based fallback analysis, not a live AI-generated one.{% endif %}</span>
+            </div>
             <!-- Messages scroll view -->
             <div id="chatMessages" class="flex-1 overflow-y-auto pr-2 space-y-4 mb-4" dir="{% if trans.lang_code == 'ar' %}rtl{% else %}ltr{% endif %}">
 
@@ -990,7 +995,7 @@
                     agentBlocks.forEach(b => {
                         let blockText = b.content;
                         // Clean logs/states
-                        blockText = blockText.replace(/(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|<agent_state>)/g, '').trim();
+                        blockText = blockText.replace(/(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:|<agent_state>)/g, '').trim();
                         blockText = blockText.replace(/<agent_state>([\s\S]*?)<\/agent_state>/g, '').trim();
                         blockText = blockText.replace(/```json\s*([\s\S]*?)(```|$)/g, '').trim();
                         blockText = blockText.replace(/<file_proposal>([\s\S]*?)<\/file_proposal>/g, '').trim();
@@ -1014,7 +1019,7 @@
                     let displayReply = rawContent;
                     let logsHtml = "";
                     let hasLogs = false;
-                    const oldLogRegex = /(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|<agent_state>)/g;
+                    const oldLogRegex = /(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:|<agent_state>)/g;
                     let logMatch;
                     while ((logMatch = oldLogRegex.exec(displayReply)) !== null) {
                         const tag = logMatch[1];
@@ -1026,10 +1031,16 @@
                         } else if ((tag === 'STATUS___:' || tag === 'STATUS:') && logTxt && logTxt !== 'DONE') {
                             logsHtml += `<div class="text-[10px] text-slate-500 font-medium italic flex items-center gap-2"><i data-lucide="loader-2" class="h-3 w-3"></i>${logTxt}</div>`;
                             hasLogs = true;
+                        } else if (tag === 'AI_DEGRADED:') {
+                            // This reply was a rule-based fallback, not a live AI
+                            // generation -- say so plainly instead of letting it
+                            // pass as ordinary AI output.
+                            logsHtml += `<div class="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2"><i data-lucide="alert-triangle" class="h-3.5 w-3.5"></i>{% if trans.lang_code == 'ar' %}تم إنشاء هذا الرد كتحليل احتياطي بينما كان محرك الذكاء الاصطناعي الحي غير متاح{% else %}This reply was generated as a rule-based fallback while the live AI engine was unavailable{% endif %}</div>`;
+                            hasLogs = true;
                         }
                     }
 
-                    displayReply = displayReply.replace(/(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|<agent_state>)/g, '').trim();
+                    displayReply = displayReply.replace(/(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:|<agent_state>)/g, '').trim();
                     const stateRegex = /<agent_state>([\s\S]*?)<\/agent_state>/g;
                     let stateMatch;
                     while ((stateMatch = stateRegex.exec(displayReply)) !== null) {
@@ -1298,7 +1309,27 @@
         }
     }
 
+    // Task 3: active health check against the real Gemini model, so a
+    // down/misconfigured AI engine shows a visible notice up front instead
+    // of the user only finding out once a reply quietly turns into a
+    // rule-based fallback.
+    function showAiDegradedBanner() {
+        const banner = document.getElementById('aiHealthBanner');
+        if (banner) banner.classList.remove('hidden');
+    }
+    async function checkAiHealth() {
+        try {
+            const res = await fetch('/api/ai/health/');
+            const data = await res.json();
+            if (!data.available) showAiDegradedBanner();
+        } catch (e) {
+            // Network/parse failure isn't proof the AI is down -- stay silent
+            // rather than risk a false alarm.
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
+        checkAiHealth();
         const fileInput = document.getElementById('chatFileInput');
         if (fileInput) {
             fileInput.addEventListener('change', (e) => {
@@ -1522,6 +1553,7 @@
             let fullReply = "";
             let renderedAgents = {}; // aid -> { cardId, contentEl }
             let currentStreamAgentId = null;
+            let aiDegradedShown = false;
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder("utf-8");
@@ -1554,7 +1586,7 @@
 
                                     // Extract logs
                                     let addedLogs = false;
-                                    const oldLogRegex = /(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|<agent_state>)/g;
+                                    const oldLogRegex = /(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:|<agent_state>)/g;
                                     let streamLogMatch;
                                     while ((streamLogMatch = oldLogRegex.exec(fullReply)) !== null) {
                                         const tag = streamLogMatch[1];
@@ -1564,6 +1596,11 @@
                                             addedLogs = true;
                                         } else if ((tag === 'STATUS___:' || tag === 'STATUS:') && msg && msg !== 'DONE' && !logsContainer.innerHTML.includes(msg)) {
                                             logsContainer.innerHTML += `<div class="text-[10px] text-slate-500 font-medium italic flex items-center gap-2"><i data-lucide="loader-2" class="h-3 w-3 animate-spin"></i>${msg}</div>`;
+                                            addedLogs = true;
+                                        } else if (tag === 'AI_DEGRADED:' && !aiDegradedShown) {
+                                            aiDegradedShown = true;
+                                            showAiDegradedBanner();
+                                            logsContainer.innerHTML += `<div class="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2"><i data-lucide="alert-triangle" class="h-3.5 w-3.5"></i>{% if trans.lang_code == 'ar' %}الرد التالي تحليل احتياطي وليس تحليلاً حياً{% else %}The following reply is a rule-based fallback, not a live AI generation{% endif %}</div>`;
                                             addedLogs = true;
                                         }
                                     }
@@ -1641,7 +1678,7 @@
                                                     const cardContent = document.getElementById(`${agentInfo.cardId}-content`);
                                                     if (cardContent) {
                                                         let cleanBlock = b.content;
-                                                        cleanBlock = cleanBlock.replace(/(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|<agent_state>)/g, '').trim();
+                                                        cleanBlock = cleanBlock.replace(/(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:|<agent_state>)/g, '').trim();
                                                         cleanBlock = cleanBlock.replace(/<agent_state>[\s\S]*?(<\/agent_state>|$)/g, '').trim();
                                                         cleanBlock = cleanBlock.replace(/```json[\s\S]*?(```|$)/g, '').trim();
                                                         cleanBlock = cleanBlock.replace(/<file_proposal>[\s\S]*?(<\/file_proposal>|$)/g, '').trim();
@@ -1655,7 +1692,7 @@
                                     } else {
                                         // Single Agent mode
                                         let displayReply = fullReply;
-                                        displayReply = displayReply.replace(/(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|<agent_state>)/g, '').trim();
+                                        displayReply = displayReply.replace(/(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:|<agent_state>)/g, '').trim();
                                         displayReply = displayReply.replace(/<agent_state>[\s\S]*?(<\/agent_state>|$)/g, '').trim();
                                         displayReply = displayReply.replace(/```json[\s\S]*?(```|$)/g, '').trim();
                                         displayReply = displayReply.replace(/<file_proposal>[\s\S]*?(<\/file_proposal>|$)/g, '').trim();
@@ -1689,7 +1726,7 @@
 
             // Stream completed
             // Clean history so the LLM doesn't see old status tags and mimic them
-            let cleanHistoryReply = fullReply.replace(/(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|<agent_state>)/g, '').trim();
+            let cleanHistoryReply = fullReply.replace(/(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:|<agent_state>)/g, '').trim();
             cleanHistoryReply = cleanHistoryReply.replace(/<agent_state>([\s\S]*?)<\/agent_state>/g, '').trim();
 
             chatHistory.push({ role: "assistant", content: cleanHistoryReply });
@@ -1886,11 +1923,22 @@
                     : "{% if trans.lang_code == 'ar' %}خطأ: تعذر الاتصال بـ \"بصيرة\". يرجى التأكد من تشغيل خادم الواجهة الخلفية (Back-End) والمحاولة مرة أخرى.{% else %}Error: Unable to connect to \"Basira\". Make sure the Back-End server is running and try again.{% endif %}"}
                 </p>
                 <p class="text-[11px] text-red-500/80 mt-1 font-mono">${error.message}</p>
+                <button type="button" class="retry-send-btn mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-red-700 dark:text-red-300 hover:underline">
+                    <i data-lucide="refresh-cw" class="h-3 w-3"></i>
+                    {% if trans.lang_code == 'ar' %}إعادة المحاولة{% else %}Retry{% endif %}
+                </button>
             </div>
         `;
             messages.appendChild(errDiv);
             messages.scrollTop = messages.scrollHeight;
             if (typeof lucide !== 'undefined') lucide.createIcons();
+            // Task 6: let the user retry the exact same message with one
+            // click instead of retyping it after a dropped/failed stream.
+            errDiv.querySelector('.retry-send-btn').addEventListener('click', () => {
+                errDiv.remove();
+                input.value = text;
+                sendMessage();
+            });
         }
     }
 

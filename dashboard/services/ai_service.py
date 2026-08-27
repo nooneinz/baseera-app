@@ -412,6 +412,11 @@ When you need to show numbers or trends, generate a JSON block formatted exactly
                     q.put('<agent_state>جاري استحضار المؤشرات الحيوية وتحليل البيانات...</agent_state>')
                     q.put('<agent_state>يقوم بوضع خطة عمل تنفيذية واستراتيجية...</agent_state>')
                     last_user_msg = messages_list[-1]['content'] if messages_list else prompt
+                    # Task 3: never present rule-based fallback text as if it
+                    # were live AI output -- this marker lets the frontend
+                    # render a visible "degraded" notice instead of staying
+                    # silent about it.
+                    q.put('AI_DEGRADED:1')
                     fallback_text = self._generate_smart_fallback_text(last_user_msg, user_id=user_id, agent_meta=agent_meta, lang=lang)
                     q.put(fallback_text)
                     q.put('\n<div class="agent-tool-call mt-3 inline-block bg-[var(--glow)]/10 border border-[var(--glow)]/30 text-[var(--glow)] font-bold px-4 py-2 rounded-xl cursor-pointer hover:bg-[var(--glow)]/20 transition-all text-sm" onclick="executeAgentAction(this, \'UPDATE_DECISION_METRIC|strategy|active|improving\')"><i class="fa-solid fa-bolt me-2"></i>تطبيق التوصية في منصة القرارات</div>\n')
@@ -517,6 +522,7 @@ When you need to show numbers or trends, generate a JSON block formatted exactly
                 print(f"Notice: AI engine streaming fallback: {e}")
                 q.put('<agent_state>يقوم بوضع خطة عمل تنفيذية واستراتيجية...</agent_state>')
                 last_user_msg = messages_list[-1]['content'] if messages_list else prompt
+                q.put('AI_DEGRADED:1')
                 fallback_text = self._generate_smart_fallback_text(last_user_msg, user_id=user_id, agent_meta=agent_meta, lang=lang)
                 q.put(fallback_text)
                 q.put('\n<div class="agent-tool-call mt-3 inline-block bg-[var(--glow)]/10 border border-[var(--glow)]/30 text-[var(--glow)] font-bold px-4 py-2 rounded-xl cursor-pointer hover:bg-[var(--glow)]/20 transition-all text-sm" onclick="executeAgentAction(this, \'UPDATE_DECISION_METRIC|strategy|active|improving\')"><i class="fa-solid fa-bolt me-2"></i>تطبيق التوصية في منصة القرارات</div>\n')
@@ -763,6 +769,7 @@ Requirements:
                         aid_name = meta.get('name', 'الوكيل')
                         aid_id = meta.get('id', 'agent')
                         q.put(f"<agent_state>({aid_name}) يقوم بإعداد المداخلة المتخصصة...</agent_state>")
+                        q.put('AI_DEGRADED:1')
                         agent_text_accum = self._generate_smart_fallback_text(last_user_msg, user_id=user_id, agent_meta=meta)
                         q.put(agent_text_accum)
                         action_btn = f'\n<div class="agent-tool-call mt-3 inline-block bg-[var(--glow)]/10 border border-[var(--glow)]/30 text-[var(--glow)] font-bold px-4 py-2 rounded-xl cursor-pointer hover:bg-[var(--glow)]/20 transition-all text-sm" onclick="executeAgentAction(this, \'UPDATE_DECISION_METRIC|{aid_id}_plan|active|improving\')"><i class="fa-solid fa-bolt me-2"></i>تطبيق توصية {aid_name} في منصة القرارات</div>\n'
@@ -851,6 +858,7 @@ Requirements:
                 except Exception as e:
                     print(f"Notice: Committee agent fallback: {e}")
                     last_user_msg = messages_list[-1]['content'] if messages_list else ""
+                    q.put('AI_DEGRADED:1')
                     fallback_text = self._generate_smart_fallback_text(last_user_msg, user_id=user_id, agent_meta=meta, lang=lang)
                     q.put(fallback_text)
                     committee_transcript.append({

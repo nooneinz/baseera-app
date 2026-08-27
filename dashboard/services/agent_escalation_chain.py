@@ -32,6 +32,7 @@ import logging
 
 from dashboard.services.ai_service import GEMINI_MODEL
 from dashboard.services.waste_analyzer import compute_waste_signals, _find_col, _to_num
+from dashboard.security import sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -136,17 +137,21 @@ def _narrate(agent_id, role_prompt, data, ai_service, lang):
     """Real-data-only LLM narration. Returns (text_or_None, ai_used)."""
     if ai_service is None or not getattr(ai_service, "client", None):
         return None, False
+    # Task 5 hardening: `data` carries text pulled straight from the user's
+    # uploaded rows (transaction descriptions, product names, ...) -- never
+    # embed it in a prompt unsanitized.
+    safe_data = sanitize_for_prompt(data)
     if lang == "ar":
         prompt = (
             f"{role_prompt}\n\nالبيانات الحقيقية المرصودة (JSON):\n"
-            f"{json.dumps(data, ensure_ascii=False, default=str)}\n\n"
+            f"{json.dumps(safe_data, ensure_ascii=False, default=str)}\n\n"
             "قاعدة صارمة: ممنوع اختراع أي رقم غير موجود أعلاه. أعد نصاً تنفيذياً موجزاً "
             "(2-3 جمل) فقط، بدون JSON وبدون أي تنسيق markdown."
         )
     else:
         prompt = (
             f"{role_prompt}\n\nReal observed data (JSON):\n"
-            f"{json.dumps(data, ensure_ascii=False, default=str)}\n\n"
+            f"{json.dumps(safe_data, ensure_ascii=False, default=str)}\n\n"
             "STRICT RULE: never invent a number not present above. Return a short "
             "(2-3 sentence) executive narrative only, no JSON, no markdown formatting."
         )

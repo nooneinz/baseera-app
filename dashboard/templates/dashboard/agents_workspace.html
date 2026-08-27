@@ -87,6 +87,12 @@
                     </div>
                 </div>
 
+                <!-- AI engine health notice (Task 3: no silent fallbacks) -->
+                <div id="aiHealthBanner" class="hidden mx-6 mt-4 flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 px-4 py-2.5 text-xs font-bold text-amber-800 dark:text-amber-300">
+                    <i data-lucide="alert-triangle" class="h-4 w-4 shrink-0"></i>
+                    <span>{% if trans.lang_code == 'ar' %}محرك الذكاء الاصطناعي الحي غير متاح حالياً — قد تكون الردود الحالية تحليلاً احتياطياً مبنياً على قواعد وليست تحليلاً حياً.{% else %}The live AI engine is currently unavailable — responses may be a rule-based fallback analysis, not a live AI-generated one.{% endif %}</span>
+                </div>
+
                 <!-- Messages Area -->
                 <div id="chatMessages" class="flex-1 overflow-y-auto p-8 flex flex-col gap-6">
                     <!-- Welcome Message -->
@@ -148,10 +154,29 @@
 
 <script>
     lucide.createIcons();
-    
+
     let currentAgent = 'general';
     let currentAgentColor = '#4f46e5'; // indigo
-    
+
+    // Task 3: active health check against the real Gemini model, so a
+    // down/misconfigured AI engine shows a visible notice up front instead
+    // of the user only finding out once a reply quietly turns into a
+    // rule-based fallback.
+    function showAiDegradedBanner() {
+        const banner = document.getElementById('aiHealthBanner');
+        if (banner) banner.classList.remove('hidden');
+    }
+    (async function checkAiHealth() {
+        try {
+            const res = await fetch('/api/ai/health/');
+            const data = await res.json();
+            if (!data.available) showAiDegradedBanner();
+        } catch (e) {
+            // Network/parse failure isn't proof the AI is down -- stay silent
+            // rather than risk a false alarm.
+        }
+    })();
+
     // Auto-resize textarea
     const tx = document.getElementById('chatInput');
     tx.setAttribute('style', 'height:' + (tx.scrollHeight) + 'px;overflow-y:hidden;');
@@ -191,9 +216,17 @@
         const alignClass = isUser ? 'items-end' : 'items-start';
         const roundedClass = isUser ? 'rounded-tr-none' : 'rounded-tl-none';
         const bgClass = isUser ? 'bg-indigo-600 text-white' : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300';
-        
+
+        let cleanContent = content;
+        if (!isUser) {
+            // Strip internal control markers (progress logs + the Task 3
+            // fallback-degraded flag) before this becomes the permanent
+            // message bubble.
+            cleanContent = cleanContent.replace(/(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:|<agent_state>)/g, '').trim();
+        }
+
         // Render markdown-like elements simple for now
-        let htmlContent = content.replace(/\n/g, '<br>');
+        let htmlContent = cleanContent.replace(/\n/g, '<br>');
         
         // Parse agent_state
         if (htmlContent.includes('<agent_state>')) {
@@ -312,6 +345,7 @@
             const decoder = new TextDecoder();
             let fullResponse = "";
             let streamDiv = null;
+            let aiDegradedShown = false;
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -321,11 +355,19 @@
                 for (const line of lines) {
                     if (line.startsWith('data: ')) {
                         const dataStr = line.substring(6).trim();
-                        if (dataStr === '[DONE]') break;
+                        if (!dataStr || dataStr === '[DONE]') continue;
                         try {
                             const data = JSON.parse(dataStr);
-                            if (data.type === 'text') {
-                                fullResponse += data.content;
+                            if (data.suggested_actions) continue;
+                            // Real streaming payload shape (matches chat_api /
+                            // ask_basira.html, since /api/dynamic-chat/ is a
+                            // thin alias for the same endpoint) -- this used
+                            // to check data.type/data.content, which this API
+                            // never sends, so nothing ever rendered here.
+                            const textPart = data.candidates && data.candidates[0] &&
+                                data.candidates[0].content && data.candidates[0].content.parts[0].text;
+                            if (textPart) {
+                                fullResponse += textPart;
                                 if (!streamDiv) {
                                     // Create the container on first chunk
                                     streamDiv = document.createElement('div');
@@ -340,22 +382,35 @@
                                     `;
                                     chatMessages.appendChild(streamDiv);
                                 }
-                                
-                                // Render markdown simplisticly for now
-                                let formattedResponse = fullResponse.replace(/\\n/g, '<br>');
-                                
+
+                                // Strip internal control markers (progress
+                                // logs + the Task 3 fallback-degraded flag)
+                                // before rendering -- same convention used in
+                                // ask_basira.html.
+                                let formattedResponse = fullResponse;
+                                const tagRegex = /(?:\s*)?(AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:)(.*?)(?=$|\n|\s*AGENT_LOG:|STATUS___:|STATUS:|AI_DEGRADED:|<agent_state>)/g;
+                                let tagMatch;
+                                while ((tagMatch = tagRegex.exec(formattedResponse)) !== null) {
+                                    if (tagMatch[1] === 'AI_DEGRADED:' && !aiDegradedShown) {
+                                        aiDegradedShown = true;
+                                        showAiDegradedBanner();
+                                    }
+                                }
+                                formattedResponse = formattedResponse.replace(tagRegex, '').trim();
+                                formattedResponse = formattedResponse.replace(/\n/g, '<br>');
+
                                 // Parse internal tags to avoid showing them to user
                                 if (formattedResponse.includes('<internal_simulation>')) {
                                     formattedResponse = formattedResponse.replace(/<internal_simulation>[\s\S]*?(<\/internal_simulation>|$)/g, '<div class="text-xs text-slate-400 mb-3 border-r-2 border-slate-300 pr-3 font-medium">يقوم الوكيل بتحليل البيانات وبناء التوصية...</div>');
                                 }
-                                
+
                                 // Parse agent_state for agent thinking
                                 if (formattedResponse.includes('<agent_state>')) {
                                     formattedResponse = formattedResponse.replace(/<agent_state>([\s\S]*?)(?:<\/agent_state>|$)/g, function(match, p1) {
-                                        return `<div class="text-[11px] text-slate-500 italic bg-slate-100 dark:bg-slate-700/50 p-2 rounded-md border border-slate-200 dark:border-slate-600 font-mono mt-1 mb-1" dir="auto">${p1.trim().replace(/\\n/g, '<br>')}</div>`;
+                                        return `<div class="text-[11px] text-slate-500 italic bg-slate-100 dark:bg-slate-700/50 p-2 rounded-md border border-slate-200 dark:border-slate-600 font-mono mt-1 mb-1" dir="auto">${p1.trim().replace(/\n/g, '<br>')}</div>`;
                                     });
                                 }
-                                
+
                                 streamDiv.querySelector('.msg-content').innerHTML = formattedResponse;
                                 chatMessages.scrollTop = chatMessages.scrollHeight;
                             }
@@ -372,7 +427,31 @@
             
         } catch (error) {
             document.getElementById(typingId)?.remove();
-            addMessageToUI("{% if trans.lang_code == 'ar' %}عذراً، حدث خطأ في الاتصال بالوكيل.{% else %}Error connecting to agent.{% endif %}", false, 'general', '#ef4444');
+            // Task 6: a dropped/failed stream gets a visible retry action
+            // instead of leaving the user to notice nothing came back and
+            // retype the whole message themselves.
+            const errDiv = document.createElement('div');
+            errDiv.className = 'flex gap-4 items-start';
+            errDiv.innerHTML = `
+                <div class="h-10 w-10 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-red-100 text-red-600">
+                    <i data-lucide="alert-triangle" class="h-5 w-5"></i>
+                </div>
+                <div class="rounded-2xl rounded-tl-none p-5 shadow-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 max-w-[85%]">
+                    <p class="text-sm font-semibold">{% if trans.lang_code == 'ar' %}عذراً، حدث خطأ في الاتصال بالوكيل.{% else %}Error connecting to agent.{% endif %}</p>
+                    <button type="button" class="retry-send-btn mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-red-700 dark:text-red-300 hover:underline">
+                        <i data-lucide="refresh-cw" class="h-3 w-3"></i>
+                        {% if trans.lang_code == 'ar' %}إعادة المحاولة{% else %}Retry{% endif %}
+                    </button>
+                </div>
+            `;
+            chatMessages.appendChild(errDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            errDiv.querySelector('.retry-send-btn').addEventListener('click', () => {
+                errDiv.remove();
+                input.value = text;
+                sendMessage(new Event('submit'));
+            });
         }
         
         btn.disabled = false;

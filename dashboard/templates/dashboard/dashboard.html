@@ -964,9 +964,18 @@
             : (isAr ? 'لا يوجد هدر واضح' : 'No clear waste found');
         }
         if (detailEl) {
-          detailEl.textContent = data.ai_used
+          let detailText = data.ai_used
             ? (isAr ? 'تحليل ذكاء اصطناعي من بيانات ملفك' : 'AI analysis of your file')
             : (isAr ? 'استنتاج إحصائي من بيانات ملفك' : 'Statistical inference from your file');
+          // Task 5 (UI transparency): say so plainly when the analysis only
+          // covered a prefix of the rows, instead of presenting a partial
+          // result as if it covered the whole file.
+          if (data.truncated) {
+            detailText += isAr
+              ? ` — أول ${fmt(data.analyzed_rows)} من ${fmt(data.total_rows)} سجل`
+              : ` — first ${fmt(data.analyzed_rows)} of ${fmt(data.total_rows)} rows`;
+          }
+          detailEl.textContent = detailText;
         }
       } catch (e) {
         console.error('AI waste analysis failed:', e);

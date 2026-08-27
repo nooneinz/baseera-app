@@ -10,7 +10,7 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-from .security import build_safe_filename, validate_uploaded_file, rate_limit, safe_error_message, validate_ssrf_url
+from .security import build_safe_filename, validate_uploaded_file, rate_limit, safe_error_message, validate_ssrf_url, sanitize_cell_for_prompt
 from .models import Profile, ProjectFile, SystemLog, Invoice, Announcement, AIUsageLog, SalesGoal, AnomalyAlert, WeeklyDigest, CustomAgent, BoardroomSession
 
 logger = logging.getLogger(__name__)
@@ -791,7 +791,9 @@ def api_analyze_waste(request):
     records_qs = DynamicRecord.objects.filter(user=request.user)
     if file_id and str(file_id) != "all":
         records_qs = records_qs.filter(project_file_id=file_id)
-    rows = list(records_qs.values_list("row_data", flat=True)[:10000])
+    ROW_CAP = 10000
+    total_rows = records_qs.count()
+    rows = list(records_qs.values_list("row_data", flat=True)[:ROW_CAP])
 
     lang = request.session.get("lang") or request.COOKIES.get("lang", "ar")
 
@@ -807,6 +809,12 @@ def api_analyze_waste(request):
     try:
         result = analyze_waste(rows, ai_service=ai_service, lang=lang, company_profile=company_profile)
         result["status"] = "success"
+        # Task 5 (UI transparency): tell the frontend outright when the
+        # analysis only covered a prefix of the data, instead of silently
+        # presenting a partial result as if it covered everything.
+        result["analyzed_rows"] = len(rows)
+        result["total_rows"] = total_rows
+        result["truncated"] = total_rows > len(rows)
         return JsonResponse(result)
     except Exception as e:
         return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=500)
@@ -838,7 +846,9 @@ def api_escalation_chain(request):
     records_qs = DynamicRecord.objects.filter(user=request.user)
     if file_id and str(file_id) != "all":
         records_qs = records_qs.filter(project_file_id=file_id)
-    rows = list(records_qs.values_list("row_data", flat=True)[:10000])
+    ROW_CAP = 10000
+    total_rows = records_qs.count()
+    rows = list(records_qs.values_list("row_data", flat=True)[:ROW_CAP])
 
     lang = request.session.get("lang") or request.COOKIES.get("lang", "ar")
 
@@ -852,6 +862,12 @@ def api_escalation_chain(request):
     try:
         result = run_escalation_chain(rows, ai_service=ai_service, lang=lang)
         result["status"] = "success"
+        # Task 5 (UI transparency): tell the frontend outright when the
+        # analysis only covered a prefix of the data, instead of silently
+        # presenting a partial result as if it covered everything.
+        result["analyzed_rows"] = len(rows)
+        result["total_rows"] = total_rows
+        result["truncated"] = total_rows > len(rows)
         return JsonResponse(result)
     except Exception as e:
         return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=500)
@@ -2053,7 +2069,12 @@ def chat_api(request):
             messages_list = data.get("messages", [])
             if not messages_list and "message" in data:
                 messages_list = [{"role": "user", "content": data["message"]}]
-            file_context = data.get("fileContext") or ""
+            # Task 5 hardening: this text comes straight from the client
+            # (built from the raw dataset the user uploaded), so it's the
+            # main indirect-prompt-injection surface for the chat -- a cell
+            # value could otherwise smuggle a fake [[ACTION:...]] tag or
+            # <internal_simulation> block into the model's context.
+            file_context = sanitize_cell_for_prompt(data.get("fileContext") or "", max_len=6000)
             agent_id = data.get("agent_id", "general")
             agent_ids = data.get("agent_ids")
             if not agent_ids and agent_id:
@@ -2131,6 +2152,44 @@ def chat_api(request):
         except Exception as e:
             return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=500)
     return JsonResponse({"status": "invalid_method"}, status=400)
+
+
+@login_required
+def api_ai_health(request):
+    """
+    Task 3 (P0 - Resilience): an *active* health check of the live Gemini
+    model -- not just "did the client construct", which only proves an API
+    key is present, but a real, cheap call against the configured model so
+    the frontend can tell "the live AI engine is up" apart from "silently
+    degraded to rule-based fallback text" instead of finding out only when
+    a chat reply quietly turns into canned analysis.
+
+    Cached briefly so repeated UI polls (page load, periodic re-checks)
+    don't multiply real API calls.
+    """
+    from django.core.cache import cache
+
+    cache_key = "baseera:ai_health_status"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse(cached)
+
+    from dashboard.services.ai_service import GeminiAIService, GEMINI_MODEL
+
+    status = {"available": False, "model": GEMINI_MODEL, "detail": "no_api_key_configured"}
+
+    ai_service = GeminiAIService()
+    if getattr(ai_service, "client", None) and hasattr(ai_service.client, "models"):
+        try:
+            ai_service.client.models.count_tokens(model=GEMINI_MODEL, contents="ping")
+            status = {"available": True, "model": GEMINI_MODEL, "detail": "ok"}
+        except Exception as e:
+            status = {"available": False, "model": GEMINI_MODEL, "detail": safe_error_message(str(e))}
+
+    # Short TTL: fast enough to notice a real outage within the pilot
+    # window, cheap enough not to burn quota on every page load/poll.
+    cache.set(cache_key, status, timeout=20)
+    return JsonResponse(status)
 
 
 import datetime
