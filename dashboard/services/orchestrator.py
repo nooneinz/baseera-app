@@ -132,12 +132,30 @@ DOMAIN_AGENT_MAP = {
 }
 
 
+def _normalize_arabic_letters(text):
+    """
+    Arabic تاء مربوطة (ة) and هاء (ه) look near-identical and are routinely
+    typed interchangeably, especially on mobile keyboards -- e.g.
+    "استراتيجيه" vs "استراتيجية". Without normalizing this, a keyword-list
+    entry spelled one way silently fails to match a message spelled the
+    other way (reported bug: "استراتيجيه للمستقبل" fell through to a
+    "couldn't find the document" refusal instead of routing to the
+    strategic multi-agent committee, purely because BUSINESS_DOMAIN_
+    KEYWORDS only had the "ة" spelling). Applied to both sides of every
+    keyword-list comparison below so this class of typo can never break a
+    match.
+    """
+    return (text or "").replace("ة", "ه")
+
+
 def _matches_any(patterns, text_lower):
-    return any(re.search(p, text_lower) for p in patterns)
+    normalized = _normalize_arabic_letters(text_lower)
+    return any(re.search(_normalize_arabic_letters(p), normalized) for p in patterns)
 
 
 def _has_business_domain_signal(text_lower):
-    return any(kw in text_lower for kw in BUSINESS_DOMAIN_KEYWORDS)
+    normalized = _normalize_arabic_letters(text_lower)
+    return any(_normalize_arabic_letters(kw) in normalized for kw in BUSINESS_DOMAIN_KEYWORDS)
 
 
 def _is_pure_greeting(text_lower):
