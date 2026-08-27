@@ -14,7 +14,7 @@ from django.test import TestCase
 from google.genai import types
 
 from dashboard.models import AgentMemory, Notification
-from dashboard.services.agent_tools import build_agent_tools, run_react_preloop
+from dashboard.services.agent_tools import build_agent_tools, run_react_preloop, should_attempt_react
 from dashboard.services.ai_service import GeminiAIService
 
 
@@ -74,8 +74,8 @@ class RunReactPreloopTests(TestCase):
 
         result = run_react_preloop(fake_ai_service, "base prompt", self.user.id, "gemini-3.6-flash")
 
-        self.assertIn("[Action: run_python_code", result)
-        self.assertIn("[Observation: 4", result)  # print(2+2) really executed
+        self.assertIn("Action: run_python_code", result)
+        self.assertIn("Observation: 4", result)  # print(2+2) really executed
 
     def test_create_notification_tool_creates_a_real_notification(self):
         fake_client = MagicMock()
@@ -167,6 +167,83 @@ class RunReactPreloopTests(TestCase):
         )
         self.assertTrue(any("AGENT_LOG:" in m for m in seen))
 
+    def test_no_tool_used_returns_the_prompt_completely_unchanged(self):
+        """
+        The common case (no tool call at all) must cost nothing extra --
+        no closing instruction, no re-opened "model:" cue, byte-identical
+        to the input.
+        """
+        fake_client = MagicMock()
+        fake_client.models.generate_content.return_value = _text_response("just an answer, no tool needed")
+        fake_ai_service = MagicMock()
+        fake_ai_service.client = fake_client
+
+        result = run_react_preloop(fake_ai_service, "base prompt", self.user.id, "gemini-3.6-flash")
+        self.assertEqual(result, "base prompt")
+
+    def test_after_a_tool_runs_the_model_is_told_not_to_leak_it_and_gets_a_fresh_cue(self):
+        """
+        Regression test for the exact bug reported in production: the raw
+        [[tool call/code appeared in the user-visible answer instead of a
+        synthesized final response, because the augmented prompt just
+        continued mid-completion with no instruction to switch back to a
+        normal answer. This proves the fix: after any tool call, the
+        returned prompt tells the model the trace is internal-only and
+        re-opens a clean "model: " turn for the real answer.
+        """
+        fake_client = MagicMock()
+        fake_client.models.generate_content.side_effect = [
+            _function_call_response("run_python_code", {"code": "print(42)"}),
+            _text_response("no more tools needed"),
+        ]
+        fake_ai_service = MagicMock()
+        fake_ai_service.client = fake_client
+
+        result_ar = run_react_preloop(fake_ai_service, "base prompt", self.user.id, "gemini-3.6-flash", lang="ar")
+        self.assertTrue(result_ar.rstrip().endswith("model:") or result_ar.endswith("model: "))
+        self.assertIn("لم ير أي كود", result_ar)
+
+    def test_english_closing_instruction_for_english_conversations(self):
+        fake_client = MagicMock()
+        fake_client.models.generate_content.side_effect = [
+            _function_call_response("run_python_code", {"code": "print(1)"}),
+            _text_response("done"),
+        ]
+        fake_ai_service = MagicMock()
+        fake_ai_service.client = fake_client
+
+        result = run_react_preloop(fake_ai_service, "base prompt", self.user.id, "gemini-3.6-flash", lang="en")
+        self.assertIn("has not seen any code", result)
+        self.assertTrue(result.endswith("model: "))
+
+
+class ShouldAttemptReactGateTests(TestCase):
+    """
+    Latency gate: an ordinary analytical question must NOT trigger the
+    (costly) ReAct pre-loop at all, only messages that plausibly need one
+    of the three tools.
+    """
+
+    def test_ordinary_analytical_question_does_not_trigger(self):
+        self.assertFalse(should_attempt_react("ما سبب ارتفاع الهدر؟"))
+        self.assertFalse(should_attempt_react("What is the reason for the high waste?"))
+
+    def test_calculation_request_triggers(self):
+        self.assertTrue(should_attempt_react("احسبلي الربح الشهري"))
+        self.assertTrue(should_attempt_react("Can you calculate the monthly profit for me?"))
+
+    def test_memory_request_triggers(self):
+        self.assertTrue(should_attempt_react("تذكر هذا للمرة القادمة"))
+        self.assertTrue(should_attempt_react("Please remember this for next time"))
+
+    def test_reminder_request_triggers(self):
+        self.assertTrue(should_attempt_react("ذكرني بمراجعة الفاتورة غداً"))
+        self.assertTrue(should_attempt_react("Remind me to review the invoice tomorrow"))
+
+    def test_empty_or_none_never_triggers(self):
+        self.assertFalse(should_attempt_react(""))
+        self.assertFalse(should_attempt_react(None))
+
 
 class _FakeChunk:
     def __init__(self, text):
@@ -202,7 +279,7 @@ class GenerateChatStreamReactIntegrationTests(TestCase):
         service.client = fake_client
 
         stream = service.generate_chat_stream(
-            messages_list=[{"role": "user", "content": "what is 21 times 2?"}],
+            messages_list=[{"role": "user", "content": "Can you calculate 21 times 2 for me?"}],
             file_context="",
             user_id=self.user.id,
             agent_id="general",
@@ -222,7 +299,36 @@ class GenerateChatStreamReactIntegrationTests(TestCase):
         self.assertIn("AGENT_LOG:", full_output)
 
         # The real tool actually ran and its result was fed back as an
-        # Observation into the prompt used for the final answer.
+        # Observation into the prompt used for the final answer -- and the
+        # model was told to answer normally rather than echo the trace.
         final_call_kwargs = fake_client.models.generate_content_stream.call_args.kwargs
         self.assertIn("Observation:", final_call_kwargs["contents"])
         self.assertIn("42", final_call_kwargs["contents"])
+        self.assertTrue(final_call_kwargs["contents"].endswith("model: "))
+
+    def test_ordinary_question_skips_the_preloop_entirely(self):
+        """
+        The latency gate: a plain analytical question (no calculation/
+        memory/reminder wording) must never even call the pre-loop's
+        generate_content -- only the normal final generate_content_stream,
+        with the prompt completely untouched by this feature.
+        """
+        fake_client = MagicMock()
+        fake_client.models.generate_content_stream.return_value = iter(
+            [_FakeChunk("Waste is high because of spoilage."), _FakeChunk("STATUS___:DONE")]
+        )
+
+        service = GeminiAIService()
+        service.client = fake_client
+
+        stream = service.generate_chat_stream(
+            messages_list=[{"role": "user", "content": "What is the reason for the high waste?"}],
+            file_context="",
+            user_id=self.user.id,
+            agent_id="general",
+            lang="en",
+        )
+        list(stream)
+
+        fake_client.models.generate_content.assert_not_called()
+        fake_client.models.generate_content_stream.assert_called_once()
