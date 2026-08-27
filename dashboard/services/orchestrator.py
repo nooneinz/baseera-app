@@ -79,6 +79,25 @@ _SMALL_TALK_FILLERS = {
     'how are you', "how's it going", 'whats up', "what's up",
 }
 
+# Terms describing a computed/INFERRED financial insight rather than a
+# specific product, item, or category. This list gates the active-file
+# fallback below (route_message): a query about "هدر" (waste) is asking
+# for an analysis of whatever data the user already has -- waste is never
+# a literal column, it's inferred by waste_analyzer.py from price/cost/qty
+# patterns, so no file was ever going to match it by keyword, and there is
+# nothing product-specific to get wrong by defaulting to the active file.
+# A query naming an actual product/subject (e.g. "دجاج" / chicken) is
+# deliberately NOT covered here: guessing the wrong file for that could
+# silently answer about the wrong product, which is exactly what the
+# Retrieval Layer's ambiguity check exists to prevent (the "chicken vs
+# meat file" scenario) -- keep this list narrow, don't add generic terms.
+INFERRED_METRIC_TERMS = [
+    'هدر', 'الهدر', 'مهدر', 'تسرب', 'تسريب',
+    'ربح', 'الربح', 'خسارة', 'الخسارة', 'هامش', 'الهامش',
+    'وضع مالي', 'الوضع المالي', 'تدفق نقدي', 'التدفق النقدي', 'سيولة', 'السيولة',
+    'waste', 'leakage', 'profit', 'loss', 'margin', 'cash flow', 'liquidity',
+]
+
 # Generic trivia/factual question markers — necessary but not sufficient on
 # their own (a business question can also start with "what is/كم"), they only
 # push toward off_topic when NO business-domain keyword is also present.
@@ -310,6 +329,29 @@ def build_file_confirmation_actions(candidates, lang="ar"):
     return actions
 
 
+def _latest_active_sheet_metadata(user_id):
+    """
+    The user's single "active" file context: the most recently uploaded
+    file's sheet with the most rows (a reasonable default when a file has
+    more than one accepted sheet). Used only as a fallback when the
+    Retrieval Layer's keyword search finds literally nothing -- e.g. an
+    analytical question about an INFERRED metric like waste, which is
+    essentially never a literal column header a sheet gets indexed under.
+    Returns None if the account has no indexed sheet metadata at all.
+    """
+    from dashboard.models import FileSheetMetadata
+
+    # status is 'accept' or 'warning' here -- rejected sheets are never
+    # represented in this table at all (see FileSheetMetadata's own
+    # docstring), so both statuses present are real, usable sheets.
+    return (
+        FileSheetMetadata.objects.filter(project_file__user_id=user_id)
+        .select_related("project_file")
+        .order_by("-project_file__uploaded_at", "-row_count")
+        .first()
+    )
+
+
 def route_message(user_id, message, lang="ar", ai_service=None, confirmed_sheet=None):
     """
     Main entry point. Returns a dict:
@@ -333,6 +375,42 @@ def route_message(user_id, message, lang="ar", ai_service=None, confirmed_sheet=
 
     has_files = ProjectFile.objects.filter(user_id=user_id).exists() if user_id else False
 
+    result = {
+        "route": ROUTE_SINGLE_FILE,
+        "direct_reply": None,
+        "agent_ids": ["general"],
+        "needs_confirmation": False,
+        "suggested_actions": [],
+        "matched_sheet_note": "",
+    }
+
+    # An explicit user confirmation (they clicked a confirm_file_* suggested
+    # action for THIS exact conversation) is authoritative and is honored
+    # before any route classification runs at all -- including before the
+    # LLM secondary classifier gets a chance to run. That classifier makes a
+    # live model call with no guarantee of being deterministic call to call;
+    # letting it run first previously meant a user-confirmed file selection
+    # could occasionally still get discarded by the classifier mislabeling
+    # the very question the user already told us how to answer as
+    # off-topic/multi-agent. There is nothing left to classify once the user
+    # has told us exactly which file/sheet they mean.
+    if user_id and confirmed_sheet and confirmed_sheet.get("project_file_id") and confirmed_sheet.get("sheet_name"):
+        meta = FileSheetMetadata.objects.filter(
+            project_file_id=confirmed_sheet["project_file_id"],
+            project_file__user_id=user_id,
+            sheet_name=confirmed_sheet["sheet_name"],
+        ).select_related("project_file").first()
+        if meta:
+            file_name = meta.project_file.excel_file.name.split('/')[-1] if meta.project_file.excel_file else ""
+            result["matched_sheet_note"] = (
+                f"[Retrieval Layer match — user-confirmed] file={file_name} sheet={meta.sheet_name} "
+                f"category={meta.category} columns={meta.columns}"
+            )
+            return result
+        # Confirmed reference no longer resolves (e.g. file deleted) -> fall
+        # through to normal classification + a fresh search instead of
+        # silently guessing.
+
     route = classify_route(message, has_uploaded_files=has_files)
 
     # Give the LLM classifier a chance to upgrade an uncertain heuristic call
@@ -342,14 +420,7 @@ def route_message(user_id, message, lang="ar", ai_service=None, confirmed_sheet=
         if llm_route in (ROUTE_OFF_TOPIC, ROUTE_MULTI_AGENT):
             route = llm_route
 
-    result = {
-        "route": route,
-        "direct_reply": None,
-        "agent_ids": ["general"],
-        "needs_confirmation": False,
-        "suggested_actions": [],
-        "matched_sheet_note": "",
-    }
+    result["route"] = route
 
     if route == ROUTE_GREETING:
         result["direct_reply"] = greeting_reply(lang)
@@ -367,28 +438,43 @@ def route_message(user_id, message, lang="ar", ai_service=None, confirmed_sheet=
     if not user_id:
         return result
 
-    if confirmed_sheet and confirmed_sheet.get("project_file_id") and confirmed_sheet.get("sheet_name"):
-        meta = FileSheetMetadata.objects.filter(
-            project_file_id=confirmed_sheet["project_file_id"],
-            project_file__user_id=user_id,
-            sheet_name=confirmed_sheet["sheet_name"],
-        ).select_related("project_file").first()
-        if meta:
-            file_name = meta.project_file.excel_file.name.split('/')[-1] if meta.project_file.excel_file else ""
-            result["matched_sheet_note"] = (
-                f"[Retrieval Layer match — user-confirmed] file={file_name} sheet={meta.sheet_name} "
-                f"category={meta.category} columns={meta.columns}"
-            )
-            return result
-        # Confirmed reference no longer resolves (e.g. file deleted) -> fall
-        # through to a fresh search instead of silently guessing.
-
     candidates = search_relevant_sheets(user_id, message, top_k=5)
 
     if not candidates:
-        # No file at all matches this data-flavored question (spec section 5 /
-        # system-prompt rule 3): ask instead of guessing, regardless of
-        # whether the user has ever uploaded anything.
+        # No sheet's indexed keywords/columns/category lexically match this
+        # query. That's expected for an ANALYTICAL question about a metric
+        # the Retrieval Layer was never going to find as a literal keyword
+        # (e.g. "ما سبب ارتفاع الهدر؟" -- "هدر" is inferred by
+        # waste_analyzer from price/cost/qty patterns, it is essentially
+        # never a real column header a file gets indexed under). Asking
+        # "did you mean a different file?" in that case is wrong: there is
+        # nothing ambiguous about which file a user with one active
+        # dataset is asking about. Fall back to that dataset instead of
+        # guessing a DIFFERENT one -- silently picking between multiple
+        # real candidates is still never done (that's the is_ambiguous
+        # branch below, untouched by this fallback).
+        asks_about_inferred_metric = _matches_any(
+            [re.escape(t) for t in INFERRED_METRIC_TERMS], message.lower()
+        )
+        active_meta = (
+            _latest_active_sheet_metadata(user_id)
+            if (has_files and asks_about_inferred_metric) else None
+        )
+        if active_meta:
+            file_name = (
+                active_meta.project_file.excel_file.name.split('/')[-1]
+                if active_meta.project_file.excel_file else ""
+            )
+            result["matched_sheet_note"] = (
+                f"[Retrieval Layer match — active file fallback, no literal keyword hit] "
+                f"file={file_name} sheet={active_meta.sheet_name} category={active_meta.category} "
+                f"columns={active_meta.columns}"
+            )
+            return result
+
+        # Genuinely nothing to fall back to (zero files, or indexing never
+        # produced any sheet metadata for this account): ask instead of
+        # guessing, same as before.
         result["needs_confirmation"] = True
         result["direct_reply"] = missing_file_reply(lang)
         actions = []

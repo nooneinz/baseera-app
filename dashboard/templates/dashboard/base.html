@@ -147,6 +147,21 @@
         min-height: 100vh;
         transition: background-color 0.4s ease, color 0.4s ease;
       }
+
+      /* Mobile-only safety net: an off-canvas drawer (see sidebar.html /
+         admin_dashboard.html) is positioned with `position: fixed` +
+         `transform: translateX(...)` to sit off-screen when closed --
+         Chromium still expands document.documentElement.scrollWidth to
+         include a fixed+transformed element's visual box even though it
+         is never actually visible or scrollable-to, which silently
+         reintroduces the exact page-wide horizontal scroll a drawer is
+         supposed to eliminate. Scoped to the drawer breakpoint only, so
+         desktop's own layout/scroll behavior is completely unaffected. */
+      @media (max-width: 1023.98px) {
+        html, body {
+          overflow-x: hidden;
+        }
+      }
       .dark body {
         background:
           radial-gradient(1100px 600px at 15% -5%, rgba(99, 102, 241, 0.22), transparent 65%),
