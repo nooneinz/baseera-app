@@ -415,7 +415,20 @@ def route_message(user_id, message, lang="ar", ai_service=None, confirmed_sheet=
 
     # Give the LLM classifier a chance to upgrade an uncertain heuristic call
     # (never downgrades a confident OFF_TOPIC/MULTI_AGENT heuristic hit).
-    if ai_service is not None and route == ROUTE_SINGLE_FILE:
+    #
+    # Latency: this is a real extra live API round trip before the actual
+    # answer even starts streaming, paid on every single-file message --
+    # skipped when the message already has a clear business-domain signal.
+    # classify_route()'s own OFF_TOPIC branches both require
+    # "not has_business_signal" to fire at all, so when that signal IS
+    # present, OFF_TOPIC is structurally unreachable regardless of what a
+    # live second opinion would say -- the only thing this check could
+    # still catch in that case is an upgrade to MULTI_AGENT, a quality
+    # nicety (a strategic question answered by the general single agent
+    # instead of the committee), never a hallucination-adjacent safety
+    # miss. Genuinely ambiguous messages (no business-domain keyword at
+    # all) still get the live second opinion exactly as before.
+    if ai_service is not None and route == ROUTE_SINGLE_FILE and not _has_business_domain_signal(message.lower()):
         llm_route = llm_classify_route(ai_service, message, lang=lang)
         if llm_route in (ROUTE_OFF_TOPIC, ROUTE_MULTI_AGENT):
             route = llm_route
