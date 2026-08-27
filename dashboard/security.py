@@ -116,6 +116,46 @@ def sanitize_for_output(value):
     return escape(str(value))
 
 
+# The exact character sequences the platform's own agent response parser
+# (dashboard/services/ai_service.py) treats as live control tags --
+# [[ACTION:...]] tool calls, and the <internal_simulation>/<agent_state>/
+# <file_proposal>/<approval_checkpoint> block tags. A cell value or a raw
+# file-context string is never supposed to legitimately contain these; if
+# one does, it's either a coincidence or an attempt to smuggle a fake
+# instruction into the model's context via uploaded data (indirect prompt
+# injection). Task 5 hardening: neutralize them before any of that text is
+# embedded in an LLM prompt.
+def sanitize_cell_for_prompt(value, max_len=300):
+    """
+    Defuses indirect prompt-injection payloads that can hide inside a
+    single uploaded spreadsheet cell (a product name, a transaction
+    description, a raw file-context blob, ...) before that text reaches an
+    LLM prompt. Also caps length so one oversized cell can't blow out the
+    prompt budget. Ordinary business text is left readable.
+    """
+    if value is None:
+        return value
+    text = str(value)
+    if len(text) > max_len:
+        text = text[:max_len].rstrip() + "…"
+    # Break the exact bracket/tag sequences our own parsers look for,
+    # without deleting the surrounding text.
+    text = text.replace("[[", "[ ").replace("]]", " ]")
+    text = text.replace("<", "‹").replace(">", "›")
+    return text
+
+
+def sanitize_for_prompt(value, max_len=300):
+    """Recursively applies sanitize_cell_for_prompt across dicts/lists/strings."""
+    if isinstance(value, dict):
+        return {k: sanitize_for_prompt(v, max_len=max_len) for k, v in value.items()}
+    if isinstance(value, list):
+        return [sanitize_for_prompt(v, max_len=max_len) for v in value]
+    if isinstance(value, str):
+        return sanitize_cell_for_prompt(value, max_len=max_len)
+    return value
+
+
 def safe_error_message(message, fallback="An internal error has occurred."):
     if not message:
         return fallback

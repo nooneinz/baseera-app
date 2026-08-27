@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.postgres.indexes import GinIndex
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 
@@ -230,6 +231,19 @@ class DynamicRecord(models.Model):
     row_data = models.JSONField(help_text="The actual row data mapped by column name")
     
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Task 7 (P0 hardening): a GIN index lets Postgres answer
+        # containment/key-existence queries against row_data (e.g. "which
+        # records have a category of X") without a full table scan as this
+        # table grows across every uploaded file for every user. GIN indexes
+        # are Postgres-only -- the migration that creates this (0021) skips
+        # the actual DDL on SQLite (used for local dev/tests) and only
+        # updates Django's migration state here, so this has no effect on
+        # local development.
+        indexes = [
+            GinIndex(fields=["row_data"], name="dynrec_rowdata_gin_idx"),
+        ]
 
     def __str__(self):
         return f"Record for {self.user.username} (File: {self.project_file.id if self.project_file else 'None'})"

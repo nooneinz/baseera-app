@@ -142,6 +142,37 @@ DATABASES = {
     )
 }
 
+# Cache (Task 7 - P0 hardening): security.rate_limit() and the AI
+# health-check endpoint both rely on Django's cache to enforce limits and
+# de-duplicate calls *across every worker process*. With no CACHES setting
+# at all, Django silently defaults to LocMemCache, which is per-process --
+# on a multi-worker gunicorn/Render deployment each worker keeps its own
+# independent counter, so a stated "N requests/minute" limit was never
+# actually enforced platform-wide.
+#
+# REDIS_URL (or CACHE_URL) opts into a real Redis-backed cache when one is
+# provisioned. Without it, DatabaseCache is used as the zero-extra-infra
+# default -- backed by the same Postgres database every worker (and every
+# dyno, if scaled horizontally) already shares, so it stays genuinely
+# shared without requiring a new service. The table is created by
+# dashboard's 0022 migration via `createcachetable`.
+REDIS_URL = os.getenv("REDIS_URL") or os.getenv("CACHE_URL")
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+            "LOCATION": "baseera_cache_table",
+        }
+    }
+
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 

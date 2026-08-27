@@ -13,3 +13,4 @@ whitenoise==6.6.0
 dj-database-url==2.1.0
 django-cors-headers==4.3.1
 google-genai
+django-redis==5.4.0
