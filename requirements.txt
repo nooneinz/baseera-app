@@ -5,6 +5,19 @@ pandas==2.2.0
 python-dotenv==1.0.1
 pypdf==6.16.1
 pdfplumber==0.11.4
+# Explicit pins for pdfplumber -> pdfminer.six's real, load-bearing (not
+# optional) dependency on `cryptography` (imported unconditionally at
+# module load, for encrypted-PDF support -- not just for encrypted files),
+# with `cffi` as cryptography's own build/runtime dependency. Left
+# unpinned, these resolved to nothing at all in at least one deployment
+# environment and pip silently fell back to an incompatible system-level
+# `cryptography` package with a broken compiled backend -- every PDF
+# upload (invoices, bank statements) failed at the `import pdfplumber`
+# line inside validate_financial_file, before any of Baseera's own code
+# ran. Pinning forces pip to install a known-good matched pair instead of
+# an ambiguous transitive resolution.
+cryptography==42.0.8
+cffi==2.1.1
 python-magic==0.4.27
 Pillow>=10.0.0
 sentry-sdk==2.0.0

@@ -10,7 +10,6 @@ ProjectFile.document_type and render as a badge on the Documents page.
 import io
 import json
 import random
-import unittest
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -54,75 +53,67 @@ class ClassifyPdfDocumentTypeTests(TestCase):
         self.assertEqual(_classify_pdf_document_type(text.lower()), 'bank_statement')
 
 
-def _real_pdf_bytes_and_mocked_text(text):
+def _make_real_pdf_with_text(text_lines):
     """
-    A minimal, syntactically valid single-page PDF (structure only --
-    pdfplumber needs real PDF bytes to open the file without raising, but
-    the actual extracted text is controlled by mocking Page.extract_text
-    so the test doesn't depend on rendering real glyphs into the page).
+    A genuinely valid, single-page PDF with real embedded text (a standard
+    /Helvetica content stream, no external PDF library needed) -- built by
+    hand instead of mocking pdfplumber's internals, so this exercises the
+    real PDF parsing path end-to-end, the same way a real uploaded invoice
+    or bank statement PDF would be read.
     """
-    pdf_bytes = (
-        b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
-        b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
-        b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\n"
-        b"xref\n0 4\n0000000000 65535 f \n"
-        b"trailer<</Size 4/Root 1 0 R>>\nstartxref\n0\n%%EOF"
-    )
+    content_lines = ["BT", "/F1 12 Tf", "50 250 Td"]
+    for i, line in enumerate(text_lines):
+        if i > 0:
+            content_lines.append("0 -16 Td")
+        escaped = line.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
+        content_lines.append(f"({escaped}) Tj")
+    content_lines.append("ET")
+    content = "\n".join(content_lines).encode("latin-1")
+
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] "
+        b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        b"<< /Length " + str(len(content)).encode() + b" >>\nstream\n" + content + b"\nendstream",
+    ]
+
+    buf = io.BytesIO()
+    buf.write(b"%PDF-1.4\n")
+    offsets = []
+    for i, obj in enumerate(objects, start=1):
+        offsets.append(buf.tell())
+        buf.write(f"{i} 0 obj\n".encode() + obj + b"\nendobj\n")
+    xref_offset = buf.tell()
+    buf.write(f"xref\n0 {len(objects) + 1}\n".encode())
+    buf.write(b"0000000000 65535 f \n")
+    for off in offsets:
+        buf.write(f"{off:010d} 00000 n \n".encode())
+    buf.write(f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF".encode())
+
+    pdf_bytes = buf.getvalue()
+    # Pad a trailing PDF comment to clear the Validation Layer's 1KB floor
+    # without disturbing the xref table (comments are ignored by parsers).
+    if len(pdf_bytes) < 1200:
+        pdf_bytes += b"\n%% padding " + (b"x" * (1200 - len(pdf_bytes)))
     return pdf_bytes
 
 
-def _pdfplumber_importable():
-    """
-    This sandbox's system 'cryptography' install (pulled in transitively
-    via pdfminer, pdfplumber's own dependency) is missing its compiled
-    _cffi_backend and PanicException()s on import -- unrelated to any code
-    here, and not something safe to "fix" by touching sandbox system
-    packages. Skip the pdfplumber-dependent tests where that's true rather
-    than fail the suite on an environment problem; they still run for real
-    wherever pdfplumber imports cleanly (e.g. a real deploy/CI environment).
-    """
-    try:
-        import pdfplumber  # noqa: F401
-        return True
-    except BaseException:
-        return False
-
-
-@unittest.skipUnless(
-    _pdfplumber_importable(),
-    "pdfplumber is not importable in this environment (see _pdfplumber_importable's docstring)",
-)
 class PdfValidationSetsDocumentTypeTests(TestCase):
-    def _validate_with_mocked_text(self, text):
-        pdf_bytes = _real_pdf_bytes_and_mocked_text(text)
-        # Padded to clear the 1024-byte floor.
-        pdf_bytes = pdf_bytes + b"\n% padding " + (b"x" * 1024)
+    def _validate(self, text_lines):
+        pdf_bytes = _make_real_pdf_with_text(text_lines)
         file_obj = SimpleUploadedFile("doc.pdf", pdf_bytes, content_type="application/pdf")
-
-        class _FakePage:
-            def extract_text(self_inner):
-                return text
-
-        class _FakePdf:
-            pages = [_FakePage()]
-
-            def __enter__(self_inner):
-                return self_inner
-
-            def __exit__(self_inner, *a):
-                return False
-
-        with patch("pdfplumber.open", return_value=_FakePdf()):
-            return validate_financial_file(file_obj)
+        return validate_financial_file(file_obj)
 
     def test_invoice_pdf_is_classified(self):
-        result = self._validate_with_mocked_text("Tax Invoice\nInvoice Number: 100\nPrice: 50 Total: 50")
-        self.assertTrue(result["is_valid"])
+        result = self._validate(["Tax Invoice", "Invoice Number: 100", "Price: 50 Total: 50"])
+        self.assertTrue(result["is_valid"], result["message"])
         self.assertEqual(result["document_type"], "invoice")
 
     def test_bank_statement_pdf_is_classified(self):
-        result = self._validate_with_mocked_text("Bank Statement\nOpening Balance: 100\nTotal: 50 Date: 2026-01-01")
-        self.assertTrue(result["is_valid"])
+        result = self._validate(["Bank Statement", "Opening Balance: 100", "Total: 50 Date: 2026-01-01"])
+        self.assertTrue(result["is_valid"], result["message"])
         self.assertEqual(result["document_type"], "bank_statement")
 
 
@@ -154,6 +145,23 @@ class DocumentTypePersistedOnUploadTests(TestCase):
         self.user = User.objects.create_user(username="doctype_user", password="pw123456")
         Profile.objects.create(user=self.user, company_name="X", project_type="retail", phone_number="96891112222")
         self.client.login(username="doctype_user", password="pw123456")
+
+    def test_real_pdf_invoice_uploads_end_to_end_through_portal(self):
+        # The exact path a user hits clicking "Upload Bank Statement (PDF)"
+        # on /onboarding/upload/ -- a real PDF, not mocked, all the way
+        # through validate -> save -> process_excel_to_db.
+        pdf_bytes = _make_real_pdf_with_text([
+            "Tax Invoice", "Invoice Number: 777", "Date: 2026-01-05",
+            "Price: 25 Total: 25", "Price: 40 Total: 40", "Price: 15 Total: 15",
+        ])
+        pdf_file = SimpleUploadedFile("invoice.pdf", pdf_bytes, content_type="application/pdf")
+        response = self.client.post(reverse("portal"), {"excel_file": pdf_file})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard"))
+
+        pf = ProjectFile.objects.filter(user=self.user).first()
+        self.assertIsNotNone(pf)
+        self.assertEqual(pf.document_type, "invoice")
 
     def test_portal_upload_persists_an_image_classified_document_type(self):
         img = SimpleUploadedFile("invoice_photo.jpg", _real_png_bytes(), content_type="image/jpeg")
