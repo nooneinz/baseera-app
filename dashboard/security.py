@@ -73,11 +73,29 @@ def validate_uploaded_file(uploaded_file, max_size_bytes=DEFAULT_MAX_UPLOAD_SIZE
     return True
 
 
-def rate_limit(requests_per_minute=60, key_prefix="api"):
+def rate_limit(requests_per_minute=60, key_prefix="api", methods=None):
+    """
+    `methods`: when given (e.g. ("POST",)), only requests using one of these
+    HTTP methods are counted/limited at all -- every other method passes
+    straight through, uncounted. Defaults to None (every method is limited,
+    the original behavior) so every existing call site is unaffected.
+
+    This exists because login/register were rate-limited on every request
+    including a plain GET to render the page: a handful of page loads (a
+    few browser tabs, a couple of retries, several people behind the same
+    office/mobile-carrier NAT -- a routine case in Oman) was enough to burn
+    through the whole per-IP budget and get the entire shared IP locked out
+    of the page itself, not just repeated login attempts, for a full
+    minute. Scoping the limiter to POST there keeps the real protection
+    (brute-forcing the login/register form) while a page view is never
+    counted against it at all.
+    """
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped(request, *args, **kwargs):
             if getattr(settings, "DISABLE_RATE_LIMIT", False):
+                return view_func(request, *args, **kwargs)
+            if methods is not None and request.method not in methods:
                 return view_func(request, *args, **kwargs)
 
             client_ip = get_client_ip(request)
