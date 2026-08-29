@@ -39,7 +39,8 @@ ROUTE_GREETING = "greeting"
 # rule 2 in the system prompt scopes "بصيرة" to finance AND business
 # management generally.
 BUSINESS_DOMAIN_KEYWORDS = [
-    'مبيعات', 'إيراد', 'ايراد', 'مصروف', 'مصاريف', 'ربح', 'خسارة', 'فاتورة', 'فواتير',
+    'مبيعات', 'إيراد', 'ايراد', 'مصروف', 'مصاريف', 'ربح', 'الربح', 'أرباح', 'ارباح',
+    'الأرباح', 'الارباح', 'خسارة', 'خسائر', 'فاتورة', 'فواتير',
     'تكلفة', 'تكاليف', 'ميزانية', 'استثمار', 'تمويل', 'سيولة', 'تدفق نقدي', 'مخزون',
     'عميل', 'عملاء', 'مورد', 'موردين', 'سعر', 'تسعير', 'هامش', 'ضريبة', 'رأس مال',
     'شركة', 'مشروع', 'تقرير', 'ملف', 'بيانات', 'قرار', 'استراتيجية', 'توسع', 'نمو',
@@ -93,7 +94,8 @@ _SMALL_TALK_FILLERS = {
 # meat file" scenario) -- keep this list narrow, don't add generic terms.
 INFERRED_METRIC_TERMS = [
     'هدر', 'الهدر', 'مهدر', 'تسرب', 'تسريب',
-    'ربح', 'الربح', 'خسارة', 'الخسارة', 'هامش', 'الهامش',
+    'ربح', 'الربح', 'أرباح', 'ارباح', 'الأرباح', 'الارباح',
+    'خسارة', 'الخسارة', 'خسائر', 'هامش', 'الهامش',
     'وضع مالي', 'الوضع المالي', 'تدفق نقدي', 'التدفق النقدي', 'سيولة', 'السيولة',
     'waste', 'leakage', 'profit', 'loss', 'margin', 'cash flow', 'liquidity',
 ]
@@ -190,13 +192,23 @@ def _is_pure_greeting(text_lower):
     stripped = _normalize_arabic_letters(text_lower.strip(" ,.!؟?"))
     if not stripped:
         return False
+    normalized_fillers = {_normalize_arabic_letters(f) for f in _SMALL_TALK_FILLERS}
+    # Reported bug: "كيفك" sent on its own (no "هلا"/"مرحبا" opener in front)
+    # is small talk just as much as "هلا كيفك" is -- but _SMALL_TALK_FILLERS
+    # was only ever checked as a suffix after an opener below, so a bare
+    # filler fell through to normal routing. With files already uploaded,
+    # that skips the off-topic short-circuit entirely and lands on the
+    # "couldn't find the document" refusal for a message that was never a
+    # real question. Checked as a complete message on its own first.
+    if stripped in normalized_fillers:
+        return True
     normalized_openers = [_normalize_arabic_letters(o) for o in GREETING_OPENERS]
     if stripped in normalized_openers:
         return True
     for opener in normalized_openers:
         if stripped.startswith(opener):
             remainder = _normalize_arabic_letters(stripped[len(opener):].strip(" ,.!؟?"))
-            if not remainder or remainder in {_normalize_arabic_letters(f) for f in _SMALL_TALK_FILLERS}:
+            if not remainder or remainder in normalized_fillers:
                 return True
     return False
 
