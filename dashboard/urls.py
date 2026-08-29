@@ -14,6 +14,7 @@ urlpatterns = [
     # link to "portal" keeps working).
     path("onboarding/upload/", views.portal, name="onboarding_upload"),
     path("onboarding/use-sample-data/", views.use_sample_data, name="use_sample_data"),
+    path("api/chat/upload-file/", views.api_chat_upload_file, name="api_chat_upload_file"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("api/weekly-digest/generate/", views.api_generate_weekly_digest, name="api_generate_weekly_digest"),
     

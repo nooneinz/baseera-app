@@ -354,6 +354,67 @@ def use_sample_data(request):
     return redirect("dashboard")
 
 
+@login_required
+def api_chat_upload_file(request):
+    """
+    Real backend-connected file upload for the "Ask Basira" chat's
+    attach button.
+
+    Bug this replaces: the chat's file input only ever accepted ".csv"
+    and parsed it entirely client-side (PapaParse) into localStorage --
+    it never reached the server at all, so it could never accept Excel,
+    PDF, or a photo (a mobile file picker won't even offer the camera for
+    an input scoped to .csv), and the whole "Agent Proposal / Accept all"
+    approval screen that followed was cosmetic: nothing was ever actually
+    validated, saved as a ProjectFile, or turned into a DynamicRecord a
+    dashboard or chat agent could reason over. This mirrors portal()'s
+    real validate -> save -> process -> index pipeline instead, so a
+    photo of a handwritten ledger goes through the same financial-vision
+    OCR path any other image upload does.
+    """
+    if request.method != "POST" or not request.FILES.get("file"):
+        return JsonResponse({"success": False, "message": "لم يتم إرفاق أي ملف."}, status=400)
+
+    uploaded = request.FILES["file"]
+
+    from dashboard.services.validation_service import validate_financial_file
+    validation = validate_financial_file(uploaded)
+    if not validation["is_valid"]:
+        return JsonResponse({"success": False, "message": validation["message"]}, status=400)
+
+    uploaded.seek(0)
+    uploaded.name = build_safe_filename(uploaded.name)
+    project_file = ProjectFile.objects.create(user=request.user, excel_file=uploaded)
+    success, error_msg = process_excel_to_db(
+        project_file, request.user, validation.get("accepted_sheets"),
+        extracted_rows=validation.get("extracted_rows"),
+    )
+    if not success:
+        project_file.delete()
+        return JsonResponse({"success": False, "message": error_msg}, status=400)
+
+    request.session['active_file_id'] = project_file.id
+    try:
+        from dashboard.services.retrieval_service import index_accepted_sheets
+        index_accepted_sheets(project_file, validation.get("accepted_sheets"))
+    except Exception as idx_err:
+        print(f"Retrieval indexing error: {idx_err}")
+
+    SystemLog.objects.create(
+        user=request.user,
+        action_type="رفع ملف عبر المحادثة / Chat Upload",
+        details=f"تم رفع وتحليل ملف '{uploaded.name}' من واجهة اسأل بصيرة.",
+    )
+
+    record_count = DynamicRecord.objects.filter(user=request.user, project_file=project_file).count()
+    return JsonResponse({
+        "success": True,
+        "message": validation.get("message", ""),
+        "fileName": uploaded.name,
+        "recordCount": record_count,
+    })
+
+
 import json
 import pandas as pd
 import os
@@ -2731,8 +2792,32 @@ def save_manual_note(request):
             from django.core.files.base import ContentFile
             file_name = f"{title}_{request.user.username}.txt"
             content_file = ContentFile(f"العنوان: {title}\nالمحتوى:\n{content}".encode('utf-8'), name=file_name)
-            ProjectFile.objects.create(user=request.user, excel_file=content_file)
-            messages.success(request, "تم حفظ الملاحظة المالية بنجاح / Note saved successfully!")
+            project_file = ProjectFile.objects.create(user=request.user, excel_file=content_file)
+            # Bug: this used to only save the raw .txt file and stop there --
+            # process_excel_to_db() already has a real '.txt' branch (AI
+            # structured-data extraction, see extract_structured_data_from_file)
+            # but nothing ever called it for a manually-typed note, so a note
+            # never became an actual DynamicRecord: it sat in "Documents" but
+            # never fed the dashboard or gave the chat agents real numbers to
+            # reason over, despite the UI implying it would be analyzed.
+            success, error_msg = process_excel_to_db(project_file, request.user)
+            if success:
+                request.session['active_file_id'] = project_file.id
+                messages.success(request, "تم حفظ الملاحظة المالية وتحليلها بنجاح / Note saved and analyzed successfully!")
+            else:
+                # Keep the saved note either way (it's still useful as a
+                # document even if there wasn't enough structure to extract
+                # records from it), just be honest that analysis didn't happen.
+                messages.warning(
+                    request,
+                    f"تم حفظ الملاحظة، لكن تعذر استخراج بيانات قابلة للتحليل منها: {error_msg}",
+                )
+        else:
+            messages.error(request, "يرجى كتابة محتوى الملاحظة أولاً / Please write the note content first.")
+
+    next_url = request.POST.get("next")
+    if next_url and next_url.startswith("/"):
+        return redirect(next_url)
     return redirect("datasets")
 
 
