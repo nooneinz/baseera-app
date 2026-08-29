@@ -1403,6 +1403,19 @@
         syncAgentCheckboxes();
         renderActiveAgentChips();
         renderAllMessages();
+
+        // Onboarding quick-start prompts (see dashboard.html's "chat_guide"
+        // tour step) land here as /ask-basira/?prompt=... -- prefill and
+        // send immediately so the sample prompt is a true one-click action.
+        const quickStartPrompt = urlParams.get('prompt');
+        if (quickStartPrompt) {
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput) {
+                chatInput.value = quickStartPrompt;
+                sendMessage();
+            }
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
     });
 
 

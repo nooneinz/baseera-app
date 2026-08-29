@@ -129,7 +129,7 @@
         {% endif %}
         
         <!-- Ask Basira (اسأل بصيرة) -->
-        <a href="{% url 'ask_basira' %}" class="nav-item {% if active_page == 'ask' %}active{% endif %} flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-medium {% if active_page == 'ask' %}text-white{% else %}text-white/70{% endif %}">
+        <a id="askBasiraNavLink" href="{% url 'ask_basira' %}" class="nav-item {% if active_page == 'ask' %}active{% endif %} flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-medium {% if active_page == 'ask' %}text-white{% else %}text-white/70{% endif %}">
             <i data-lucide="message-square" class="h-4 w-4 text-sky-400"></i> 
             <span>{% if trans.lang_code == 'ar' %}اسأل بصيرة{% else %}Ask Basira{% endif %}</span>
         </a>

@@ -49,6 +49,59 @@
                 </div>
             </div>
 
+            <!-- Primary Drop Zone: the main, prominent upload path. Accepts
+                 every file type Baseera's validation layer supports in one
+                 place, instead of routing the user through the dropdown
+                 below first. -->
+            <form method="POST" enctype="multipart/form-data" id="primaryDropForm">
+                {% csrf_token %}
+                <input type="file" name="excel_file" accept=".xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png" class="hidden" id="primaryDropInput"
+                    onchange="handleFileUpload(this, 'primaryDropForm', primaryDropLoadingMsg)" />
+            </form>
+            <div id="primaryDropZone" onclick="document.getElementById('primaryDropInput').click()"
+                class="dropzone mb-5 flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--glow)]/40 bg-[var(--glow)]/5 hover:bg-[var(--glow)]/10 hover:border-[var(--glow)] px-6 py-8 text-center cursor-pointer transition-all">
+                <div class="h-12 w-12 rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white flex items-center justify-center shadow-md mb-1">
+                    <i data-lucide="upload-cloud" class="h-6 w-6"></i>
+                </div>
+                <p class="text-sm font-black text-slate-800 dark:text-white">
+                    {% if trans.lang_code == 'ar' %}اسحب وأفلت ملفك هنا، أو انقر للاختيار{% else %}Drag & drop your file here, or click to browse{% endif %}
+                </p>
+                <p class="text-xs text-slate-400">
+                    {% if trans.lang_code == 'ar' %}يدعم Excel، CSV، PDF، وصور (JPG/PNG){% else %}Supports Excel, CSV, PDF, and images (JPG/PNG){% endif %}
+                </p>
+            </div>
+
+            <!-- Optional Secondary Path: no data yet -->
+            <div class="mb-5 rounded-2xl border border-dashed border-slate-300 dark:border-slate-600 bg-white/60 dark:bg-slate-800/40 p-4">
+                <button type="button" onclick="toggleNoDataSection()" id="noDataToggleBtn"
+                    class="w-full flex items-center justify-between text-{{ trans.align }}">
+                    <span class="text-xs font-bold text-slate-600 dark:text-slate-300">
+                        {% if trans.lang_code == 'ar' %}ماعندك بيانات مالية جاهزة؟ (اختياري){% else %}Don't have financial data ready? (Optional){% endif %}
+                    </span>
+                    <i data-lucide="chevron-down" id="noDataChevron" class="h-4 w-4 text-slate-400 transition-transform shrink-0"></i>
+                </button>
+                <div id="noDataSection" class="hidden mt-3 flex flex-col gap-2.5">
+                    <p class="text-xs text-slate-500 dark:text-slate-400 text-{{ trans.align }}">
+                        {% if trans.lang_code == 'ar' %}جرّب بصيرة فوراً ببيانات تجريبية لمنشأة عُمانية صغيرة، أو حمّل النموذج وعبّئه ببياناتك الخاصة.{% else %}Try Baseera instantly with sample data from a small Omani SME, or download the template and fill it with your own data.{% endif %}
+                    </p>
+                    <div class="flex flex-col sm:flex-row items-stretch gap-2">
+                        <form method="POST" action="{% url 'use_sample_data' %}" class="flex-1">
+                            {% csrf_token %}
+                            <button type="submit"
+                                class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--nile)] to-[var(--glow)] text-white text-xs font-bold py-2.5 shadow-sm hover:opacity-95 transition">
+                                <i data-lucide="sparkles" class="h-3.5 w-3.5"></i>
+                                {% if trans.lang_code == 'ar' %}استخدام بيانات تجريبية{% else %}Use Sample Data{% endif %}
+                            </button>
+                        </form>
+                        <a href="{% static 'dashboard/templates/sample_sme_omani.xlsx' %}" download="Baseera_Sample_SME_Spreadsheet.xlsx"
+                           class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                            <i data-lucide="download" class="h-3.5 w-3.5"></i>
+                            {% if trans.lang_code == 'ar' %}تحميل نموذج SME تجريبي{% else %}Download Sample SME Spreadsheet{% endif %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
             <!-- Template Download Card -->
             <div class="flex items-center gap-3 rounded-2xl bg-white/70 dark:bg-slate-800/50 border border-dashed border-slate-300 dark:border-slate-600 px-4 py-3 mb-4">
                 <div class="h-8 w-8 shrink-0 rounded-full bg-slate-100 dark:bg-slate-700 grid place-items-center">
@@ -310,6 +363,47 @@
 </style>
 
 <script>
+const primaryDropLoadingMsg = "{% if trans.lang_code == 'ar' %}جاري تحليل الملف...{% else %}Analyzing your file...{% endif %}";
+
+function toggleNoDataSection() {
+    const section = document.getElementById('noDataSection');
+    const chevron = document.getElementById('noDataChevron');
+    if (!section) return;
+    const isHidden = section.classList.contains('hidden');
+    section.classList.toggle('hidden');
+    if (chevron) chevron.classList.toggle('rotate-180', isHidden);
+}
+
+(function () {
+    const zone = document.getElementById('primaryDropZone');
+    if (!zone) return;
+    ['dragenter', 'dragover'].forEach(evt => {
+        zone.addEventListener(evt, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            zone.classList.add('dragover');
+        });
+    });
+    ['dragleave', 'dragend'].forEach(evt => {
+        zone.addEventListener(evt, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            zone.classList.remove('dragover');
+        });
+    });
+    zone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.remove('dragover');
+        const files = e.dataTransfer && e.dataTransfer.files;
+        if (files && files.length > 0) {
+            const input = document.getElementById('primaryDropInput');
+            input.files = files;
+            handleFileUpload(input, 'primaryDropForm', primaryDropLoadingMsg);
+        }
+    });
+})();
+
 function toggleDataSourceDropdown() {
     const menu = document.getElementById('dataSourceDropdownMenu');
     const chevron = document.getElementById('dropdownChevron');

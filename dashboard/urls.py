@@ -9,6 +9,11 @@ urlpatterns = [
     path("register/", views.user_register, name="register"),
     path("logout/", views.user_logout, name="logout"),
     path("portal/", views.portal, name="portal"),
+    # Canonical post-registration onboarding URL (same view as "portal" --
+    # kept as an additional name/path rather than a rename so any existing
+    # link to "portal" keeps working).
+    path("onboarding/upload/", views.portal, name="onboarding_upload"),
+    path("onboarding/use-sample-data/", views.use_sample_data, name="use_sample_data"),
     path("dashboard/", views.dashboard, name="dashboard"),
     
     path("datasets/", views.datasets, name="datasets"),

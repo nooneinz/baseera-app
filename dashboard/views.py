@@ -101,7 +101,7 @@ def user_register(request):
                 request,
                 f"مرحباً بك {username}! 🎉 تم تسجيل مؤسستك بنجاح. اختر مصدر بياناتك للبدء."
             )
-            return redirect("portal")
+            return redirect("onboarding_upload")
 
         except IntegrityError:
             messages.error(
@@ -288,6 +288,70 @@ def portal(request):
         "profile": profile,
     }
     return render(request, "dashboard/portal.html", context)
+
+
+@login_required
+def use_sample_data(request):
+    """
+    Onboarding "Use Sample Data" action: populates the user's account with
+    the bundled Omani SME sample spreadsheet through the exact same
+    validation + processing pipeline a real upload goes through (nothing
+    here is hand-waved or faked in the DB), so a new user without a real
+    file yet can still explore a real, working dashboard immediately.
+    """
+    if request.method != "POST":
+        return redirect("onboarding_upload")
+
+    sample_path = os.path.join(settings.BASE_DIR, "dashboard", "static", "dashboard", "templates", "sample_sme_omani.xlsx")
+    if not os.path.exists(sample_path):
+        messages.error(request, "تعذر العثور على ملف البيانات التجريبية. حاول رفع ملفك الخاص.")
+        return redirect("onboarding_upload")
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    with open(sample_path, "rb") as f:
+        sample_bytes = f.read()
+
+    sample_file = SimpleUploadedFile(
+        "sample_sme_omani.xlsx",
+        sample_bytes,
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+    from dashboard.services.validation_service import validate_financial_file
+    validation = validate_financial_file(sample_file)
+    if not validation["is_valid"]:
+        messages.error(request, "تعذر معالجة البيانات التجريبية. حاول رفع ملفك الخاص.")
+        return redirect("onboarding_upload")
+
+    sample_file.seek(0)
+    sample_file.name = build_safe_filename(sample_file.name)
+    project_file = ProjectFile.objects.create(user=request.user, excel_file=sample_file)
+    success, error_msg = process_excel_to_db(
+        project_file, request.user, validation["accepted_sheets"],
+        extracted_rows=validation.get("extracted_rows"),
+    )
+    if not success:
+        project_file.delete()
+        messages.error(request, f"تعذر تحميل البيانات التجريبية: {error_msg}")
+        return redirect("onboarding_upload")
+
+    request.session['active_file_id'] = project_file.id
+    try:
+        from dashboard.services.retrieval_service import index_accepted_sheets
+        index_accepted_sheets(project_file, validation["accepted_sheets"])
+    except Exception as idx_err:
+        print(f"Retrieval indexing error: {idx_err}")
+
+    SystemLog.objects.create(
+        user=request.user,
+        action_type="استخدام بيانات تجريبية / Use Sample Data",
+        details="استخدم المستخدم بيانات SME التجريبية لاستكشاف المنصة.",
+    )
+    messages.success(
+        request,
+        "تم تحميل بيانات تجريبية لمنشأة عُمانية صغيرة! استكشف لوحة التحكم -- يمكنك حذفها لاحقاً واستبدالها ببياناتك الحقيقية.",
+    )
+    return redirect("dashboard")
 
 
 import json

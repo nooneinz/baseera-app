@@ -519,7 +519,7 @@
                 if (!currentUserId) return; // anonymous page (login/welcome/etc.) -- nothing to guard
                 var lastUserId = localStorage.getItem('basira_active_user_id');
                 if (lastUserId !== currentUserId) {
-                    ['basira_dataset', 'hasUploadedData'].forEach(function (k) {
+                    ['basira_dataset', 'hasUploadedData', 'basira_onboarding_step'].forEach(function (k) {
                         localStorage.removeItem(k);
                     });
                     localStorage.setItem('basira_active_user_id', currentUserId);
