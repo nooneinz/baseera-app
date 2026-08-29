@@ -10,6 +10,30 @@ FINANCIAL_KEYWORDS = ['سعر', 'تكلفة', 'إجمالي', 'كمية', 'تا�
                       'رقم الفاتورة', 'price', 'cost', 'total', 'amount', 'qty', 'date',
                       'revenue', 'expense', 'invoice']
 
+# Deterministic (no live AI call) document-type classification for a
+# text-extractable PDF, mirroring the vision OCR pass's classification for
+# photographed documents (dashboard/services/vision_ocr_service.py) so a
+# real invoice or bank statement gets the same "we recognized this" signal
+# whether it arrived as a PDF or a photo -- without paying a model round
+# trip just to label something a keyword match already answers reliably.
+BANK_STATEMENT_KEYWORDS = [
+    'كشف حساب', 'كشف الحساب', 'الرصيد الافتتاحي', 'الرصيد الختامي', 'رصيد سابق',
+    'bank statement', 'account statement', 'opening balance', 'closing balance',
+    'statement of account', 'iban',
+]
+INVOICE_KEYWORDS = [
+    'فاتورة ضريبية', 'رقم الفاتورة', 'فاتورة رقم', 'المورد', 'invoice number',
+    'invoice no', 'tax invoice', 'bill to', 'vat', 'ضريبة القيمة المضافة',
+]
+
+
+def _classify_pdf_document_type(text_lower: str) -> str:
+    if any(kw in text_lower for kw in BANK_STATEMENT_KEYWORDS):
+        return 'bank_statement'
+    if any(kw in text_lower for kw in INVOICE_KEYWORDS):
+        return 'invoice'
+    return 'other'
+
 
 def validate_financial_file(file_obj, ai_service=None) -> Dict:
     """
@@ -164,6 +188,8 @@ def validate_financial_file(file_obj, ai_service=None) -> Dict:
             if rejected_sheets:
                 msg += f" وتم تجاهل جداول غير صالحة: {', '.join(rejected_sheets)}."
 
+            result["document_type"] = 'spreadsheet'
+
             if warnings:
                 msg += f" تحذير: {', '.join(warnings)}"
                 result.update(is_valid=True, status='warning', message=msg)
@@ -208,6 +234,7 @@ def validate_financial_file(file_obj, ai_service=None) -> Dict:
 
             result.update(is_valid=True, status='accept', message="تم قبول الفاتورة بنجاح.",
                            accepted_sheets=["invoice"])
+            result["document_type"] = _classify_pdf_document_type(text_lower)
             return result
 
         except Exception as e:
