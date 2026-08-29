@@ -26,3 +26,10 @@ dashboard/gemini_api_key.txt
 media/
 
 .venv/
+
+# Runtime-generated output (approved-plan exports, uploaded workspace
+# blobs) -- written fresh on every request/test run, not source content.
+# Some older files under these paths were committed by accident in past
+# PRs; left in place, but new ones should stop showing up as noise.
+sandbox/approved_plans/
+sandbox/workspace/
