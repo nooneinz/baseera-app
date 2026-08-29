@@ -111,7 +111,7 @@
                 {{ request.user.get_full_name|default:request.user.username }}
             </h2>
             <p class="text-xs text-[#e9d5ff] font-semibold mt-1 truncate max-w-full">
-                {{ request.user.email|default:"hasansajjadux@gmail.com" }}
+                {{ request.user.email|default:"—" }}
             </p>
             <div class="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-extrabold border border-white/30 text-white shadow-sm">
                 <i data-lucide="shield-check" class="w-3.5 h-3.5 text-amber-300"></i>
@@ -172,7 +172,7 @@
                     <button onclick="openCalendarNoteModal()" class="w-7 h-7 rounded-lg bg-[#b9a6f2]/20 text-[#2b2470] dark:text-purple-300 hover:bg-[#7c6cf0] hover:text-white flex items-center justify-center transition" title="أضف تذكير أو ملاحظة">
                         <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
                     </button>
-                    <span class="font-extrabold text-sm text-[#2b2470] dark:text-white" id="calendar-header-day">Mon, Aug 10</span>
+                    <span class="font-extrabold text-sm text-[#2b2470] dark:text-white" id="calendar-header-day"></span>
                 </div>
 
                 <div class="flex items-center justify-between text-[11px] font-bold text-slate-500 pt-1 border-t border-slate-100 dark:border-slate-700">
@@ -180,7 +180,7 @@
                         <button onclick="prevMonth()" class="p-0.5 hover:text-[#2b2470] dark:hover:text-white" title="الشهر السابق"><i data-lucide="chevron-left" class="w-3.5 h-3.5"></i></button>
                         <button onclick="nextMonth()" class="p-0.5 hover:text-[#2b2470] dark:hover:text-white" title="الشهر التالي"><i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></button>
                     </div>
-                    <span id="calendar-month-year" class="font-extrabold text-[#2b2470] dark:text-purple-200">August 2026</span>
+                    <span id="calendar-month-year" class="font-extrabold text-[#2b2470] dark:text-purple-200"></span>
                 </div>
 
                 <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-[#7c6cf0] dark:text-purple-300 mt-1">
@@ -441,10 +441,10 @@
                 <div class="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl rounded-[28px] p-6 shadow-xl shadow-[#7c6cf0]/5 border border-white/80 dark:border-slate-800 flex flex-col gap-4 relative">
                     <div class="flex items-center justify-between">
                         <h2 class="text-lg font-black text-[#2b2470] dark:text-white">
-                            {% if trans.lang_code == 'ar' %}منحنى أداء واستخدام النظام (Stocks Graph){% else %}Stocks Graph{% endif %}
+                            {% if trans.lang_code == 'ar' %}منحنى النمو خلال آخر 12 شهراً{% else %}12-Month Growth Trend{% endif %}
                         </h2>
                         <div class="bg-gradient-to-r from-[#2b2470] to-[#7c6cf0] text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-md">
-                            <span>4.5 Points</span>
+                            <span>{{ total_tenants }} {% if trans.lang_code == 'ar' %}حساب إجمالاً{% else %}total accounts{% endif %}</span>
                         </div>
                     </div>
                     <div class="relative w-full h-[240px]">
@@ -887,7 +887,7 @@
                     </div>
                     <div class="space-y-0.5">
                         <h4 class="text-base font-black tracking-tight truncate">
-                            {% if request.user.profile and request.user.profile.company_name %}{{ request.user.profile.company_name }}{% else %}شركة منصة بصيرة الذكية{% endif %}
+                            {% if request.user.profile and request.user.profile.company_name %}{{ request.user.profile.company_name }}{% else %}{% if trans.lang_code == 'ar' %}غير محدد{% else %}Not set{% endif %}{% endif %}
                         </h4>
                         <p class="text-[11px] text-slate-900 font-bold">{% if trans.lang_code == 'ar' %}سجل تجاري موثق{% else %}Verified CR Entity{% endif %}</p>
                     </div>
@@ -917,15 +917,22 @@
                         <span class="text-xs font-black text-slate-300 uppercase tracking-wider">
                             {% if trans.lang_code == 'ar' %}مستوى الأمان{% else %}Security Level{% endif %}
                         </span>
-                        <div class="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-                            <i data-lucide="shield-check" class="h-4 w-4"></i>
+                        <div class="h-8 w-8 rounded-full {% if request.is_secure %}bg-emerald-500/20 text-emerald-400{% else %}bg-amber-500/20 text-amber-400{% endif %} flex items-center justify-center">
+                            <i data-lucide="{% if request.is_secure %}shield-check{% else %}shield-alert{% endif %}" class="h-4 w-4"></i>
                         </div>
                     </div>
                     <div class="space-y-0.5">
+                        {% if request.is_secure %}
                         <h4 class="text-base font-black tracking-tight text-emerald-400">
                             {% if trans.lang_code == 'ar' %}حماية عالية (SSL){% else %}SSL Protected{% endif %}
                         </h4>
                         <p class="text-[11px] text-slate-400 font-bold">{% if trans.lang_code == 'ar' %}جلسة مشفرة ومؤمنة{% else %}Encrypted Active Session{% endif %}</p>
+                        {% else %}
+                        <h4 class="text-base font-black tracking-tight text-amber-400">
+                            {% if trans.lang_code == 'ar' %}بدون تشفير (SSL){% else %}Not SSL Protected{% endif %}
+                        </h4>
+                        <p class="text-[11px] text-slate-400 font-bold">{% if trans.lang_code == 'ar' %}الجلسة الحالية غير مشفرة{% else %}Current session is not encrypted{% endif %}</p>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -1062,14 +1069,14 @@
                                 </a>
                             </div>
 
-                            <div class="flex items-center justify-between p-3.5 rounded-2xl bg-white/80 dark:bg-slate-800/80 border border-white/90 dark:border-slate-700 shadow-sm">
+                            <div class="flex items-center justify-between p-3.5 rounded-2xl bg-white/80 dark:bg-slate-800/80 border border-white/90 dark:border-slate-700 shadow-sm opacity-70">
                                 <div>
                                     <p class="font-extrabold text-[#2b2470] dark:text-white">{% if trans.lang_code == 'ar' %}تنبيهات الأمان والأنشطة{% else %}Security Alerts & Activity{% endif %}</p>
-                                    <p class="text-[11px] text-slate-400 mt-0.5">{% if trans.lang_code == 'ar' %}إشعارات فورية عند كل دخول للنظام{% else %}Instant login notifications{% endif %}</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">{% if trans.lang_code == 'ar' %}هذا الإعداد غير مفعّل حالياً في النظام (قريباً){% else %}Not wired to a real setting yet (coming soon){% endif %}</p>
                                 </div>
-                                <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                    <input type="checkbox" checked class="sr-only peer">
-                                    <div class="w-10 h-5.5 bg-slate-300 dark:bg-slate-700 rounded-full peer peer-checked:bg-[#7c6cf0] transition after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:after:translate-x-full"></div>
+                                <label class="relative inline-flex items-center shrink-0 cursor-not-allowed" title="{% if trans.lang_code == 'ar' %}غير متاح بعد{% else %}Not available yet{% endif %}">
+                                    <input type="checkbox" disabled class="sr-only peer">
+                                    <div class="w-10 h-5.5 bg-slate-300 dark:bg-slate-700 rounded-full peer transition after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all"></div>
                                 </label>
                             </div>
                         </div>
@@ -1469,34 +1476,40 @@
     document.addEventListener("DOMContentLoaded", function() {
         renderCalendar();
 
+        const requestedTab = new URLSearchParams(window.location.search).get('tab');
+        if (requestedTab && document.getElementById(`admin-tab-${requestedTab}`)) {
+            switchAdminTab(requestedTab);
+        }
+
         const canvas = document.getElementById('stocksGraphChart');
         if (canvas) {
+            const isAr = "{{ trans.lang_code|default:'ar' }}" === "ar";
             const ctx = canvas.getContext('2d');
             new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Agu', 'Sep', 'Otc', 'Nov', 'Dec'],
+                    labels: {{ trend_labels|safe }},
                     datasets: [
                         {
-                            label: 'Metrics Curve 1',
-                            data: [30, 45, 38, 55, 60, 48, 70, 85, 95, 78, 65, 80],
+                            label: isAr ? 'مستخدمون جدد' : 'New Signups',
+                            data: {{ trend_signups|safe }},
                             borderColor: '#2b2470',
                             borderWidth: 3,
                             fill: false,
                             tension: 0.45,
-                            pointRadius: [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0],
+                            pointRadius: 3,
                             pointBackgroundColor: '#7c6cf0',
                             pointBorderColor: '#ffffff',
                             pointBorderWidth: 2
                         },
                         {
-                            label: 'Metrics Curve 2',
-                            data: [50, 40, 52, 68, 42, 65, 58, 80, 62, 75, 55, 70],
+                            label: isAr ? 'استعلامات الذكاء الاصطناعي' : 'AI Queries',
+                            data: {{ trend_ai_usage|safe }},
                             borderColor: '#14b8a6',
                             borderWidth: 3,
                             fill: false,
                             tension: 0.45,
-                            pointRadius: 0
+                            pointRadius: 3
                         }
                     ]
                 },
@@ -1504,11 +1517,11 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { display: false },
+                        legend: { display: true, position: 'top', labels: { boxWidth: 10, font: { size: 11, weight: '600' } } },
                         tooltip: { enabled: true }
                     },
                     scales: {
-                        y: { display: false, beginAtZero: true },
+                        y: { display: true, beginAtZero: true, ticks: { precision: 0 } },
                         x: {
                             grid: { display: false },
                             ticks: { color: '#64748B', font: { size: 11, weight: '600' } }

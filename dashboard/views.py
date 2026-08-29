@@ -3,6 +3,7 @@ import json
 import logging
 import pandas as pd
 from django.shortcuts import render, redirect
+from django.urls import reverse
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -1686,7 +1687,11 @@ def admin_settings(request):
     if not (request.user.is_staff or request.user.is_superuser or request.user.username == "admin"):
         messages.error(request, "عذراً، هذه الصفحة مخصصة لمدير النظام فقط (Super Admin).")
         return redirect("dashboard")
-    return redirect("/super-admin/?tab=settings")
+    # admin_dashboard.html is a single-page tabbed view (no separate URL per
+    # tab) -- "/super-admin/" was never a real route, so this always 404'd.
+    # Redirect to the real admin dashboard URL and let its own JS open the
+    # settings tab via the ?tab= query param.
+    return redirect(f"{reverse('admin_dashboard')}?tab=settings")
 
 
 @login_required
@@ -1879,6 +1884,42 @@ def admin_dashboard(request):
     # System Activity Logs
     logs = SystemLog.objects.all().order_by("-timestamp")[:100]
 
+    # Real 12-month trend for the overview chart -- replaces the
+    # previously hardcoded "Metrics Curve 1/2" placeholder arrays with
+    # actual monthly counts of new signups and AI usage from the DB.
+    from django.db.models.functions import TruncMonth
+    from django.utils import timezone
+    import calendar as _calendar
+
+    now = timezone.now()
+    months = []
+    y, m = now.year, now.month
+    for _ in range(12):
+        months.append((y, m))
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    months.reverse()
+
+    trend_labels = [f"{_calendar.month_abbr[m]} {y}" for (y, m) in months]
+
+    signup_rows = (
+        users_list.annotate(month=TruncMonth("date_joined"))
+        .values("month")
+        .annotate(count=Count("id"))
+    )
+    signup_by_month = {(r["month"].year, r["month"].month): r["count"] for r in signup_rows if r["month"]}
+
+    ai_usage_rows = (
+        AIUsageLog.objects.annotate(month=TruncMonth("created_at"))
+        .values("month")
+        .annotate(count=Count("id"))
+    )
+    ai_usage_by_month = {(r["month"].year, r["month"].month): r["count"] for r in ai_usage_rows if r["month"]}
+
+    trend_signups = [signup_by_month.get(ym, 0) for ym in months]
+    trend_ai_usage = [ai_usage_by_month.get(ym, 0) for ym in months]
+
     return render(
         request,
         "dashboard/admin_dashboard.html",
@@ -1897,6 +1938,9 @@ def admin_dashboard(request):
             "invoices": invoices,
             "total_revenue": total_revenue,
             "logs": logs,
+            "trend_labels": json.dumps(trend_labels),
+            "trend_signups": json.dumps(trend_signups),
+            "trend_ai_usage": json.dumps(trend_ai_usage),
         },
     )
 
