@@ -252,7 +252,9 @@ def portal(request):
         excel.seek(0)
 
         excel.name = build_safe_filename(excel.name)
-        project_file = ProjectFile.objects.create(user=request.user, excel_file=excel)
+        project_file = ProjectFile.objects.create(
+            user=request.user, excel_file=excel, document_type=validation.get("document_type"),
+        )
         success, error_msg = process_excel_to_db(
             project_file, request.user, accepted_sheets,
             extracted_rows=validation.get("extracted_rows"),
@@ -325,7 +327,9 @@ def use_sample_data(request):
 
     sample_file.seek(0)
     sample_file.name = build_safe_filename(sample_file.name)
-    project_file = ProjectFile.objects.create(user=request.user, excel_file=sample_file)
+    project_file = ProjectFile.objects.create(
+        user=request.user, excel_file=sample_file, document_type='spreadsheet',
+    )
     success, error_msg = process_excel_to_db(
         project_file, request.user, validation["accepted_sheets"],
         extracted_rows=validation.get("extracted_rows"),
@@ -384,7 +388,9 @@ def api_chat_upload_file(request):
 
     uploaded.seek(0)
     uploaded.name = build_safe_filename(uploaded.name)
-    project_file = ProjectFile.objects.create(user=request.user, excel_file=uploaded)
+    project_file = ProjectFile.objects.create(
+        user=request.user, excel_file=uploaded, document_type=validation.get("document_type"),
+    )
     success, error_msg = process_excel_to_db(
         project_file, request.user, validation.get("accepted_sheets"),
         extracted_rows=validation.get("extracted_rows"),
@@ -2792,7 +2798,9 @@ def save_manual_note(request):
             from django.core.files.base import ContentFile
             file_name = f"{title}_{request.user.username}.txt"
             content_file = ContentFile(f"العنوان: {title}\nالمحتوى:\n{content}".encode('utf-8'), name=file_name)
-            project_file = ProjectFile.objects.create(user=request.user, excel_file=content_file)
+            project_file = ProjectFile.objects.create(
+                user=request.user, excel_file=content_file, document_type='manual_note',
+            )
             # Bug: this used to only save the raw .txt file and stop there --
             # process_excel_to_db() already has a real '.txt' branch (AI
             # structured-data extraction, see extract_structured_data_from_file)

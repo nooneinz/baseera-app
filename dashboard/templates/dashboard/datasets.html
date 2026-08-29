@@ -311,13 +311,22 @@ async function recordPlanImpact(planId, baselineLabel, baselineValue) {
                                 </div>
                             </td>
                             <td class="py-4 {% if trans.lang_code == 'ar' %}pl-4{% else %}pr-4{% endif %}">
-                                <span class="rounded-full bg-[var(--nile)]/10 text-[var(--nile)] font-medium px-2.5 py-0.5 text-xs">
-                                    {% if '.csv' in file.excel_file.name|lower %}CSV
-                                    {% elif '.txt' in file.excel_file.name|lower %}نص (TXT)
-                                    {% elif '.pdf' in file.excel_file.name|lower %}PDF
-                                    {% elif '.png' in file.excel_file.name|lower or '.jpg' in file.excel_file.name|lower or '.jpeg' in file.excel_file.name|lower %}صورة (OCR)
-                                    {% else %}Excel{% endif %}
-                                </span>
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <span class="rounded-full bg-[var(--nile)]/10 text-[var(--nile)] font-medium px-2.5 py-0.5 text-xs">
+                                        {% if '.csv' in file.excel_file.name|lower %}CSV
+                                        {% elif '.txt' in file.excel_file.name|lower %}نص (TXT)
+                                        {% elif '.pdf' in file.excel_file.name|lower %}PDF
+                                        {% elif '.png' in file.excel_file.name|lower or '.jpg' in file.excel_file.name|lower or '.jpeg' in file.excel_file.name|lower %}صورة (OCR)
+                                        {% else %}Excel{% endif %}
+                                    </span>
+                                    {% if file.document_type and file.document_type != 'other' and file.document_type != 'spreadsheet' %}
+                                    <span class="rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold px-2.5 py-0.5 text-xs flex items-center gap-1"
+                                          title="{% if trans.lang_code == 'ar' %}تم التعرف على نوع المستند تلقائياً{% else %}Document type auto-detected{% endif %}">
+                                        <i data-lucide="sparkles" class="h-3 w-3"></i>
+                                        {{ file.get_document_type_display }}
+                                    </span>
+                                    {% endif %}
+                                </div>
                             </td>
                             <td class="py-4 {% if trans.lang_code == 'ar' %}pl-4{% else %}pr-4{% endif %} text-gray-500">{{ file.uploaded_at|date:"M d, Y" }}</td>
                             <td class="py-4 {% if trans.lang_code == 'ar' %}pl-4{% else %}pr-4{% endif %}">

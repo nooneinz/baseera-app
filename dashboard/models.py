@@ -160,6 +160,17 @@ class Profile(models.Model):
 
 
 class ProjectFile(models.Model):
+    DOCUMENT_TYPES = [
+        ('invoice', 'فاتورة / Invoice'),
+        ('bank_statement', 'كشف حساب بنكي / Bank Statement'),
+        ('receipt', 'إيصال / Receipt'),
+        ('check', 'شيك / Check'),
+        ('handwritten_ledger', 'دفتر محاسبي يدوي / Handwritten Ledger'),
+        ('manual_note', 'ملاحظة مكتوبة / Manual Note'),
+        ('spreadsheet', 'جدول بيانات / Spreadsheet'),
+        ('other', 'أخرى / Other'),
+    ]
+
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, verbose_name="المستخدم / User"
     )
@@ -169,6 +180,16 @@ class ProjectFile(models.Model):
     )
     uploaded_at = models.DateTimeField(
         auto_now_add=True, verbose_name="تاريخ الرفع / Uploaded At"
+    )
+    # Populated at upload time: vision OCR already classifies photographed
+    # documents (receipt/invoice/bank_statement/check/handwritten_ledger)
+    # but that signal used to be computed and immediately discarded --
+    # never stored, never shown anywhere. A lightweight keyword pass does
+    # the same for text-extractable PDFs. Left null for older rows and any
+    # source that genuinely has no meaningful classification.
+    document_type = models.CharField(
+        max_length=30, choices=DOCUMENT_TYPES, null=True, blank=True,
+        verbose_name="نوع المستند / Document Type",
     )
 
     def __str__(self):
