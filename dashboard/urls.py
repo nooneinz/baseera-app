@@ -15,6 +15,7 @@ urlpatterns = [
     path("onboarding/upload/", views.portal, name="onboarding_upload"),
     path("onboarding/use-sample-data/", views.use_sample_data, name="use_sample_data"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("api/weekly-digest/generate/", views.api_generate_weekly_digest, name="api_generate_weekly_digest"),
     
     path("datasets/", views.datasets, name="datasets"),
     path("documents/", views.datasets, name="documents"),
