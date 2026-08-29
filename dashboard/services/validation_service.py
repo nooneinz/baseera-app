@@ -35,6 +35,59 @@ def _classify_pdf_document_type(text_lower: str) -> str:
     return 'other'
 
 
+def _fallback_to_scanned_pdf_ocr(pdf, ai_service) -> Dict:
+    """
+    A PDF with no extractable text layer at all is, in practice, a scanned
+    document (a phone photo of a paper invoice/statement saved as .pdf, or
+    a printer's scan-to-PDF output) -- pdfplumber's text extraction was
+    never going to read that. Rather than reject it, render the first page
+    to an image (pdfplumber's own pypdfium2-backed renderer, no extra
+    system dependency) and run it through the same financial-vision OCR
+    pass a real photo upload gets (dashboard/services/vision_ocr_service).
+    """
+    from io import BytesIO
+    from dashboard.services.vision_ocr_service import ocr_extract_financial_rows
+
+    result = {
+        "is_valid": False, "status": "reject", "message": "",
+        "accepted_sheets": [], "rejected_sheets": [],
+    }
+
+    if ai_service is None:
+        try:
+            from dashboard.services.ai_service import GeminiAIService
+            ai_service = GeminiAIService()
+        except Exception:
+            ai_service = None
+
+    try:
+        page_image = pdf.pages[0].to_image(resolution=200).original
+        buf = BytesIO()
+        page_image.save(buf, format="PNG")
+        buf.seek(0)
+        buf.name = "scanned_pdf_page.png"
+    except Exception:
+        logger.exception("Could not rasterize scanned PDF page for OCR")
+        result["message"] = "لم يتم العثور على نص قابل للاستخراج في الملف، وتعذّر أيضاً تحويله لصورة لتحليله."
+        return result
+
+    try:
+        ocr_result = ocr_extract_financial_rows(buf, ai_service=ai_service)
+    except Exception:
+        logger.exception("Scanned-PDF OCR fallback failed")
+        result["message"] = "لم يتم العثور على نص قابل للاستخراج في الملف، وتعذّر تحليله كصورة ممسوحة ضوئياً."
+        return result
+
+    result["message"] = ocr_result["message"]
+    if ocr_result["status"] == "reject":
+        return result
+
+    result.update(is_valid=True, status=ocr_result["status"], accepted_sheets=["scanned_document"])
+    result["extracted_rows"] = ocr_result["rows"]
+    result["document_type"] = ocr_result["document_type"]
+    return result
+
+
 def validate_financial_file(file_obj, ai_service=None) -> Dict:
     """
     Returns a dict:
@@ -221,8 +274,16 @@ def validate_financial_file(file_obj, ai_service=None) -> Dict:
                         text += extracted
 
                 if not text.strip():
-                    result["message"] = "لم يتم العثور على نص قابل للاستخراج في الفاتورة (Scan غير مدعوم حالياً)."
-                    return result
+                    # No text layer at all -- this is a scanned PDF (a photo
+                    # of a document saved as .pdf, or a printer scan), which
+                    # pdfplumber's text extraction was never going to read.
+                    # Rather than reject it outright, render the first page
+                    # to an image and run it through the exact same
+                    # financial-vision OCR pass a photo upload gets, instead
+                    # of forcing the user to re-photograph the same document
+                    # and upload it as a .jpg to get an OCR path that
+                    # actually exists for it.
+                    return _fallback_to_scanned_pdf_ocr(pdf, ai_service)
 
                 text_lower = text.lower()
                 has_invoice_keyword = any(kw in text_lower for kw in FINANCIAL_KEYWORDS)
