@@ -58,9 +58,11 @@ class BaseeraViewsTests(TestCase):
             "project_type": "retail",
             "phone": "96899998888"
         })
-        # Should redirect to portal
+        # Should redirect to the onboarding upload page (same view as the
+        # legacy "portal" URL, see dashboard.test_onboarding_flow for the
+        # dedicated onboarding-flow coverage).
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("portal"))
+        self.assertEqual(response.url, reverse("onboarding_upload"))
 
     def test_portal_page_authenticated(self):
         self.client.login(username="analyst_test", password="SecurePassword123!")
