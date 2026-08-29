@@ -110,8 +110,8 @@
 
             <!-- Remember & Hint -->
             <div class="flex items-center justify-between text-xs pt-1">
-                <label class="flex items-center gap-2 text-slate-600 dark:text-slate-400 cursor-pointer hover:text-[#181C80] dark:hover:text-white transition-colors">
-                    <input type="checkbox" class="h-4 w-4 rounded-md border-white/60 bg-white/50 accent-[#181C80] cursor-pointer transition-all focus:ring-[#181C80]" checked />
+                <label class="flex items-center gap-2 text-slate-600 dark:text-slate-400 opacity-60 cursor-not-allowed" title="{% if trans.lang_code == 'ar' %}غير مفعّل بعد{% else %}Not available yet{% endif %}">
+                    <input type="checkbox" class="h-4 w-4 rounded-md border-white/60 bg-white/50 accent-[#181C80] cursor-not-allowed" disabled />
                     <span class="font-medium">{% if trans.lang_code == 'ar' %}تذكرني كمدير نظام{% else %}Remember Admin Session{% endif %}</span>
                 </label>
                 <a href="{% url 'password_reset' %}" class="font-bold text-[#181C80] hover:underline transition-colors">{% if trans.lang_code == 'ar' %}هل نسيت كلمة المرور؟{% else %}Forgot password?{% endif %}</a>
