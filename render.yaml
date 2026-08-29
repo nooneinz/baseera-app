@@ -16,7 +16,20 @@ services:
     # JSON response, which the frontend can't parse into a real message
     # and previously showed as a generic, misleading "check your API key"
     # error even though the actual cause was just running out of time.
-    startCommand: "gunicorn baseera_web.wsgi:application --workers 4 --worker-class gthread --threads 4 --timeout 120"
+    #
+    # --workers 2 (was 4): this service has no explicit `plan:` here, so it
+    # runs on Render's free 512MB tier. Each gunicorn worker is a separate
+    # process carrying its own full copy of Django + pandas + numpy +
+    # openpyxl + the google-genai client -- observed OOM-killing an
+    # instance ("Ran out of memory (used over 512MB)") with 4 workers even
+    # before factoring in per-request memory for a 10k-row DataFrame or a
+    # live model call. Threads share a worker's memory far more cheaply
+    # than separate processes do, so --threads stays at 4 (2 workers x 4
+    # threads = 8 concurrent request slots) while the process count that
+    # actually multiplies the baseline footprint is halved. If this still
+    # OOMs under real load, the fix is a bigger instance plan, not more
+    # workers on the same 512MB.
+    startCommand: "gunicorn baseera_web.wsgi:application --workers 2 --worker-class gthread --threads 4 --timeout 120"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
