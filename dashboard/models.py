@@ -50,6 +50,15 @@ class CompanyStrategicProfile(models.Model):
     max_investment_limit = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     cash_reserve_floor = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
 
+    # The revenue-share threshold (as a percentage, e.g. 3.00 for 3%) above
+    # which the escalation chain (agent_escalation_chain.run_escalation_chain)
+    # treats a flagged financial impact as material enough to also pull in
+    # the Pricing agent for an immediate-liquidity recommendation. Same
+    # optional/owner-configurable pattern as max_investment_limit and
+    # cash_reserve_floor above: null means "use the platform default"
+    # (agent_escalation_chain.MATERIALITY_REVENUE_SHARE), not zero.
+    materiality_threshold_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+
     active_agents = models.JSONField(default=list, blank=True)
 
     updated_at = models.DateTimeField(auto_now=True)
@@ -508,6 +517,25 @@ class ApprovedPlan(models.Model):
     file_path = models.CharField(max_length=500, verbose_name="مسار الملف / File Path", default="")
     justification = models.TextField(blank=True, null=True, verbose_name="سبب الاعتماد / Justification")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الاعتماد / Approved At")
+
+    # Impact tracking (closes the "detect -> decide -> act -> measured
+    # impact" loop): the real number the recommendation was based on at
+    # approval time (e.g. agent_escalation_chain's flagged_amount), and
+    # the number the user later reports so the platform can show whether
+    # the situation actually improved -- never an AI guess, both numbers
+    # are either computed deterministically or entered by the user. All
+    # optional: plans created outside the escalation-chain "Apply" button
+    # (e.g. api_views.save_file_api) simply have no impact to show.
+    baseline_metric_label = models.CharField(max_length=255, null=True, blank=True, verbose_name="وصف المؤشر الأساسي")
+    baseline_metric_value = models.FloatField(null=True, blank=True, verbose_name="القيمة الأساسية عند الاعتماد")
+    current_metric_value = models.FloatField(null=True, blank=True, verbose_name="القيمة الحالية المُسجّلة")
+    impact_status = models.CharField(max_length=20, default="pending", choices=[
+        ("pending", "لم يُقاس بعد"),
+        ("improved", "تحسّن"),
+        ("worsened", "تراجع"),
+        ("unchanged", "بلا تغيير"),
+    ])
+    impact_measured_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ قياس الأثر")
 
     def __str__(self):
         return f"{self.file_name} - {self.user.username}"

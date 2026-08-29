@@ -332,7 +332,27 @@
                 </div>
 
             </div>
-            
+
+            <!-- Proactive Escalation Chain: audit -> financial -> (conditional) supply chain
+                 -> (conditional) pricing, each stage grounded in real anomalies found in the
+                 user's own data (dashboard/services/agent_escalation_chain.py). Hidden by
+                 default and only shown once /api/escalation-chain/ confirms a real finding,
+                 so an account with no anomalies never sees an empty/manufactured card. -->
+            <div id="escalationChainCard" class="hidden rounded-2xl p-6 glass shadow-sm mt-6">
+                <div class="flex items-center justify-between mb-3.5 pb-3 border-b border-slate-200/50 dark:border-slate-800">
+                    <div class="flex items-center gap-2.5">
+                        <div class="h-8 w-8 rounded-xl bg-gradient-to-tr from-[var(--nile)] to-[var(--glow)] text-white flex items-center justify-center shadow-xs">
+                            <i data-lucide="workflow" class="h-4 w-4"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-black text-ink leading-tight">{% if trans.lang_code == 'ar' %}التحليل الاستباقي متعدد الوكلاء{% else %}Proactive Multi-Agent Analysis{% endif %}</h3>
+                            <p class="text-[11px] font-medium text-slate-400">{% if trans.lang_code == 'ar' %}كل وكيل يبني على اكتشاف الوكيل الذي قبله، بناءً على بياناتك الفعلية{% else %}Each agent builds on the previous agent's real finding{% endif %}</p>
+                        </div>
+                    </div>
+                </div>
+                <div id="escalationChainStages" class="space-y-3"></div>
+            </div>
+
             <!-- Live Insights Container (Transferred from 'Ask Basira' AI) placed at the bottom -->
             <div id="liveSyncContainer" class="flex flex-col gap-4 mt-6"></div>
 
@@ -981,6 +1001,126 @@
         console.error('AI waste analysis failed:', e);
         if (valueEl) valueEl.textContent = isAr ? 'تعذّر التحليل' : 'Analysis unavailable';
         if (detailEl) detailEl.textContent = isAr ? 'حاول مرة أخرى لاحقاً' : 'Please try again later';
+      }
+    }
+
+    // Proactive escalation chain (dashboard/services/agent_escalation_chain.py via
+    // /api/escalation-chain/): audit -> financial -> conditional supply chain ->
+    // conditional pricing, each stage grounded in real anomalies in the user's own
+    // data. Previously computed on every request but never rendered anywhere in the
+    // product -- this wires it into the dashboard so the platform's most concrete
+    // "agents actually deciding, not just narrating" behavior is visible.
+    const ESCALATION_AGENT_STYLE = {
+      audit:        { icon: 'shield-alert', color: 'cyan' },
+      financial:    { icon: 'line-chart',   color: 'emerald' },
+      supply_chain: { icon: 'truck',        color: 'blue' },
+      pricing:      { icon: 'tag',          color: 'purple' },
+    };
+
+    async function fetchEscalationChain() {
+      const card = document.getElementById('escalationChainCard');
+      const stagesEl = document.getElementById('escalationChainStages');
+      if (!card || !stagesEl) return;
+      try {
+        const res = await fetch('/api/escalation-chain/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+          body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        if (data.status !== 'success' || !data.triggered) return; // no real anomaly -> stay hidden, never a manufactured card
+        renderEscalationChainStages(stagesEl, data.stages || []);
+        card.classList.remove('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+      } catch (e) {
+        console.error('Escalation chain fetch failed:', e);
+      }
+    }
+
+    function renderEscalationChainStages(container, stages) {
+      // Real baseline number for impact tracking: the financial stage's
+      // flagged_amount is the same figure the audit finding was quantified
+      // into, shared by both the supply_chain and pricing suggestions --
+      // never a separately invented number. Captured now so it can be
+      // stored on the ApprovedPlan at the moment of approval.
+      const financialStage = stages.find(s => s.agent_id === 'financial');
+      const baselineValue = financialStage && financialStage.finding
+        ? financialStage.finding.flagged_amount : null;
+      const baselineLabel = isAr
+        ? 'المبلغ المرصود عند اعتماد الخطة' : 'Flagged amount at plan approval';
+
+      container.innerHTML = stages.map((stage, idx) => {
+        const style = ESCALATION_AGENT_STYLE[stage.agent_id] || { icon: 'bot', color: 'slate' };
+        if (!stage.triggered) {
+          // A skipped stage is a real "not warranted this time" decision, not a
+          // refusal -- shown as a quiet inline badge, never a full card, so it
+          // never reads like every agent declining the same question.
+          return `
+            <div class="flex items-center gap-2 text-[11px] font-medium text-slate-400 ps-1">
+              <span class="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0"></span>
+              <span>${stage.agent_name}: ${isAr ? 'غير مفعّل هذه المرة' : 'Not triggered this time'}</span>
+            </div>`;
+        }
+        const actionBtn = stage.suggested_action ? `
+              <button onclick="applyEscalationAction(this)"
+                      data-payload="${(stage.suggested_action.payload_hint || stage.agent_id).replace(/"/g, '&quot;')}"
+                      data-narrative="${(stage.narrative || '').replace(/"/g, '&quot;')}"
+                      data-baseline-value="${baselineValue !== null ? baselineValue : ''}"
+                      data-baseline-label="${baselineLabel.replace(/"/g, '&quot;')}"
+                      class="mt-2.5 inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl bg-[var(--glow)]/10 text-[var(--glow)] border border-[var(--glow)]/30 hover:bg-[var(--glow)]/20 transition-all">
+                <i data-lucide="zap" class="h-3.5 w-3.5"></i>
+                ${isAr ? (stage.suggested_action.label_ar || 'تطبيق التوصية') : (stage.suggested_action.label_en || 'Apply recommendation')}
+              </button>` : '';
+        return `
+          <div class="rounded-xl p-3.5 bg-${style.color}-500/8 dark:bg-${style.color}-950/25 border border-${style.color}-500/20">
+            <div class="flex items-center gap-2 mb-1.5 text-${style.color}-700 dark:text-${style.color}-400">
+              <i data-lucide="${style.icon}" class="h-4 w-4"></i>
+              <span class="text-xs font-extrabold">${stage.agent_name}</span>
+              ${idx > 0 ? `<i data-lucide="arrow-${isAr ? 'left' : 'right'}" class="h-3 w-3 text-slate-300 dark:text-slate-600"></i>` : ''}
+            </div>
+            <p class="text-xs sm:text-[13px] font-medium text-slate-700 dark:text-slate-200 leading-relaxed">${stage.narrative || ''}</p>
+            ${actionBtn}
+          </div>`;
+      }).join('');
+    }
+
+    async function applyEscalationAction(btn) {
+      const payloadHint = btn.getAttribute('data-payload') || '';
+      const narrative = btn.getAttribute('data-narrative') || '';
+      const baselineValueAttr = btn.getAttribute('data-baseline-value') || '';
+      const baselineLabel = btn.getAttribute('data-baseline-label') || '';
+      const confirmMsg = isAr
+        ? 'سيتم نقل هذه التوصية إلى منصة القرارات كخطة معتمدة يمكنك متابعة تنفيذها. متابعة؟'
+        : 'This recommendation will be moved to the Decision Platform as an approved plan. Continue?';
+      if (!window.confirm(confirmMsg)) return;
+
+      btn.disabled = true;
+      btn.style.pointerEvents = 'none';
+      btn.innerHTML = `<i data-lucide="loader-2" class="h-3.5 w-3.5 animate-spin"></i> ${isAr ? 'جاري التطبيق...' : 'Applying...'}`;
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+
+      try {
+        const res = await fetch('/api/dashboard/apply-agent-decision/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+          body: JSON.stringify({
+            action_payload: payloadHint,
+            plan_content: narrative,
+            baseline_metric_value: baselineValueAttr !== '' ? Number(baselineValueAttr) : null,
+            baseline_metric_label: baselineLabel,
+          }),
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          window.location.href = '/dashboard/?applied=true#action-plan';
+          return;
+        }
+        throw new Error(data.message || 'apply failed');
+      } catch (e) {
+        console.error('Escalation action apply failed:', e);
+        btn.innerHTML = isAr ? 'تعذّر التطبيق، حاول مجدداً' : 'Could not apply, try again';
+        btn.disabled = false;
+        btn.style.pointerEvents = 'auto';
       }
     }
 
@@ -1960,6 +2100,10 @@
 
     // Start Live Sync on load
     startLiveSync();
+
+    // Proactive escalation chain: fetch once on load, card stays hidden if
+    // nothing was actually triggered (see fetchEscalationChain).
+    fetchEscalationChain();
 
     // Smooth scroll and highlight Action Plan when navigated after applying decision
     function checkActionPlanHighlight() {

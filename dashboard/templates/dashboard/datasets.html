@@ -113,6 +113,49 @@ async function deletePlan(planId) {
         }
     }
 }
+
+// Closes the "detect -> decide -> act -> measured impact" loop: the user
+// reports the current value of the plan's real baseline metric (captured
+// at approval time from agent_escalation_chain's computed finding), and
+// the improved/worsened/unchanged status is computed arithmetically by
+// the backend from the two real numbers -- never an AI guess.
+async function recordPlanImpact(planId, baselineLabel, baselineValue) {
+    const isAr = "{% if trans.lang_code == 'ar' %}yes{% endif %}" === "yes";
+    const { value: currentValue } = await Swal.fire({
+        title: isAr ? 'تسجيل القيمة الحالية' : 'Record current value',
+        html: `<div style="font-size:0.85rem; opacity:0.75; margin-bottom:8px;">${baselineLabel}: <b>${baselineValue}</b></div>`,
+        input: 'number',
+        inputAttributes: { step: '0.01' },
+        showCancelButton: true,
+        confirmButtonText: isAr ? 'حفظ' : 'Save',
+        cancelButtonText: isAr ? 'إلغاء' : 'Cancel',
+        confirmButtonColor: '#6366f1',
+        background: 'var(--card-bg)',
+        color: 'var(--card-fg)',
+        inputValidator: (v) => (v === '' || v === null) ? (isAr ? 'أدخل رقماً' : 'Enter a number') : undefined,
+    });
+    if (currentValue === undefined) return;
+
+    try {
+        const res = await fetch(`/api/approved-plans/${planId}/record-impact/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : ''
+            },
+            body: JSON.stringify({ current_value: currentValue })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            Swal.fire({icon: 'success', toast: true, position: 'top-end', showConfirmButton: false, timer: 2500, title: isAr ? 'تم تسجيل الأثر' : 'Impact recorded'})
+                .then(() => location.reload());
+        } else {
+            Swal.fire('Error', data.message, 'error');
+        }
+    } catch (e) {
+        Swal.fire('Error', e.message, 'error');
+    }
+}
 </script>
 <div class="flex flex-col lg:flex-row min-h-screen p-3 gap-3">
     {% include 'dashboard/sidebar.html' with active_page='datasets' %}
@@ -341,6 +384,7 @@ async function deletePlan(planId) {
                             <th class="pb-3 {% if trans.lang_code == 'ar' %}pl-4{% else %}pr-4{% endif %}">{% if trans.lang_code == 'ar' %}اسم الخطة{% else %}Plan Name{% endif %}</th>
                             <th class="pb-3 {% if trans.lang_code == 'ar' %}pl-4{% else %}pr-4{% endif %}">{% if trans.lang_code == 'ar' %}سبب الاعتماد{% else %}Justification{% endif %}</th>
                             <th class="pb-3 {% if trans.lang_code == 'ar' %}pl-4{% else %}pr-4{% endif %}">{% if trans.lang_code == 'ar' %}تاريخ الاعتماد{% else %}Approved At{% endif %}</th>
+                            <th class="pb-3 {% if trans.lang_code == 'ar' %}pl-4{% else %}pr-4{% endif %}">{% if trans.lang_code == 'ar' %}الأثر{% else %}Impact{% endif %}</th>
                             <th class="pb-3">{% if trans.lang_code == 'ar' %}تنزيل{% else %}Download{% endif %}</th>
                         </tr>
                     </thead>
@@ -372,6 +416,27 @@ async function deletePlan(planId) {
                                     <i data-lucide="calendar" class="h-3 w-3"></i>
                                     {{ plan.created_at|date:"M d, Y" }}
                                 </div>
+                            </td>
+                            <td class="py-4 {% if trans.lang_code == 'ar' %}pl-4{% else %}pr-4{% endif %} whitespace-nowrap">
+                                {% if plan.baseline_metric_value is None %}
+                                <span class="text-xs text-slate-300 dark:text-slate-600">—</span>
+                                {% elif plan.impact_status == 'pending' %}
+                                <button onclick="recordPlanImpact({{ plan.id }}, `{{ plan.baseline_metric_label|default:'القيمة الأساسية'|escapejs }}`, {{ plan.baseline_metric_value }})"
+                                        class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 transition"
+                                        title="{% if trans.lang_code == 'ar' %}{{ plan.baseline_metric_label }}: {{ plan.baseline_metric_value }}{% else %}{{ plan.baseline_metric_label }}: {{ plan.baseline_metric_value }}{% endif %}">
+                                    <i data-lucide="hourglass" class="h-3 w-3"></i>
+                                    {% if trans.lang_code == 'ar' %}تسجيل القيمة الحالية{% else %}Record current value{% endif %}
+                                </button>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full
+                                    {% if plan.impact_status == 'improved' %}bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50
+                                    {% elif plan.impact_status == 'worsened' %}bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50
+                                    {% else %}bg-slate-100 dark:bg-slate-800/50 text-slate-500 border border-slate-200 dark:border-slate-700{% endif %}"
+                                    title="{{ plan.baseline_metric_label }}: {{ plan.baseline_metric_value }} ← {{ plan.current_metric_value }}">
+                                    <i data-lucide="{% if plan.impact_status == 'improved' %}trending-down{% elif plan.impact_status == 'worsened' %}trending-up{% else %}minus{% endif %}" class="h-3 w-3"></i>
+                                    {{ plan.get_impact_status_display }}
+                                </span>
+                                {% endif %}
                             </td>
                             <td class="py-4">
                                 <div class="flex items-center gap-2">

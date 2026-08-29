@@ -643,6 +643,68 @@ def update_plan_note_api(request, plan_id):
     return JsonResponse({"status": "invalid_method"}, status=405)
 
 @login_required
+def record_plan_impact_api(request, plan_id):
+    """
+    Closes the "detect -> decide -> act -> measured impact" loop for a
+    single approved plan: the user reports the current value of whatever
+    real metric the plan's baseline_metric_value captured at approval time
+    (see api_apply_agent_decision), and the resulting improved/worsened/
+    unchanged status is computed arithmetically from the two real numbers
+    -- never guessed by an AI model.
+    """
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        current_value = data.get("current_value")
+        try:
+            current_value = float(current_value)
+        except (TypeError, ValueError):
+            return JsonResponse({"status": "error", "message": "current_value must be a number"}, status=400)
+
+        from dashboard.models import ApprovedPlan
+        from django.utils import timezone
+        # Same ownership pattern as update_plan_note_api/delete_plan_api --
+        # DoesNotExist (missing OR belongs to another user) is caught below
+        # and returned as a generic error, never leaking which case it was.
+        plan = ApprovedPlan.objects.get(id=plan_id, user=request.user)
+
+        if plan.baseline_metric_value is None:
+            return JsonResponse({
+                "status": "error",
+                "message": "This plan has no baseline value to measure impact against.",
+            }, status=400)
+
+        baseline = plan.baseline_metric_value
+        # baseline_metric_value is a flagged/negative-impact amount (waste,
+        # cash-impact) -- a lower current value means the situation
+        # improved. A 2% relative tolerance (with a small absolute floor
+        # for a near-zero baseline) absorbs rounding noise without calling
+        # a genuine small move "unchanged".
+        tolerance = max(abs(baseline) * 0.02, 0.01)
+        if current_value < baseline - tolerance:
+            status = "improved"
+        elif current_value > baseline + tolerance:
+            status = "worsened"
+        else:
+            status = "unchanged"
+
+        plan.current_metric_value = current_value
+        plan.impact_status = status
+        plan.impact_measured_at = timezone.now()
+        plan.save()
+
+        return JsonResponse({
+            "status": "success",
+            "impact_status": status,
+            "baseline_metric_value": baseline,
+            "current_metric_value": current_value,
+        })
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=400)
+
+@login_required
 def download_plan_api(request, plan_id):
     try:
         from dashboard.models import ApprovedPlan

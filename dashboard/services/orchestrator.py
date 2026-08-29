@@ -39,7 +39,8 @@ ROUTE_GREETING = "greeting"
 # rule 2 in the system prompt scopes "بصيرة" to finance AND business
 # management generally.
 BUSINESS_DOMAIN_KEYWORDS = [
-    'مبيعات', 'إيراد', 'ايراد', 'مصروف', 'مصاريف', 'ربح', 'خسارة', 'فاتورة', 'فواتير',
+    'مبيعات', 'إيراد', 'ايراد', 'مصروف', 'مصاريف', 'ربح', 'الربح', 'أرباح', 'ارباح',
+    'الأرباح', 'الارباح', 'خسارة', 'خسائر', 'فاتورة', 'فواتير',
     'تكلفة', 'تكاليف', 'ميزانية', 'استثمار', 'تمويل', 'سيولة', 'تدفق نقدي', 'مخزون',
     'عميل', 'عملاء', 'مورد', 'موردين', 'سعر', 'تسعير', 'هامش', 'ضريبة', 'رأس مال',
     'شركة', 'مشروع', 'تقرير', 'ملف', 'بيانات', 'قرار', 'استراتيجية', 'توسع', 'نمو',
@@ -93,7 +94,8 @@ _SMALL_TALK_FILLERS = {
 # meat file" scenario) -- keep this list narrow, don't add generic terms.
 INFERRED_METRIC_TERMS = [
     'هدر', 'الهدر', 'مهدر', 'تسرب', 'تسريب',
-    'ربح', 'الربح', 'خسارة', 'الخسارة', 'هامش', 'الهامش',
+    'ربح', 'الربح', 'أرباح', 'ارباح', 'الأرباح', 'الارباح',
+    'خسارة', 'الخسارة', 'خسائر', 'هامش', 'الهامش',
     'وضع مالي', 'الوضع المالي', 'تدفق نقدي', 'التدفق النقدي', 'سيولة', 'السيولة',
     'waste', 'leakage', 'profit', 'loss', 'margin', 'cash flow', 'liquidity',
 ]
@@ -129,7 +131,22 @@ DOMAIN_AGENT_MAP = {
               'reconcil', 'waste'],
     'retention': ['ولاء', 'عملاء', 'انسحاب', 'استبقاء', 'loyalty', 'churn', 'retention',
                   'customer lifetime'],
+    'marketing': ['تسويق', 'حملة', 'حملات', 'إعلان', 'اعلان', 'علامة تجارية', 'دعاية', 'ترويج',
+                  'marketing', 'campaign', 'advertis', 'brand', 'acquisition', 'promotion'],
 }
+
+
+# Arabic diacritics (tashkeel) -- fatha, damma, kasra, the three tanwin
+# marks, shadda, sukun, superscript alef -- plus tatweel (ـ), the
+# elongation character. None of these carry distinct meaning for keyword
+# matching, but their presence breaks an exact/substring comparison against
+# an un-diacritized keyword list -- e.g. "اهلاً" (with a trailing tanwin
+# fathatan) failing to match the plain "اهلا" entry in GREETING_OPENERS and
+# falling through to a "couldn't find the document" refusal on a bare
+# greeting (reported bug). Stripped in the same normalization pass as the
+# ة/ه substitution below so every keyword-list comparison in this module is
+# immune to both classes of typo at once.
+_ARABIC_DIACRITICS_RE = re.compile(r'[ً-ْٰـ]')
 
 
 def _normalize_arabic_letters(text):
@@ -143,9 +160,11 @@ def _normalize_arabic_letters(text):
     strategic multi-agent committee, purely because BUSINESS_DOMAIN_
     KEYWORDS only had the "ة" spelling). Applied to both sides of every
     keyword-list comparison below so this class of typo can never break a
-    match.
+    match. Diacritics (see _ARABIC_DIACRITICS_RE) are stripped in the same
+    pass for the same reason.
     """
-    return (text or "").replace("ة", "ه")
+    normalized = _ARABIC_DIACRITICS_RE.sub("", text or "")
+    return normalized.replace("ة", "ه")
 
 
 def _matches_any(patterns, text_lower):
@@ -166,15 +185,30 @@ def _is_pure_greeting(text_lower):
     خطة") returns False -- that has to go through normal routing, not a
     canned hello.
     """
-    stripped = text_lower.strip(" ,.!؟?")
+    # Normalized both sides -- without this, a diacritic on the incoming
+    # text (e.g. "اهلاً" with a trailing tanwin fathatan) fails to match the
+    # plain "اهلا" entry in GREETING_OPENERS below and the message falls
+    # through to normal routing instead of being recognized as a greeting.
+    stripped = _normalize_arabic_letters(text_lower.strip(" ,.!؟?"))
     if not stripped:
         return False
-    if stripped in GREETING_OPENERS:
+    normalized_fillers = {_normalize_arabic_letters(f) for f in _SMALL_TALK_FILLERS}
+    # Reported bug: "كيفك" sent on its own (no "هلا"/"مرحبا" opener in front)
+    # is small talk just as much as "هلا كيفك" is -- but _SMALL_TALK_FILLERS
+    # was only ever checked as a suffix after an opener below, so a bare
+    # filler fell through to normal routing. With files already uploaded,
+    # that skips the off-topic short-circuit entirely and lands on the
+    # "couldn't find the document" refusal for a message that was never a
+    # real question. Checked as a complete message on its own first.
+    if stripped in normalized_fillers:
         return True
-    for opener in GREETING_OPENERS:
+    normalized_openers = [_normalize_arabic_letters(o) for o in GREETING_OPENERS]
+    if stripped in normalized_openers:
+        return True
+    for opener in normalized_openers:
         if stripped.startswith(opener):
-            remainder = stripped[len(opener):].strip(" ,.!؟?")
-            if not remainder or remainder in _SMALL_TALK_FILLERS:
+            remainder = _normalize_arabic_letters(stripped[len(opener):].strip(" ,.!؟?"))
+            if not remainder or remainder in normalized_fillers:
                 return True
     return False
 
@@ -272,6 +306,50 @@ def llm_classify_route(ai_service, message, lang="ar"):
         return None
 
 
+def llm_needs_file_data(ai_service, message, lang="ar"):
+    """
+    Live LLM check used only at the Retrieval Layer's true dead end (zero
+    matching sheets, and no active-file fallback available either -- see
+    route_message). Reported bug: every unmatched message that reached this
+    point got the same hard-coded "couldn't find the document" refusal,
+    even a plain "كيفك" or a vague request for help that never needed file
+    data in the first place -- and no keyword list can ever enumerate every
+    way a non-technical user phrases ordinary conversation. Rather than add
+    another word to a list, this asks the model directly whether the
+    message needed file data at all.
+
+    Returns False when the message doesn't need file data (caller should
+    let the general agent answer naturally instead of refusing), True when
+    it does (the refusal is honest -- we really don't have the data), or
+    None if the LLM is unavailable / the call fails (callers must fall back
+    to the existing missing-file reply -- never guess "no data needed"
+    without a live second opinion).
+    """
+    if not getattr(ai_service, "client", None):
+        return None
+    try:
+        prompt = (
+            "أنت جزء من نظام التوجيه داخل بصيرة، مساعد أعمال ومالي بالذكاء الاصطناعي. لم يُعثر على "
+            "أي ملف أو بيانات مطابقة لرسالة المستخدم التالية. حدد: هل تحتاج الإجابة على هذه الرسالة "
+            "فعليًا بيانات محددة من ملفات المستخدم المرفوعة (أرقام، سجلات، بيانات تاريخية)؟ أم أنها "
+            "حديث عام أو طلب مساعدة عام لا يحتاج بيانات ملف محدد (تحية، سؤال عن الحال، دردشة، طلب "
+            "توضيح عام)؟ عند الشك، اختر أنها تحتاج بيانات. أجب بكلمة واحدة فقط: "
+            "NEEDS_DATA أو GENERAL.\n\nرسالة المستخدم: " + message
+        )
+        response = ai_service.client.models.generate_content(
+            model="gemini-flash-lite-latest", contents=prompt
+        )
+        label = (response.text or "").strip().upper()
+        if "GENERAL" in label:
+            return False
+        if "NEEDS_DATA" in label:
+            return True
+        return None
+    except Exception as e:
+        logger.info("llm_needs_file_data skipped: %s", e)
+        return None
+
+
 def off_topic_reply(lang="ar"):
     if lang == "ar":
         return "أنا بصيرة، مساعدك المالي. أعتذر، لا يمكنني الإجابة على هذا السؤال لأنه خارج اختصاصي."
@@ -296,6 +374,18 @@ def select_committee_agents(message, max_agents=3):
     for domain, keywords in DOMAIN_AGENT_MAP.items():
         if any(kw in text_lower for kw in keywords):
             matched.append(domain)
+
+    # Reported bug: a strategic question with zero domain-keyword hits (e.g.
+    # "أعطيني خطة تسويقية للمشروع" before 'marketing' existed as a domain)
+    # used to fall straight into the financial/supply_chain/pricing trio
+    # below regardless of relevance -- every specialist in that trio then
+    # replies "outside my expertise" to the SAME unrelated question, which
+    # reads as a scripted, fake committee rather than a real one. When
+    # nothing matched at all, route to the two agents actually built to
+    # handle a general/undomained strategic ask instead of forcing
+    # irrelevant specialists to all decline in unison.
+    if not matched:
+        return ['general', 'marketing'][:max_agents]
 
     if 'financial' not in matched:
         matched.insert(0, 'financial')
@@ -503,9 +593,27 @@ def route_message(user_id, message, lang="ar", ai_service=None, confirmed_sheet=
             )
             return result
 
+        # Reported bug: before asking the user to confirm/upload a file,
+        # check whether this message even needed file data at all -- a
+        # non-technical user's ordinary conversation ("كيفك", a vague "ساعدني",
+        # anything not already enumerated in GREETING_OPENERS/
+        # _SMALL_TALK_FILLERS) was landing on the same hard refusal as a
+        # genuinely failed data lookup. Letting the model make this one call
+        # (never touching financial numbers, only "did this need data at
+        # all?") beats trying to keyword-list every way a real user phrases
+        # small talk. A False verdict here means: don't refuse, don't ask to
+        # confirm a file -- just return the result as-is (route stays
+        # SINGLE_FILE, no matched_sheet_note, default agent_ids=["general"])
+        # so the general agent answers naturally in its own words, same as
+        # it would for any other file-context-free message. Its own system
+        # prompt already keeps it from inventing financial figures or
+        # wandering off the business/finance scope.
+        if ai_service is not None and llm_needs_file_data(ai_service, message, lang=lang) is False:
+            return result
+
         # Genuinely nothing to fall back to (zero files, or indexing never
-        # produced any sheet metadata for this account): ask instead of
-        # guessing, same as before.
+        # produced any sheet metadata for this account, and this message
+        # really does need data we don't have): ask instead of guessing.
         result["needs_confirmation"] = True
         result["direct_reply"] = missing_file_reply(lang)
         actions = []

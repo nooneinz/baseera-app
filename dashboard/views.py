@@ -890,8 +890,24 @@ def api_escalation_chain(request):
     except Exception as e:
         print(f"Escalation chain: AI service unavailable, using deterministic-only mode: {e}")
 
+    # Owner-configurable materiality threshold (spec section 4.1's
+    # max_investment_limit/cash_reserve_floor pattern): a business owner may
+    # want a lower or higher bar than the platform default 3% before the
+    # chain escalates to Pricing. Absent/unset -> run_escalation_chain falls
+    # back to its own MATERIALITY_REVENUE_SHARE default.
+    materiality_threshold = None
     try:
-        result = run_escalation_chain(rows, ai_service=ai_service, lang=lang)
+        from .models import CompanyStrategicProfile
+        profile = CompanyStrategicProfile.objects.filter(user=request.user).first()
+        if profile and profile.materiality_threshold_percent is not None:
+            materiality_threshold = float(profile.materiality_threshold_percent) / 100
+    except Exception as e:
+        print(f"Escalation chain: could not load materiality threshold override: {e}")
+
+    try:
+        result = run_escalation_chain(
+            rows, ai_service=ai_service, lang=lang, materiality_threshold=materiality_threshold,
+        )
         result["status"] = "success"
         # Task 5 (UI transparency): tell the frontend outright when the
         # analysis only covered a prefix of the data, instead of silently
@@ -2963,6 +2979,20 @@ def api_apply_agent_decision(request):
             plan_content = data.get("plan_content", "").strip()
             custom_title = data.get("plan_title", "").strip()
 
+            # Impact tracking (closes the detect -> decide -> act -> measured
+            # impact loop): an optional real baseline number the caller
+            # already computed deterministically (e.g. the escalation
+            # chain's flagged_amount) -- never invented here. Absent for
+            # any caller that doesn't send it (e.g. the chat's existing
+            # "تطبيق التوصية" button), which simply leaves the plan with no
+            # impact to track, same as before this field existed.
+            baseline_metric_value = data.get("baseline_metric_value")
+            baseline_metric_label = (data.get("baseline_metric_label") or "").strip()
+            try:
+                baseline_metric_value = float(baseline_metric_value) if baseline_metric_value is not None else None
+            except (TypeError, ValueError):
+                baseline_metric_value = None
+
             # Determine plan title and details
             if custom_title:
                 plan_title = custom_title
@@ -2997,7 +3027,9 @@ def api_apply_agent_decision(request):
                 user=request.user,
                 file_name=plan_title,
                 file_path=file_rel_path,
-                justification=justification
+                justification=justification,
+                baseline_metric_value=baseline_metric_value,
+                baseline_metric_label=(baseline_metric_label or None) if baseline_metric_value is not None else None,
             )
 
             # 2. Add Notification

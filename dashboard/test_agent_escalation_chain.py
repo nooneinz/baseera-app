@@ -22,7 +22,7 @@ from dashboard.services.agent_escalation_chain import (
     detect_recurring_outflows,
     MATERIALITY_REVENUE_SHARE,
 )
-from dashboard.models import ProjectFile, DynamicRecord
+from dashboard.models import ProjectFile, DynamicRecord, CompanyStrategicProfile, ApprovedPlan
 
 
 class RecurringOutflowDetectionTests(TestCase):
@@ -129,6 +129,69 @@ class EscalationChainTests(TestCase):
         self.assertIn("دفتر", margin_names)
         self.assertIn("دفتر", by_id["pricing"]["narrative"])
 
+    def test_materiality_threshold_override_can_suppress_pricing_that_would_otherwise_trigger(self):
+        # Same data as test_material_cash_impact_pulls_in_pricing_with_real_healthy_margin_products
+        # (impact ratio here is 990/110 = 900% of revenue, well past the 3%
+        # default), but with an explicit, stricter owner threshold (1000%)
+        # that must be honored instead of the constant.
+        rows = [
+            {"الصنف": "قلم", "سعر الوحدة": 1, "تكلفة الوحدة": 100, "الكمية": 10, "إجمالي المبيعات": 10},
+            {"الصنف": "دفتر", "سعر الوحدة": 20, "تكلفة الوحدة": 8, "الكمية": 5, "إجمالي المبيعات": 100},
+        ]
+        result = run_escalation_chain(rows, ai_service=None, lang="ar", materiality_threshold=10.0)
+        by_id = {s["agent_id"]: s for s in result["stages"]}
+        self.assertFalse(by_id["pricing"]["triggered"])
+
+    def test_materiality_threshold_override_can_trigger_pricing_below_default(self):
+        # Impact ratio here is ~1.7% of revenue -- below the 3% default (so
+        # Pricing would normally be skipped), but above a 1% owner-set
+        # threshold, which must be honored.
+        rows = [
+            {"الصنف": "قلم", "سعر الوحدة": 9, "تكلفة الوحدة": 10, "الكمية": 100, "إجمالي المبيعات": 900},
+            {"الصنف": "دفتر", "سعر الوحدة": 50, "تكلفة الوحدة": 20, "الكمية": 100, "إجمالي المبيعات": 5000},
+        ]
+        default_result = run_escalation_chain(rows, ai_service=None, lang="ar")
+        by_id_default = {s["agent_id"]: s for s in default_result["stages"]}
+        self.assertFalse(by_id_default["pricing"]["triggered"])
+
+        lowered_result = run_escalation_chain(rows, ai_service=None, lang="ar", materiality_threshold=0.01)
+        by_id_lowered = {s["agent_id"]: s for s in lowered_result["stages"]}
+        self.assertTrue(by_id_lowered["pricing"]["triggered"])
+
+    def test_triggered_stages_carry_an_applyable_suggested_action(self):
+        # Tier-2 ("one click to apply") suggestion: previously the chain's
+        # stages were narrative-only with no way for the user to act on them.
+        rows = [
+            {"الصنف": "قلم", "سعر الوحدة": 1, "تكلفة الوحدة": 100, "الكمية": 10, "إجمالي المبيعات": 10},
+            {"الصنف": "دفتر", "سعر الوحدة": 20, "تكلفة الوحدة": 8, "الكمية": 5, "إجمالي المبيعات": 100},
+        ]
+        result = run_escalation_chain(rows, ai_service=None, lang="ar")
+        by_id = {s["agent_id"]: s for s in result["stages"]}
+
+        self.assertIn("suggested_action", by_id["supply_chain"])
+        self.assertIn("payload_hint", by_id["supply_chain"]["suggested_action"])
+
+        self.assertIn("suggested_action", by_id["pricing"])
+        self.assertIn("payload_hint", by_id["pricing"]["suggested_action"])
+
+        # Diagnostic-only stages never get an applyable action.
+        self.assertNotIn("suggested_action", by_id["audit"])
+        self.assertNotIn("suggested_action", by_id["financial"])
+
+    def test_pricing_suggested_action_absent_when_no_healthy_margin_products_exist(self):
+        # Material cash impact (crosses the default threshold), but no
+        # price/cost/product data survives for a *different* product than
+        # the flagged one -- so there is no healthy-margin item to ground a
+        # concrete offer in, and no suggested_action must be manufactured.
+        rows = [
+            {"الصنف": "قلم", "سعر الوحدة": 1, "تكلفة الوحدة": 100, "الكمية": 10, "إجمالي المبيعات": 10},
+        ]
+        result = run_escalation_chain(rows, ai_service=None, lang="ar")
+        by_id = {s["agent_id"]: s for s in result["stages"]}
+        self.assertTrue(by_id["pricing"]["triggered"])
+        self.assertEqual(by_id["pricing"]["finding"]["healthy_margin_products"], [])
+        self.assertNotIn("suggested_action", by_id["pricing"])
+
     def test_no_ai_service_still_returns_real_fallback_narratives_for_every_triggered_stage(self):
         rows = [
             {"الصنف": "قلم", "سعر الوحدة": 5, "تكلفة الوحدة": 6, "الكمية": 10, "إجمالي المبيعات": 50},
@@ -180,3 +243,63 @@ class EscalationChainApiEndpointTests(TestCase):
         data = response.json()
         self.assertFalse(data["triggered"])
         self.assertEqual(data["stages"], [])
+
+    def test_endpoint_honors_the_account_materiality_threshold_override(self):
+        # Same below-default-threshold data as
+        # test_materiality_threshold_override_can_trigger_pricing_below_default,
+        # but exercised through the real endpoint with a saved
+        # CompanyStrategicProfile override -- confirms the owner-configurable
+        # value actually reaches run_escalation_chain end-to-end.
+        CompanyStrategicProfile.objects.create(
+            user=self.user, company_name="شركة", sector="retail", size="small",
+            growth_stage="growth", risk_tolerance="balanced",
+            strategic_priorities_ranking=[
+                "cash_preservation", "growth", "profitability",
+                "cost_reduction", "long_term_stability",
+            ],
+            materiality_threshold_percent=1,
+        )
+        pf = ProjectFile.objects.create(user=self.user, excel_file="excel_files/materiality.xlsx")
+        for row in [
+            {"الصنف": "قلم", "سعر الوحدة": 9, "تكلفة الوحدة": 10, "الكمية": 100, "إجمالي المبيعات": 900},
+            {"الصنف": "دفتر", "سعر الوحدة": 50, "تكلفة الوحدة": 20, "الكمية": 100, "إجمالي المبيعات": 5000},
+        ]:
+            DynamicRecord.objects.create(user=self.user, project_file=pf, schema_hash="x", row_data=row)
+
+        response = self.client.post(
+            "/api/escalation-chain/", data=json.dumps({}), content_type="application/json",
+        )
+        data = response.json()
+        by_id = {s["agent_id"]: s for s in data["stages"]}
+        self.assertTrue(by_id["pricing"]["triggered"])
+
+    def test_supply_chain_suggested_action_applies_end_to_end_via_existing_endpoint(self):
+        # Dashboard's "Apply" button (dashboard.html's applyEscalationAction)
+        # deliberately reuses the existing /api/dashboard/apply-agent-decision/
+        # endpoint -- the same one the chat UI's "تطبيق التوصية" button already
+        # calls -- instead of a new bespoke one. This confirms that reuse
+        # actually produces a sensible approved plan end-to-end.
+        pf = ProjectFile.objects.create(user=self.user, excel_file="excel_files/apply_test.xlsx")
+        DynamicRecord.objects.create(
+            user=self.user, project_file=pf, schema_hash="x",
+            row_data={"الصنف": "قلم", "سعر الوحدة": 5, "تكلفة الوحدة": 6, "الكمية": 10, "إجمالي المبيعات": 50},
+        )
+        chain_response = self.client.post(
+            "/api/escalation-chain/", data=json.dumps({}), content_type="application/json",
+        )
+        chain_data = chain_response.json()
+        by_id = {s["agent_id"]: s for s in chain_data["stages"]}
+        suggested = by_id["supply_chain"]["suggested_action"]
+
+        apply_response = self.client.post(
+            "/api/dashboard/apply-agent-decision/",
+            data=json.dumps({
+                "action_payload": suggested["payload_hint"],
+                "plan_content": by_id["supply_chain"]["narrative"],
+            }),
+            content_type="application/json",
+        )
+        apply_data = apply_response.json()
+        self.assertEqual(apply_data["status"], "success")
+        plan = ApprovedPlan.objects.filter(user=self.user).latest("created_at")
+        self.assertIn("مخزون", plan.file_name)
