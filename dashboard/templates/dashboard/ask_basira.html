@@ -444,11 +444,17 @@
 
             <!-- Input -->
             <div class="flex items-center gap-3 shrink-0 pt-2 border-t border-white/30 relative">
-                <input type="file" id="chatFileInput" accept=".csv" class="hidden">
+                <input type="file" id="chatFileInput" accept=".xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png" class="hidden">
                 <button onclick="document.getElementById('chatFileInput').click()"
                     class="grid h-11 w-11 place-items-center rounded-full bg-white/60 text-slate-500 hover:bg-white transition shrink-0 border border-white/60 shadow-sm"
-                    title="{% if trans.lang_code == 'ar' %}إرفاق ملف بيانات{% else %}Attach Dataset{% endif %}">
+                    title="{% if trans.lang_code == 'ar' %}إرفاق ملف أو صورة (Excel، CSV، PDF، صورة){% else %}Attach file or photo (Excel, CSV, PDF, image){% endif %}">
                     <i data-lucide="paperclip" class="h-5 w-5"></i>
+                </button>
+
+                <button onclick="openChatNotesModal()"
+                    class="grid h-11 w-11 place-items-center rounded-full bg-white/60 text-slate-500 hover:bg-white transition shrink-0 border border-white/60 shadow-sm"
+                    title="{% if trans.lang_code == 'ar' %}اكتب ملاحظاتك المالية بدل رفع ملف{% else %}Type your financial notes instead of uploading a file{% endif %}">
+                    <i data-lucide="pencil-line" class="h-5 w-5"></i>
                 </button>
 
                 <!-- Multi-Agent Committee Selector (+) -->
@@ -1328,42 +1334,107 @@
         }
     }
 
+    // Real backend-connected chat upload: was previously a client-only
+    // ".csv"-only PapaParse preview that never reached the server (see
+    // api_chat_upload_file's docstring). Now it POSTs the actual file
+    // through the same validate -> save -> process -> index pipeline
+    // portal() uses, so Excel/PDF/photo uploads (including a photo of a
+    // handwritten ledger, via the existing financial-vision OCR path)
+    // genuinely become analyzable data.
+    function renderChatUploadBubble(fileName) {
+        const messages = document.getElementById('chatMessages');
+        const isAr = "{% if trans.lang_code == 'ar' %}yes{% endif %}" === "yes";
+
+        const userDiv = document.createElement('div');
+        userDiv.className = 'flex gap-3 {% if trans.lang_code == "ar" %}justify-start{% else %}justify-end{% endif %} mb-4';
+        userDiv.innerHTML = `
+        <div class="rounded-2xl rounded-tr-sm chat-bubble-user px-4 py-3 max-w-lg flex items-center gap-2">
+            <i data-lucide="paperclip" class="h-4 w-4"></i>
+            <p class="text-sm font-semibold">${fileName}</p>
+        </div>`;
+        messages.appendChild(userDiv);
+
+        const statusId = 'chat-upload-status-' + Date.now();
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'flex gap-3 mb-4';
+        statusDiv.id = statusId;
+        statusDiv.innerHTML = `
+        <div class="h-8 w-8 shrink-0 rounded-full bg-[#1e1e1e] border border-[#333] grid place-items-center mt-1">
+            <i data-lucide="loader" class="h-4 w-4 text-[#007acc] spin"></i>
+        </div>
+        <div class="rounded-xl chat-bubble-bot p-4 text-sm bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 shadow-sm">
+            ${isAr ? 'جاري رفع وتحليل الملف...' : 'Uploading and analyzing the file...'}
+        </div>`;
+        messages.appendChild(statusDiv);
+        messages.scrollTop = messages.scrollHeight;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return statusId;
+    }
+
+    function renderChatUploadResult(statusId, success, message, recordCount) {
+        const el = document.getElementById(statusId);
+        if (!el) return;
+        const isAr = "{% if trans.lang_code == 'ar' %}yes{% endif %}" === "yes";
+        if (success) {
+            const countLine = isAr
+                ? `تم استخراج ${recordCount} سجلاً وربطه بلوحة التحكم فوراً.`
+                : `Extracted ${recordCount} records and linked them to your dashboard immediately.`;
+            el.innerHTML = `
+            <div class="h-8 w-8 shrink-0 rounded-full bg-[#1e1e1e] border border-[#333] grid place-items-center mt-1">
+                <i data-lucide="check-circle-2" class="h-4 w-4 text-emerald-500"></i>
+            </div>
+            <div class="flex flex-col gap-2 max-w-xl w-full">
+                <div class="rounded-xl chat-bubble-bot p-4 text-sm bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <p class="font-semibold text-emerald-600 dark:text-emerald-400 mb-1">${isAr ? 'تم التحليل بنجاح' : 'Analyzed successfully'}</p>
+                    <p class="text-slate-600 dark:text-slate-400">${countLine}</p>
+                </div>
+                <a href="{% url 'dashboard' %}" class="self-start inline-flex items-center gap-1.5 text-xs font-bold text-[#007acc] hover:underline">
+                    <i data-lucide="layout-dashboard" class="h-3.5 w-3.5"></i>
+                    ${isAr ? 'عرض لوحة التحكم' : 'View Dashboard'}
+                </a>
+            </div>`;
+        } else {
+            el.innerHTML = `
+            <div class="h-8 w-8 shrink-0 rounded-full bg-[#1e1e1e] border border-[#333] grid place-items-center mt-1">
+                <i data-lucide="alert-triangle" class="h-4 w-4 text-rose-500"></i>
+            </div>
+            <div class="rounded-xl chat-bubble-bot p-4 text-sm bg-white/50 dark:bg-slate-800/50 border border-rose-300 dark:border-rose-800 shadow-sm text-rose-600 dark:text-rose-400">
+                ${message || (isAr ? 'تعذر معالجة الملف.' : 'Could not process the file.')}
+            </div>`;
+        }
+        const messages = document.getElementById('chatMessages');
+        messages.scrollTop = messages.scrollHeight;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function uploadChatFile(file) {
+        const statusId = renderChatUploadBubble(file.name);
+        const formData = new FormData();
+        formData.append('file', file);
+        fetch("{% url 'api_chat_upload_file' %}", {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') || '{{ csrf_token }}' },
+            body: formData,
+        })
+            .then(r => r.json())
+            .then(data => {
+                renderChatUploadResult(statusId, !!data.success, data.message, data.recordCount);
+            })
+            .catch(() => {
+                const isAr = "{% if trans.lang_code == 'ar' %}yes{% endif %}" === "yes";
+                renderChatUploadResult(statusId, false, isAr ? 'تعذر الاتصال بالخادم.' : 'Could not reach the server.');
+            });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         checkAiHealth();
         const fileInput = document.getElementById('chatFileInput');
         if (fileInput) {
             fileInput.addEventListener('change', (e) => {
                 const file = e.target.files[0];
+                fileInput.value = '';
                 if (!file) return;
-
-                // Generate basic dataset object
-                let ds = {
-                    fileName: file.name,
-                    csvUrl: URL.createObjectURL(file),
-                    approved: false
-                };
-
-                // Use PapaParse to parse it
-                if (typeof Papa !== 'undefined') {
-                    Papa.parse(file, {
-                        header: true,
-                        skipEmptyLines: true,
-                        complete: function (results) {
-                            ds.rows = results.data;
-                            ds.columns = results.meta.fields || [];
-                            localStorage.setItem('basira_dataset', JSON.stringify(ds));
-
-                            // Clear input so it can be re-used
-                            fileInput.value = '';
-
-                            // Render approval message
-                            renderDatasetApproval(ds);
-                        }
-                    });
-                } else {
-                    localStorage.setItem('basira_dataset', JSON.stringify(ds));
-                    renderDatasetApproval(ds);
-                }
+                uploadChatFile(file);
             });
         }
 
@@ -2516,6 +2587,68 @@ async function executeAgentAction(btn, actionPayload) {
         btn.style.pointerEvents = 'auto';
     });
 }
+</script>
+
+<!-- Manual Notes Modal: lets a user type their financial situation directly
+     instead of needing a spreadsheet -- was previously only reachable from
+     the onboarding /portal/ page, not from Ask Basira itself, even though a
+     handwritten/no-file business (exactly the case that also can't upload a
+     photo without this) has no other way in from here. Reuses the same
+     save_manual_note() endpoint portal.html's equivalent modal posts to,
+     which now (see save_manual_note's own comment) actually runs the note
+     through process_excel_to_db() instead of just archiving the raw text. -->
+<div id="chatNotesModal" class="hidden fixed inset-0 z-[9999] place-items-center bg-slate-900/50 backdrop-blur-sm">
+    <div class="relative w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-white/20 animate-fade-up mx-4">
+        <div class="flex items-center justify-between mb-5">
+            <div class="flex items-center gap-3">
+                <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] flex items-center justify-center">
+                    <i data-lucide="pencil-line" class="h-4 w-4 text-white"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-slate-800 dark:text-white">{% if trans.lang_code == 'ar' %}إدخال ملاحظات مالية{% else %}Enter Financial Notes{% endif %}</h3>
+                    <p class="text-xs text-slate-400">{% if trans.lang_code == 'ar' %}تُحلَّل وتُربط بلوحة التحكم فوراً{% else %}Analyzed and linked to your dashboard instantly{% endif %}</p>
+                </div>
+            </div>
+            <button onclick="closeChatNotesModal()" class="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <i data-lucide="x" class="h-5 w-5 text-slate-400"></i>
+            </button>
+        </div>
+        <form method="POST" action="{% url 'save_manual_note' %}">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-2">{% if trans.lang_code == 'ar' %}عنوان الملاحظة{% else %}Note Title{% endif %}</label>
+                <input type="text" name="note_title" required
+                    placeholder="{% if trans.lang_code == 'ar' %}مثال: ملاحظات ميزانية أغسطس 2025{% else %}e.g. August 2025 Budget Notes{% endif %}"
+                    class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-[var(--glow)]/20 focus:border-[var(--glow)] transition" />
+            </div>
+            <div class="mb-5">
+                <label class="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-2">{% if trans.lang_code == 'ar' %}محتوى الملاحظة{% else %}Note Content{% endif %}</label>
+                <textarea name="note_content" required rows="6"
+                    placeholder="{% if trans.lang_code == 'ar' %}اكتب وضعك المالي هنا: الإيرادات، المصروفات، المشاكل الي تواجهك...{% else %}Describe your financial situation here: revenue, expenses, issues you're facing...{% endif %}"
+                    class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-[var(--glow)]/20 focus:border-[var(--glow)] transition resize-none"></textarea>
+            </div>
+            <input type="hidden" name="next" value="{% url 'ask_basira' %}">
+            <div class="flex items-center gap-3">
+                <button type="submit" class="flex-1 py-2.5 rounded-2xl bg-gradient-to-r from-[var(--nile)] to-[var(--glow)] text-white text-sm font-semibold shadow-md hover:brightness-110 transition flex items-center justify-center gap-2">
+                    <i data-lucide="save" class="h-4 w-4"></i>
+                    {% if trans.lang_code == 'ar' %}حفظ وتحليل{% else %}Save & Analyze{% endif %}
+                </button>
+                <button type="button" onclick="closeChatNotesModal()" class="px-5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                    {% if trans.lang_code == 'ar' %}إلغاء{% else %}Cancel{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+    function openChatNotesModal() {
+        const m = document.getElementById('chatNotesModal');
+        if (m) { m.classList.remove('hidden'); m.classList.add('grid'); }
+    }
+    function closeChatNotesModal() {
+        const m = document.getElementById('chatNotesModal');
+        if (m) { m.classList.add('hidden'); m.classList.remove('grid'); }
+    }
 </script>
 
 {% endblock %}
