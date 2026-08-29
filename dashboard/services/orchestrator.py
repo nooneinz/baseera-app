@@ -306,6 +306,50 @@ def llm_classify_route(ai_service, message, lang="ar"):
         return None
 
 
+def llm_needs_file_data(ai_service, message, lang="ar"):
+    """
+    Live LLM check used only at the Retrieval Layer's true dead end (zero
+    matching sheets, and no active-file fallback available either -- see
+    route_message). Reported bug: every unmatched message that reached this
+    point got the same hard-coded "couldn't find the document" refusal,
+    even a plain "كيفك" or a vague request for help that never needed file
+    data in the first place -- and no keyword list can ever enumerate every
+    way a non-technical user phrases ordinary conversation. Rather than add
+    another word to a list, this asks the model directly whether the
+    message needed file data at all.
+
+    Returns False when the message doesn't need file data (caller should
+    let the general agent answer naturally instead of refusing), True when
+    it does (the refusal is honest -- we really don't have the data), or
+    None if the LLM is unavailable / the call fails (callers must fall back
+    to the existing missing-file reply -- never guess "no data needed"
+    without a live second opinion).
+    """
+    if not getattr(ai_service, "client", None):
+        return None
+    try:
+        prompt = (
+            "أنت جزء من نظام التوجيه داخل بصيرة، مساعد أعمال ومالي بالذكاء الاصطناعي. لم يُعثر على "
+            "أي ملف أو بيانات مطابقة لرسالة المستخدم التالية. حدد: هل تحتاج الإجابة على هذه الرسالة "
+            "فعليًا بيانات محددة من ملفات المستخدم المرفوعة (أرقام، سجلات، بيانات تاريخية)؟ أم أنها "
+            "حديث عام أو طلب مساعدة عام لا يحتاج بيانات ملف محدد (تحية، سؤال عن الحال، دردشة، طلب "
+            "توضيح عام)؟ عند الشك، اختر أنها تحتاج بيانات. أجب بكلمة واحدة فقط: "
+            "NEEDS_DATA أو GENERAL.\n\nرسالة المستخدم: " + message
+        )
+        response = ai_service.client.models.generate_content(
+            model="gemini-flash-lite-latest", contents=prompt
+        )
+        label = (response.text or "").strip().upper()
+        if "GENERAL" in label:
+            return False
+        if "NEEDS_DATA" in label:
+            return True
+        return None
+    except Exception as e:
+        logger.info("llm_needs_file_data skipped: %s", e)
+        return None
+
+
 def off_topic_reply(lang="ar"):
     if lang == "ar":
         return "أنا بصيرة، مساعدك المالي. أعتذر، لا يمكنني الإجابة على هذا السؤال لأنه خارج اختصاصي."
@@ -549,9 +593,27 @@ def route_message(user_id, message, lang="ar", ai_service=None, confirmed_sheet=
             )
             return result
 
+        # Reported bug: before asking the user to confirm/upload a file,
+        # check whether this message even needed file data at all -- a
+        # non-technical user's ordinary conversation ("كيفك", a vague "ساعدني",
+        # anything not already enumerated in GREETING_OPENERS/
+        # _SMALL_TALK_FILLERS) was landing on the same hard refusal as a
+        # genuinely failed data lookup. Letting the model make this one call
+        # (never touching financial numbers, only "did this need data at
+        # all?") beats trying to keyword-list every way a real user phrases
+        # small talk. A False verdict here means: don't refuse, don't ask to
+        # confirm a file -- just return the result as-is (route stays
+        # SINGLE_FILE, no matched_sheet_note, default agent_ids=["general"])
+        # so the general agent answers naturally in its own words, same as
+        # it would for any other file-context-free message. Its own system
+        # prompt already keeps it from inventing financial figures or
+        # wandering off the business/finance scope.
+        if ai_service is not None and llm_needs_file_data(ai_service, message, lang=lang) is False:
+            return result
+
         # Genuinely nothing to fall back to (zero files, or indexing never
-        # produced any sheet metadata for this account): ask instead of
-        # guessing, same as before.
+        # produced any sheet metadata for this account, and this message
+        # really does need data we don't have): ask instead of guessing.
         result["needs_confirmation"] = True
         result["direct_reply"] = missing_file_reply(lang)
         actions = []
