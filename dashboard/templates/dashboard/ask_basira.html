@@ -1737,12 +1737,20 @@
             chatHistory.push({ role: "assistant", content: cleanHistoryReply });
             saveChatHistory();
 
-            // Non-blocking Auto-Save analysis/recommendations to Documents
-            try {
-                autoSaveAnalysisToDocuments(text, cleanHistoryReply);
-            } catch (saveErr) {
-                console.warn("Auto-save trigger:", saveErr);
-            }
+            // Reported bug: autoSaveAnalysisToDocuments() used to fire here after
+            // EVERY chat reply over ~220 chars (or containing a bullet/heading/the
+            // words "خطة"/"استراتيجية"/"توصيات" -- true for almost any real answer),
+            // silently writing it into ApprovedPlan -- the exact same table/page
+            // ("الخطط المعتمدة") the escalation chain's real "Apply" flow uses for a
+            // decision the user explicitly confirmed, with a toast as the only
+            // notice. That directly breaks the "the agent proposes, the human
+            // decides" guarantee this platform's whole safety design (and pitch)
+            // rests on: an ordinary chat answer about a retention strategy showed
+            // up looking exactly like an approved decision nobody approved.
+            // autoSaveAnalysisToDocuments() / /api/documents/auto-save/ are left in
+            // place, unused, for a future EXPLICIT "save this as a document" button
+            // -- a real opt-in action is fine, silently firing after every answer
+            // is not.
 
             // Persist committee thread to backend
             if (isMultiAgent) {
