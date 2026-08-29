@@ -33,8 +33,7 @@ def welcome(request):
 from django.db import IntegrityError
 
 
-@rate_limit(requests_per_minute=10, key_prefix="web_register")
-@rate_limit(requests_per_minute=5, key_prefix="register")
+@rate_limit(requests_per_minute=10, key_prefix="register", methods=("POST",))
 def user_register(request):
     if request.user.is_authenticated:
         return redirect("dashboard")
@@ -113,8 +112,7 @@ def user_register(request):
     return render(request, "dashboard/register.html")
 
 
-@rate_limit(requests_per_minute=10, key_prefix="web_login")
-@rate_limit(requests_per_minute=5, key_prefix="login")
+@rate_limit(requests_per_minute=10, key_prefix="login", methods=("POST",))
 def user_login(request):
     if request.user.is_authenticated:
         if request.user.is_staff or request.user.is_superuser or request.user.username == "admin":
