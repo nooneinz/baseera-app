@@ -1,0 +1,70 @@
+{% load custom_filters %}
+<!-- Summary line -->
+<p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 leading-relaxed mb-4 pb-3 border-b border-slate-100 dark:border-slate-800/50">
+    {% if weekly_digest and weekly_digest.summary_text %}
+        {{ weekly_digest.summary_text|translate_digest:trans.lang_code|mask_sensitive_numbers }}
+    {% elif weekly_digest and weekly_digest.summary %}
+        {{ weekly_digest.summary|translate_digest:trans.lang_code|mask_sensitive_numbers }}
+    {% else %}
+        {% if trans.lang_code == 'ar' %}لا توجد بيانات ليتم تحليلها حتى الآن. يرجى رفع ملفات للحصول على تقرير نبض الأعمال.{% else %}No data analyzed yet. Please upload files to get the business pulse report.{% endif %}
+    {% endif %}
+</p>
+
+{% if weekly_digest %}
+<!-- Risks & Alerts (Red) -->
+<div class="mb-3.5 rounded-2xl p-4 bg-rose-500/8 dark:bg-rose-950/25 border border-rose-500/20">
+    <div class="flex items-center gap-2 mb-2.5 text-rose-700 dark:text-rose-400">
+        <i data-lucide="shield-alert" class="h-4.5 w-4.5"></i>
+        <span class="text-sm font-extrabold">{% if trans.lang_code == 'ar' %}مخاطر / تنبيهات{% else %}Risks / Alerts{% endif %}</span>
+    </div>
+    <ul class="space-y-2">
+        {% for risk in weekly_digest.top_risks %}
+        <li class="flex items-start gap-2 text-xs sm:text-[13px] font-medium text-rose-950/85 dark:text-rose-200/90 leading-relaxed">
+            <span class="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0 mt-1.5"></span>
+            <span>{{ risk|translate_digest:trans.lang_code|mask_sensitive_numbers }}</span>
+        </li>
+        {% empty %}
+        <li class="text-xs text-rose-600/70">{% if trans.lang_code == 'ar' %}لا توجد مخاطر مسجلة.{% else %}No risks logged.{% endif %}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<!-- Action Plan (Green) -->
+<div id="action-plan" class="rounded-2xl p-4 bg-emerald-500/8 dark:bg-emerald-950/25 border border-emerald-500/20 transition-all duration-500">
+    <div class="flex items-center gap-2 mb-2.5 text-emerald-700 dark:text-emerald-400">
+        <i data-lucide="check-circle-2" class="h-4.5 w-4.5"></i>
+        <span class="text-sm font-extrabold">{% if trans.lang_code == 'ar' %}خطة العمل{% else %}Action Plan{% endif %}</span>
+    </div>
+    <ul class="space-y-2">
+        {% for action in weekly_digest.action_plan %}
+        <li class="flex items-start gap-2 text-xs sm:text-[13px] font-medium text-emerald-950/85 dark:text-emerald-200/90 leading-relaxed">
+            <i data-lucide="check" class="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5"></i>
+            <span>{{ action|translate_digest:trans.lang_code|mask_sensitive_numbers }}</span>
+        </li>
+        {% empty %}
+        <li class="text-xs text-emerald-600/70">{% if trans.lang_code == 'ar' %}لا توجد إجراءات مسجلة.{% else %}No actions logged.{% endif %}</li>
+        {% endfor %}
+    </ul>
+
+    {% if approved_plans %}
+    <div class="mt-3 pt-3 border-t border-emerald-500/20 space-y-1.5">
+        <div class="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+            <span>{% if trans.lang_code == 'ar' %}القرارات المعتمدة حديثاً{% else %}Recently Approved Decisions{% endif %}</span>
+            <a href="{% url 'datasets' %}#approved-plans" class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-extrabold">
+                <span>{% if trans.lang_code == 'ar' %}عرض السجل الكامل{% else %}View Full Log{% endif %}</span>
+                <i data-lucide="arrow-{% if trans.lang_code == 'ar' %}left{% else %}right{% endif %}" class="h-3 w-3"></i>
+            </a>
+        </div>
+        {% for plan in approved_plans|slice:":3" %}
+        <div class="p-2.5 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-emerald-500/30 flex items-center justify-between gap-2 shadow-xs">
+            <div class="flex items-center gap-2 min-w-0">
+                <span class="px-1.5 py-0.5 rounded-md bg-emerald-500 text-white text-[10px] font-black shrink-0">{% if trans.lang_code == 'ar' %}معتمد{% else %}Active{% endif %}</span>
+                <span class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{{ plan.file_name }}</span>
+            </div>
+            <span class="text-[10px] text-slate-400 shrink-0">{{ plan.created_at|date:"M d" }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}

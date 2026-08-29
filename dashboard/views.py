@@ -769,19 +769,17 @@ def dashboard(request):
             AnomalyDetector.detect_anomalies(records_list, request.user)
             anomaly_alerts = AnomalyAlert.objects.filter(user=request.user, is_dismissed=False).order_by('-created_at')[:4]
 
-    # Weekly Digest (Business Pulse Report)
+    # Weekly Digest (Business Pulse Report): only ever READ here, never
+    # generated. Generating it is a live, synchronous Gemini call (see
+    # ai_service.generate_weekly_digest_for_user) that used to run inline
+    # in this view -- meaning a brand-new account's very first dashboard
+    # load blocked on a full model round trip before the page could even
+    # render. Now the page renders immediately with whatever's cached (or
+    # the plain "no data analyzed yet" placeholder), and dashboard.html's
+    # own JS asks /api/weekly-digest/generate/ to generate + fill it in
+    # asynchronously the first time it's missing.
     weekly_digest = WeeklyDigest.objects.filter(user=request.user).order_by('-created_at').first()
-    if not weekly_digest and files.exists():
-        all_records = DynamicRecord.objects.filter(user=request.user)
-        if all_records.exists():
-            records_list = list(all_records.values_list('row_data', flat=True)[:100])
-            sample_str = json.dumps(records_list, ensure_ascii=False)
-            try:
-                from .services.ai_service import GeminiAIService
-                ai_service = GeminiAIService()
-                weekly_digest = ai_service.generate_weekly_digest_for_user(sample_str, request.user)
-            except Exception as digest_err:
-                print(f"Error auto-generating weekly digest: {digest_err}")
+    weekly_digest_pending = (not weekly_digest) and files.exists()
 
     agent_memories = AgentMemory.objects.filter(user=request.user).order_by('-created_at')[:3]
     agent_notifs = Notification.objects.filter(user=request.user).order_by('-created_at')[:3]
@@ -807,9 +805,45 @@ def dashboard(request):
         "sales_goal": sales_goal,
         "anomaly_alerts": anomaly_alerts,
         "weekly_digest": weekly_digest,
+        "weekly_digest_pending": weekly_digest_pending,
         "approved_plans": approved_plans,
     }
     return render(request, "dashboard/dashboard.html", context)
+
+
+@login_required
+def api_generate_weekly_digest(request):
+    """
+    Generates (if missing) and returns the rendered Weekly Digest card as
+    an HTML fragment, so the dashboard page itself never blocks on this
+    live AI call -- see the comment on `weekly_digest_pending` in
+    dashboard(). Idempotent: a WeeklyDigest that already exists (e.g. a
+    second tab/request racing this one) is reused as-is, never regenerated.
+    """
+    from .models import WeeklyDigest, ApprovedPlan
+    from django.template.loader import render_to_string
+
+    weekly_digest = WeeklyDigest.objects.filter(user=request.user).order_by('-created_at').first()
+
+    if not weekly_digest:
+        all_records = DynamicRecord.objects.filter(user=request.user)
+        if all_records.exists():
+            records_list = list(all_records.values_list('row_data', flat=True)[:100])
+            sample_str = json.dumps(records_list, ensure_ascii=False)
+            try:
+                from .services.ai_service import GeminiAIService
+                ai_service = GeminiAIService()
+                weekly_digest = ai_service.generate_weekly_digest_for_user(sample_str, request.user)
+            except Exception as digest_err:
+                print(f"Error auto-generating weekly digest: {digest_err}")
+
+    approved_plans = ApprovedPlan.objects.filter(user=request.user).order_by('-created_at')[:5]
+    html = render_to_string(
+        "dashboard/_weekly_digest_content.html",
+        {"weekly_digest": weekly_digest, "approved_plans": approved_plans},
+        request=request,
+    )
+    return JsonResponse({"html": html, "ready": weekly_digest is not None})
 
 
 def contact(request):
