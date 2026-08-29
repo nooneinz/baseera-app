@@ -557,19 +557,29 @@ def process_excel_to_db(project_file, user, accepted_sheets=None, extracted_rows
                 print(f"Excel read error: {ex_err}")
                 df = read_file_to_df(file_path)
         elif ext == '.pdf':
-            # 1. Native PDF parser
-            df = parse_pdf_to_df(file_path)
-            # 2. AI Extractor fallback
-            if df is None or df.empty:
-                try:
-                    from dashboard.services.ai_service import GeminiAIService
-                    import pandas as pd
-                    ai_service = GeminiAIService()
-                    extracted_data = ai_service.extract_structured_data_from_file(file_path)
-                    if extracted_data and isinstance(extracted_data, list) and len(extracted_data) > 0:
-                        df = pd.DataFrame(extracted_data)
-                except Exception as ai_pdf_err:
-                    print(f"AI PDF extract error: {ai_pdf_err}")
+            import pandas as pd
+            # A scanned PDF (no text layer) was already OCR'd by the
+            # Validation Layer's vision fallback (see
+            # validation_service._fallback_to_scanned_pdf_ocr) -- reuse
+            # those rows instead of re-running parse_pdf_to_df (which will
+            # find nothing, same as validation did) or paying for a second,
+            # weaker text-based AI extraction call. Same priority order the
+            # image branch below already uses.
+            if extracted_rows:
+                df = pd.DataFrame(extracted_rows)
+            else:
+                # 1. Native PDF parser
+                df = parse_pdf_to_df(file_path)
+                # 2. AI Extractor fallback
+                if df is None or df.empty:
+                    try:
+                        from dashboard.services.ai_service import GeminiAIService
+                        ai_service = GeminiAIService()
+                        extracted_data = ai_service.extract_structured_data_from_file(file_path)
+                        if extracted_data and isinstance(extracted_data, list) and len(extracted_data) > 0:
+                            df = pd.DataFrame(extracted_data)
+                    except Exception as ai_pdf_err:
+                        print(f"AI PDF extract error: {ai_pdf_err}")
         elif ext == '.txt':
             # 1. Text table parser
             df = read_file_to_df(file_path)
