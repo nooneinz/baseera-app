@@ -214,6 +214,14 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.environ.get("MEDIA_ROOT", BASE_DIR / "media")
 
+# Base URL of the isolated code-execution sidecar (docker-compose.yml's
+# `baseera-sandbox` service) that the AI agent's run_python_code tool
+# calls into when running self-hosted. Left unset on single-dyno
+# deployments (e.g. Render) that have no such sidecar -- see
+# dashboard/services/sandbox_client.py for the restricted-exec fallback
+# that applies in that case.
+SANDBOX_URL = os.environ.get("SANDBOX_URL", "").strip()
+
 # Email Configuration. Development falls back to the console until SMTP credentials exist.
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))

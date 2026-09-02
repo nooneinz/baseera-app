@@ -108,10 +108,11 @@ services:
       - "127.0.0.1:8002:8000"
     networks:
       - baseera-private
-    secrets:
-      - gemini_api_key
-    environment:
-      - GEMINI_API_KEY_FILE=/run/secrets/gemini_api_key
+    # Deliberately no `secrets:` here: this container only ever executes
+    # arbitrary AI-generated Python (see sandbox/main.py) and has no
+    # legitimate use for the Gemini key. Least privilege matters more here
+    # than anywhere else in the stack -- code run here is exactly the
+    # thing that would try to read and print a secret it can reach.
 
 networks:
   baseera-private:

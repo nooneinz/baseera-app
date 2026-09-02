@@ -37,6 +37,8 @@ import logging
 
 from google.genai import types
 
+from dashboard.services.sandbox_client import run_python_code as _sandbox_run_python_code
+
 logger = logging.getLogger(__name__)
 
 MAX_REACT_ITERATIONS = 3
@@ -107,27 +109,15 @@ def _finalize(working_prompt, tool_was_used, lang):
 
 def _run_python_tool(code):
     """
-    Same sandboxed exec semantics as the existing
-    [[ACTION:RUN_PYTHON|...]] text-tag path (see ai_service.py's inline
-    run_python_code). Kept as an independent copy rather than a shared
-    import so this addition cannot change that already-tested path's
-    behavior.
+    Same entry point as the [[ACTION:RUN_PYTHON|...]] text-tag path in
+    ai_service.py -- both now go through sandbox_client.run_python_code,
+    which uses the isolated sandbox service when one is configured and
+    falls back to a restricted in-process exec() otherwise (see that
+    module's docstring). Kept as a thin wrapper rather than inlined so a
+    future change to this tool's calling convention doesn't have to touch
+    the shared client.
     """
-    import sys
-    from io import StringIO
-
-    old_stdout = sys.stdout
-    redirected_output = sys.stdout = StringIO()
-    try:
-        exec(code, {"__builtins__": __builtins__}, {})
-        output = redirected_output.getvalue()
-        if not output.strip():
-            output = "Code executed successfully but no output was printed."
-    except Exception as e:
-        output = f"Error executing code: {str(e)}"
-    finally:
-        sys.stdout = old_stdout
-    return output
+    return _sandbox_run_python_code(code)
 
 
 def _create_notification_tool(user_id, title, message, notif_type="info"):

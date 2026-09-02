@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from google import genai
 
 from dashboard.services.agent_tools import run_react_preloop, should_attempt_react
+from dashboard.services.sandbox_client import run_python_code as sandbox_run_python_code
 
 load_dotenv()
 
@@ -396,21 +397,10 @@ When you need to show numbers or trends, generate a JSON block formatted exactly
             except Exception as e:
                 print(f"Error executing action: {e}")
 
-        def run_python_code(code):
-            import sys
-            from io import StringIO
-            old_stdout = sys.stdout
-            redirected_output = sys.stdout = StringIO()
-            try:
-                exec(code, {"__builtins__": __builtins__}, {})
-                output = redirected_output.getvalue()
-                if not output.strip():
-                    output = "Code executed successfully but no output was printed."
-            except Exception as e:
-                output = f"Error executing code: {str(e)}"
-            finally:
-                sys.stdout = old_stdout
-            return output
+        # Runs the AI-generated snippet via the isolated sandbox service
+        # when one is configured, falling back to a restricted in-process
+        # exec() otherwise -- see sandbox_client.py's module docstring.
+        run_python_code = sandbox_run_python_code
 
         def worker(current_prompt, iteration=0):
             if iteration > 3:
