@@ -7,6 +7,23 @@ on:
     branches: [ "main", "develop" ]
 
 jobs:
+  test-django:
+    name: Test Django (dashboard/) — the actually-deployed service
+    runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: ci-test-key-not-a-real-secret
+      DEBUG: "True"
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+    - name: Run Django test suite
+      run: python manage.py test
+
   build-backend:
     name: Build & Test .NET Backend
     runs-on: ubuntu-latest
@@ -48,13 +65,10 @@ jobs:
     - name: Test Docker Compose Build
       run: docker compose config
 
-  deploy:
-    name: Deploy to Production
-    needs: [build-backend, build-flutter, docker-compose-check]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-    - name: Deployment Placeholder
-      run: |
-        echo "Deployment script goes here."
-        echo "Example: ssh into production server and run docker-compose up -d"
+  # No "deploy" job: this used to be a placeholder that only echoed a
+  # comment ("Deployment script goes here") and never actually deployed
+  # anything -- every real deploy happens outside this workflow, via
+  # Render's own git-push auto-deploy on the services defined in
+  # render.yaml (baseera-web, baseera-backend). A job that looks like a
+  # deployment step but silently does nothing is worse than no job at
+  # all: it reads as "CI handles this" when nothing does.

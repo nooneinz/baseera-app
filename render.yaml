@@ -3,6 +3,16 @@ databases:
     databaseName: baseera_db
     user: baseera_user
     plan: free
+  # Deliberately its own database, not a schema/table split inside
+  # baseera-db above: backend/ is meant to become the sole source of
+  # truth for subscriptions/invoices once a real payment gateway (Thawani)
+  # is wired in, and that decision only holds if its data never lives in
+  # the same database Django's dashboard/api_views.py can write to
+  # directly through the Django ORM.
+  - name: baseera-backend-db
+    databaseName: baseera_backend_db
+    user: baseera_backend_user
+    plan: free
 
 services:
   - type: web
@@ -41,3 +51,43 @@ services:
         value: "False"
       - key: SECRET_KEY
         generateValue: true
+
+  # backend/ (ASP.NET Core): not wired to real traffic yet -- this makes it
+  # deployable for real instead of the unbuilt, uncommitted scaffold it was
+  # (no Dockerfile, no migrations, mocked mobile endpoints). Gets its own
+  # database (baseera-backend-db above) by design: it's meant to become the
+  # system of record for subscriptions/invoices once a real payment gateway
+  # is wired in, and Django keeps reading that data rather than owning it
+  # -- see backend/README.md for the full split.
+  - type: web
+    name: baseera-backend
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: DB_HOST
+        fromDatabase:
+          name: baseera-backend-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: baseera-backend-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: baseera-backend-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: baseera-backend-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: baseera-backend-db
+          property: password
+      - key: TeamApiKey
+        generateValue: true
+      - key: Sentry__Dsn
+        sync: false

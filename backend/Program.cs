@@ -56,8 +56,36 @@ builder.Services.AddRateLimiter(options =>
 // Register Database Context and Tenant Service
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantService, TenantService>();
-builder.Services.AddDbContext<BaseeraDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Host=localhost;Port=5433;Database=baseera_db;Username=baseera_user;Password=baseera_password"));
+
+// Connection string resolution, in priority order:
+//   1. ConnectionStrings:DefaultConnection -- a full ADO.NET string, for
+//      anyone who wants to paste one directly (env var
+//      ConnectionStrings__DefaultConnection).
+//   2. DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD -- Render's managed
+//      Postgres exposes these as separate `fromDatabase` properties
+//      (host/port/database/user/password) rather than a single URI the
+//      way DATABASE_URL works elsewhere; Npgsql's UseNpgsql() expects the
+//      ADO.NET keyword format, not a postgres:// URI, so this assembles
+//      it from the separate values instead of hand-parsing a URI.
+//   3. The local docker-compose default, unchanged, for local dev.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrEmpty(connectionString))
+{
+    var dbHost = builder.Configuration["DB_HOST"];
+    if (!string.IsNullOrEmpty(dbHost))
+    {
+        connectionString =
+            $"Host={dbHost};" +
+            $"Port={builder.Configuration["DB_PORT"] ?? "5432"};" +
+            $"Database={builder.Configuration["DB_NAME"]};" +
+            $"Username={builder.Configuration["DB_USER"]};" +
+            $"Password={builder.Configuration["DB_PASSWORD"]};" +
+            "SSL Mode=Require;Trust Server Certificate=true";
+    }
+}
+connectionString ??= "Host=localhost;Port=5433;Database=baseera_db;Username=baseera_user;Password=baseera_password";
+
+builder.Services.AddDbContext<BaseeraDbContext>(options => options.UseNpgsql(connectionString));
 
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 
