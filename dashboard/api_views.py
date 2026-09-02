@@ -435,9 +435,8 @@ def save_file_api(request):
                 return JsonResponse({"status": "error", "message": "file_path is required"}, status=400)
 
             import os
-            from django.conf import settings
-            workspace_dir = os.path.join(settings.MEDIA_ROOT, 'workspace')
-            os.makedirs(workspace_dir, exist_ok=True)
+            from dashboard.paths import get_workspace_dir
+            workspace_dir = get_workspace_dir()
 
             clean_name = build_safe_filename(file_path)
             full_path = os.path.join(workspace_dir, clean_name)
@@ -454,11 +453,17 @@ def save_file_api(request):
                 ApprovedPlan.objects.create(
                     user=request.user,
                     file_name=file_path.replace('\\\\', '/').split('/')[-1] or clean_name,
-                    file_path=f"workspace/{clean_name}",
+                    # Same "sandbox/..." convention as every other
+                    # ApprovedPlan writer (views.py's api_auto_save_document
+                    # / api_apply_agent_decision) -- this used to be stored
+                    # as "workspace/..." while the file itself lived under
+                    # BASE_DIR/sandbox/workspace, so download/delete only
+                    # ever found it via their MEDIA_ROOT fallback path.
+                    file_path=f"sandbox/workspace/{clean_name}",
                     justification=justification
                 )
 
-            return JsonResponse({"status": "success", "message": "File saved successfully", "path": f"workspace/{clean_name}"})
+            return JsonResponse({"status": "success", "message": "File saved successfully", "path": f"sandbox/workspace/{clean_name}"})
         except Exception as e:
             return JsonResponse({"status": "error", "message": "Internal server error"}, status=500)
     return JsonResponse({"status": "invalid_method"}, status=405)
@@ -468,10 +473,9 @@ def workspace_files_api(request):
     if request.method == "GET":
         try:
             import os
-            from django.conf import settings
-            workspace_dir = os.path.join(settings.BASE_DIR, 'sandbox', 'workspace')
-            os.makedirs(workspace_dir, exist_ok=True)
-            
+            from dashboard.paths import get_workspace_dir
+            workspace_dir = get_workspace_dir()
+
             files = []
             for f in os.listdir(workspace_dir):
                 full_path = os.path.join(workspace_dir, f)

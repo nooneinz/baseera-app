@@ -2463,8 +2463,8 @@ from django.http import FileResponse
 
 @login_required
 def workspace_view(request):
-    workspace_dir = os.path.join(settings.BASE_DIR, 'sandbox', 'workspace')
-    os.makedirs(workspace_dir, exist_ok=True)
+    from dashboard.paths import get_workspace_dir
+    workspace_dir = get_workspace_dir()
     
     # Handle direct file upload in workspace
     if request.method == 'POST' and request.FILES.get('workspace_file'):
@@ -2515,8 +2515,9 @@ def workspace_view(request):
 
 @login_required
 def download_workspace_file(request, filename):
+    from dashboard.paths import get_workspace_dir
     clean_name = os.path.basename(filename)
-    workspace_dir = os.path.join(settings.BASE_DIR, 'sandbox', 'workspace')
+    workspace_dir = get_workspace_dir()
     full_path = os.path.join(workspace_dir, clean_name)
     if os.path.exists(full_path):
         return FileResponse(open(full_path, 'rb'), as_attachment=True, filename=clean_name)
@@ -2532,8 +2533,9 @@ def download_workspace_file(request, filename):
 
 @login_required
 def delete_workspace_file(request, filename):
+    from dashboard.paths import get_workspace_dir
     clean_name = os.path.basename(filename)
-    workspace_dir = os.path.join(settings.BASE_DIR, 'sandbox', 'workspace')
+    workspace_dir = get_workspace_dir()
     full_path = os.path.join(workspace_dir, clean_name)
     deleted = False
     
@@ -3173,8 +3175,8 @@ def api_auto_save_document(request):
                 else:
                     title = (f"تقرير تحليلي من بصيرة ({now_str})" if is_ar else f"Baseera Analytical Report ({now_str})")
 
-            plans_dir = os.path.join(settings.BASE_DIR, 'sandbox', 'approved_plans')
-            os.makedirs(plans_dir, exist_ok=True)
+            from dashboard.paths import get_approved_plans_dir
+            plans_dir = get_approved_plans_dir()
             timestamp_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
             file_rel_path = f"sandbox/approved_plans/doc_{request.user.id}_{timestamp_str}.md"
             full_file_path = os.path.join(settings.BASE_DIR, file_rel_path)
@@ -3257,8 +3259,8 @@ def api_apply_agent_decision(request):
             justification = f"تم اعتماد الخطة التنفيذية بناءً على مخرجات التحليل الذكي وموافقة الإدارة لمتابعة التنفيذ الفوري."
 
             # Save full detailed plan text to file in sandbox/approved_plans
-            plans_dir = os.path.join(settings.BASE_DIR, 'sandbox', 'approved_plans')
-            os.makedirs(plans_dir, exist_ok=True)
+            from dashboard.paths import get_approved_plans_dir
+            plans_dir = get_approved_plans_dir()
             timestamp_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
             file_rel_path = f"sandbox/approved_plans/plan_{request.user.id}_{timestamp_str}.txt"
             full_file_path = os.path.join(settings.BASE_DIR, file_rel_path)
