@@ -73,7 +73,7 @@ def validate_uploaded_file(uploaded_file, max_size_bytes=DEFAULT_MAX_UPLOAD_SIZE
     return True
 
 
-def rate_limit(requests_per_minute=60, key_prefix="api", methods=None):
+def rate_limit(requests_per_minute=60, key_prefix="api", methods=None, per_user=False):
     """
     `methods`: when given (e.g. ("POST",)), only requests using one of these
     HTTP methods are counted/limited at all -- every other method passes
@@ -98,8 +98,16 @@ def rate_limit(requests_per_minute=60, key_prefix="api", methods=None):
             if methods is not None and request.method not in methods:
                 return view_func(request, *args, **kwargs)
 
-            client_ip = get_client_ip(request)
-            cache_key = f"rate_limit:{key_prefix}:{client_ip}"
+            # per_user=True keys the limit on the authenticated user id when
+            # available (F-10: caps expensive per-user LLM spend even behind
+            # a shared NAT/IP), falling back to client IP for anonymous
+            # callers. Place such a decorator BELOW an auth decorator (e.g.
+            # token_required) so request.user is already resolved here.
+            if per_user and getattr(getattr(request, "user", None), "is_authenticated", False):
+                scope = f"user:{request.user.id}"
+            else:
+                scope = f"ip:{get_client_ip(request)}"
+            cache_key = f"rate_limit:{key_prefix}:{scope}"
             current_count = cache.get(cache_key, 0)
             if current_count >= requests_per_minute:
                 return JsonResponse({"status": "error", "message": "Too many requests. Please retry later."}, status=429)
@@ -186,6 +194,42 @@ def issue_access_token(user):
     return signing.dumps({"user_id": user.pk, "pwd_hash": pwd_hash}, salt="baseera-mobile-auth")
 
 
+_CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
+
+
+def _request_origin_is_trusted(request):
+    """
+    CSRF defense for the session-cookie auth path (F-05). Returns True if the
+    request's Origin (or, failing that, Referer) is same-origin with the host
+    or listed in settings.CSRF_TRUSTED_ORIGINS. Bearer-token requests never
+    reach this -- they carry no ambient cookies, so they are not a CSRF
+    vector. If neither header is present we return True (conservative: a
+    cross-site browser attack always sends Origin on an unsafe fetch/form
+    POST, so this still blocks the real vector without breaking non-browser
+    or header-stripped same-origin callers).
+    """
+    origin = request.headers.get("Origin")
+    if not origin:
+        referer = request.headers.get("Referer")
+        if not referer:
+            return True
+        parsed_ref = urlparse(referer)
+        if not parsed_ref.scheme or not parsed_ref.netloc:
+            return True
+        origin = f"{parsed_ref.scheme}://{parsed_ref.netloc}"
+
+    try:
+        host = request.get_host()
+    except Exception:
+        host = ""
+    scheme = "https" if request.is_secure() else "http"
+    allowed = {f"https://{host}", f"http://{host}", f"{scheme}://{host}"}
+    for trusted in getattr(settings, "CSRF_TRUSTED_ORIGINS", []) or []:
+        allowed.add(trusted.strip().rstrip("/"))
+
+    return origin.rstrip("/") in allowed
+
+
 def token_required(view_func):
     """
     Dual-mode auth for the mobile API surface: a real Bearer token, or (see
@@ -202,21 +246,25 @@ def token_required(view_func):
     session-fallback gap below would break the real mobile app in
     production; that is not an oversight, it is why this exemption stays.
 
-    Known, tracked residual gap: the session-cookie fallback one line down
-    means a user who is ALSO logged into the web session is not CSRF-
-    protected on these same endpoints while authenticated that way. Closing
-    that properly needs splitting this into two decorators (a strict
-    Bearer-only one for the mobile views, session auth kept CSRF-protected
-    separately) rather than a blanket exemption removal -- a real
-    architectural change, intentionally out of scope for this pass rather
-    than risking mobile app breakage to rush it.
+    F-05: the session-cookie fallback path is now CSRF-defended by an
+    Origin/Referer same-origin check on state-changing methods (see
+    _request_origin_is_trusted). Bearer-token callers are not a CSRF vector
+    (no ambient cookies) and skip that check. SameSite=Lax on the session
+    cookie already blocks the cookie on most cross-site POSTs; the Origin
+    check is defense-in-depth on top of it.
     """
     @wraps(view_func)
     def _wrapped(request, *args, **kwargs):
         # Allow already authenticated web users (Session/Cookie)
         if hasattr(request, 'user') and request.user.is_authenticated:
+            # F-05: these views are @csrf_exempt, so for the cookie-auth
+            # path we re-impose a CSRF defense via an Origin/Referer check
+            # on state-changing methods. Bearer callers skip this branch
+            # entirely (handled below) since they are not CSRF-exposed.
+            if request.method not in _CSRF_SAFE_METHODS and not _request_origin_is_trusted(request):
+                return JsonResponse({"status": "error", "message": "Cross-origin request blocked"}, status=403)
             return view_func(request, *args, **kwargs)
-            
+
         authorization = request.headers.get("Authorization", "")
         if not authorization.startswith("Bearer "):
             return JsonResponse({"status": "error", "message": "Authentication required"}, status=401)

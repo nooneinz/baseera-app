@@ -36,6 +36,20 @@ _RESERVED_USERNAMES = {"admin", "administrator", "superuser", "root", "sysadmin"
 def _username_is_reserved(username):
     return (username or "").strip().lower() in _RESERVED_USERNAMES
 
+
+# SECURITY (F-06): safely embed JSON inside an HTML <script> block. Templates
+# render these with |safe, so raw json.dumps output (containing user-supplied
+# strings from uploaded data / custom-agent names) could smuggle a literal
+# "</script>" and break out into an executable script context (stored XSS).
+# Escaping <, >, & and the JS line separators yields valid JSON that JSON.parse
+# decodes back unchanged, while making a </script> breakout impossible.
+def _safe_json_for_script(obj):
+    dumped = json.dumps(obj, ensure_ascii=False)
+    dumped = dumped.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    # JS line/paragraph separators are valid JSON but break inline scripts.
+    dumped = dumped.replace(chr(0x2028), "\\u2028").replace(chr(0x2029), "\\u2029")
+    return dumped
+
 logger = logging.getLogger(__name__)
 
 
@@ -216,10 +230,24 @@ def admin_login(request):
     return render(request, "dashboard/admin_login.html")
 
 def social_login_dummy(request, provider):
+    # SECURITY (F-04): this is a DEMO stand-in with no real OAuth/OIDC
+    # verification -- it logs any visitor into a shared "{provider}_user"
+    # account and would mass-create accounts for arbitrary provider
+    # strings. It must never be reachable in production. Gate it behind
+    # DEBUG so the demo still works locally; in production it is disabled.
+    if not settings.DEBUG:
+        messages.error(request, "تسجيل الدخول عبر مزودي الحسابات غير متاح حالياً / Social login is not available.")
+        return redirect("login")
+
     if request.user.is_authenticated:
         return redirect("dashboard")
-        
-    username = f"{provider.lower()}_user"
+
+    provider = (provider or "").strip().lower()
+    if provider not in {"google", "apple", "facebook", "twitter", "linkedin"}:
+        messages.error(request, "مزود غير مدعوم / Unsupported provider.")
+        return redirect("login")
+
+    username = f"{provider}_user"
     email = f"{username}@example.com"
     
     try:
@@ -908,7 +936,7 @@ def dashboard(request):
         "files": files,
         "kpis": kpis,
         "announcements": active_announcements,
-        "latest_file_json": json.dumps(latest_file_json) if latest_file_json else None,
+        "latest_file_json": _safe_json_for_script(latest_file_json) if latest_file_json else None,
         "agent_activity": agent_activity,
         "sales_goal": sales_goal,
         "anomaly_alerts": anomaly_alerts,
@@ -1217,7 +1245,7 @@ def ask_basira(request):
         "agent_id": agent_id,
         "custom_agent": custom_agent_info,
         "custom_agents_list": custom_agents_list,
-        "custom_agents_json": json.dumps(custom_agents_data, ensure_ascii=False)
+        "custom_agents_json": _safe_json_for_script(custom_agents_data)
     })
 
 
@@ -1243,6 +1271,7 @@ def boardroom_view(request):
 # unrelated account for an unauthenticated caller.
 @csrf_exempt
 @token_required
+@rate_limit(requests_per_minute=10, key_prefix="boardroom_llm", per_user=True)
 def api_boardroom_debate(request):
     """
     API to simulate a live multi-agent debate on a business decision.
@@ -2379,6 +2408,7 @@ def _direct_reply_event_stream(text, suggested_actions=None):
 # and web session users continue to pass through unchanged.
 @csrf_exempt
 @token_required
+@rate_limit(requests_per_minute=20, key_prefix="chat_llm", per_user=True)
 def chat_api(request):
     if request.method == "POST":
         try:
