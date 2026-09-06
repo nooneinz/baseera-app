@@ -74,6 +74,12 @@ def mobile_register(request):
             email = data.get("email")
             password = data.get("password")
 
+            # SECURITY (F-03): block reserved/privileged usernames so nobody
+            # can self-register "admin" (etc.) via the mobile API.
+            RESERVED_USERNAMES = {"admin", "administrator", "superuser", "root", "sysadmin", "superadmin"}
+            if (username or "").strip().lower() in RESERVED_USERNAMES:
+                return JsonResponse({"status": "error", "message": "This username is reserved"}, status=400)
+
             if User.objects.filter(username=username).exists():
                 return JsonResponse({"status": "error", "message": "Username already exists"}, status=400)
             if User.objects.filter(email=email).exists():
@@ -399,6 +405,14 @@ def mobile_connect_live(request):
 def mobile_toggle_user_status(request):
     if request.method == "POST":
         try:
+            # SECURITY (F-11): this endpoint freezes/unfreezes ANY account
+            # by email. It was reachable by every authenticated user
+            # (token_required alone), so any registered user could disable
+            # any other user's account (cross-tenant account-lockout DoS).
+            # It is an admin-only action -- enforce that here.
+            if not (request.user.is_staff or request.user.is_superuser):
+                return JsonResponse({"status": "error", "message": "Admin privileges required"}, status=403)
+
             data = json.loads(request.body)
             email = data.get("email")
             if not email:

@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+from decimal import Decimal
 import pandas as pd
 from django.shortcuts import render, redirect
 from django.urls import reverse
@@ -14,6 +15,27 @@ from django.views.decorators.csrf import csrf_exempt
 from .security import build_safe_filename, validate_uploaded_file, rate_limit, safe_error_message, validate_ssrf_url, sanitize_cell_for_prompt, token_required
 from .models import Profile, ProjectFile, SystemLog, Invoice, Announcement, AIUsageLog, SalesGoal, AnomalyAlert, WeeklyDigest, CustomAgent, BoardroomSession
 
+
+# SECURITY (F-03): platform-admin authorization is decided ONLY by Django's
+# real is_staff / is_superuser flags -- never by `username == "admin"`.
+# Registration lets anyone choose their username, so the old name-based
+# fallback meant that whoever grabbed the username "admin" (if no such
+# account existed yet) gained full super-admin, including impersonation of
+# any user. A correctly provisioned admin (createsuperuser, or the admin
+# dashboard's "create user" with role=admin) always has these flags set,
+# so removing the name shortcut does not lock a real admin out.
+# Usernames colliding with reserved names are also blocked at registration
+# (see _RESERVED_USERNAMES / _username_is_reserved).
+def _is_platform_admin(user):
+    return bool(getattr(user, "is_authenticated", False) and (user.is_staff or user.is_superuser))
+
+
+_RESERVED_USERNAMES = {"admin", "administrator", "superuser", "root", "sysadmin", "superadmin"}
+
+
+def _username_is_reserved(username):
+    return (username or "").strip().lower() in _RESERVED_USERNAMES
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,7 +46,7 @@ def welcome(request):
             messages.success(request, f"أهلاً بك من جديد يا {request.user.username}! حلّل بياناتك وتأكد منها، فهذا أهم شيء.")
         else:
             messages.success(request, f"Welcome back, {request.user.username}! Analyze and verify your data, that's the most important thing.")
-        if request.user.is_staff or request.user.is_superuser or request.user.username == "admin":
+        if _is_platform_admin(request.user):
             return redirect("admin_dashboard")
         return redirect("dashboard")
         
@@ -54,6 +76,15 @@ def user_register(request):
             messages.error(
                 request,
                 "اسم المستخدم (Login ID) وكلمة المرور مطلوبان / Username and password are required.",
+            )
+            return redirect("register")
+
+        # SECURITY (F-03): block reserved/privileged usernames so nobody can
+        # self-register "admin" (etc.) and inherit any name-based treatment.
+        if _username_is_reserved(username):
+            messages.error(
+                request,
+                "اسم المستخدم هذا محجوز ولا يمكن استخدامه / This username is reserved.",
             )
             return redirect("register")
 
@@ -116,7 +147,7 @@ def user_register(request):
 @rate_limit(requests_per_minute=10, key_prefix="login", methods=("POST",))
 def user_login(request):
     if request.user.is_authenticated:
-        if request.user.is_staff or request.user.is_superuser or request.user.username == "admin":
+        if _is_platform_admin(request.user):
             return redirect("admin_dashboard")
         return redirect("dashboard")
         
@@ -141,7 +172,7 @@ def user_login(request):
             )
             
             messages.success(request, f"مرحباً بعودتك / Welcome back, {user.username}!")
-            if user.is_staff or user.is_superuser or user.username == "admin":
+            if _is_platform_admin(user):
                 return redirect("admin_dashboard")
             return redirect("dashboard")
         else:
@@ -152,7 +183,7 @@ def user_login(request):
 
 def admin_login(request):
     if request.user.is_authenticated:
-        if request.user.is_staff or request.user.is_superuser or request.user.username == "admin":
+        if _is_platform_admin(request.user):
             return redirect("admin_dashboard")
         messages.warning(request, "أنت مسجل كحساب مستخدم عادي. يرجى تسجيل الدخول بحساب مسؤول للوصول إلى لوحة الإدارة.")
         return redirect("dashboard")
@@ -168,7 +199,7 @@ def admin_login(request):
                 user = authenticate(request, username=user_obj.username, password=password)
 
         if user is not None:
-            if user.is_staff or user.is_superuser or user.username == "admin":
+            if _is_platform_admin(user):
                 login(request, user)
                 SystemLog.objects.create(
                     user=user,
@@ -732,7 +763,7 @@ def dashboard(request):
         request.session.pop("admin_view_mode", None)
         return redirect("admin_dashboard")
 
-    if (request.user.is_staff or request.user.is_superuser or request.user.username == "admin") and not request.session.get("impersonated_from") and request.session.get("admin_view_mode") != "user":
+    if (_is_platform_admin(request.user)) and not request.session.get("impersonated_from") and request.session.get("admin_view_mode") != "user":
         return redirect("admin_dashboard")
 
     profile, _ = Profile.objects.get_or_create(user=request.user)
@@ -1861,7 +1892,7 @@ def notifications(request):
 
 @login_required
 def admin_settings(request):
-    if not (request.user.is_staff or request.user.is_superuser or request.user.username == "admin"):
+    if not (_is_platform_admin(request.user)):
         messages.error(request, "عذراً، هذه الصفحة مخصصة لمدير النظام فقط (Super Admin).")
         return redirect("dashboard")
     # admin_dashboard.html is a single-page tabbed view (no separate URL per
@@ -1874,7 +1905,7 @@ def admin_settings(request):
 @login_required
 def admin_dashboard(request):
     # Strict Super Admin Access Verification
-    if not (request.user.is_staff or request.user.is_superuser or request.user.username == "admin"):
+    if not (_is_platform_admin(request.user)):
         messages.error(request, "عذراً، هذه الصفحة مخصصة لمدير النظام فقط (Super Admin). / Access restricted to Admin only.")
         return redirect("dashboard")
 
@@ -2154,11 +2185,25 @@ def templates_feedback(request):
 def process_payment(request):
     if request.method == "POST":
         plan = request.POST.get("plan", "Pro")
-        amount = request.POST.get("amount", "15 OMR")
-        allowed_plans = {"starter", "growth", "enterprise", "pro"}
-        if plan.lower() not in allowed_plans:
+        # SECURITY (F-02): the amount is computed SERVER-SIDE from a fixed
+        # price table and the client-supplied "amount" is ignored entirely.
+        # Previously `amount` came straight from request.POST and was stored
+        # on the Invoice, so any user could pay "0 OMR" (or a negative /
+        # garbage value) for any plan. The client no longer has any say in
+        # what is charged or recorded.
+        PLAN_PRICES = {
+            "starter": Decimal("9.000"),
+            "growth": Decimal("29.000"),
+            "enterprise": Decimal("99.000"),
+            "pro": Decimal("15.000"),
+        }
+        CURRENCY = "OMR"
+        plan_key = plan.lower()
+        if plan_key not in PLAN_PRICES:
             messages.error(request, "الباقة المطلوبة غير متاحة.")
             return redirect("pricing")
+        amount_value = PLAN_PRICES[plan_key]
+        amount = f"{amount_value} {CURRENCY}"
 
         idempotency_key = request.headers.get("Idempotency-Key") or request.POST.get("idempotency_key")
         if idempotency_key:
@@ -2221,8 +2266,8 @@ def process_payment(request):
             Invoice.objects.create(
                 user=request.user,
                 plan_name=plan,
-                amount=amount,
-                currency="OMR"
+                amount=amount_value,
+                currency=CURRENCY,
             )
             
             SystemLog.objects.create(
@@ -2242,21 +2287,21 @@ def process_payment(request):
 
 @login_required
 def admin_logs(request):
-    if not (request.user.is_staff or request.user.is_superuser or request.user.username == "admin"):
+    if not (_is_platform_admin(request.user)):
         messages.error(request, "عذراً، هذه الصفحة مخصصة لمدير النظام فقط (Super Admin). / Access restricted to Admin only.")
         return redirect("dashboard")
     return redirect("admin_dashboard")
 
 @login_required
 def admin_finance(request):
-    if not (request.user.is_staff or request.user.is_superuser or request.user.username == "admin"):
+    if not (_is_platform_admin(request.user)):
         messages.error(request, "عذراً، هذه الصفحة مخصصة لمدير النظام فقط.")
         return redirect("dashboard")
     return redirect("admin_dashboard")
 
 @login_required
 def impersonate_user(request, user_id):
-    if not (request.user.is_staff or request.user.is_superuser or request.user.username == "admin"):
+    if not (_is_platform_admin(request.user)):
         return redirect("dashboard")
         
     target_user = User.objects.filter(id=user_id).first()
