@@ -8,14 +8,14 @@ class ApiService {
     // This is a placeholder for the future connection to the ASP.NET Core API.
     // Replace with actual endpoint and headers when ready.
     try {
-      final response = await http.get(Uri.parse('\$baseUrl/MobileDashboard/Stats'));
+      final response = await http.get(Uri.parse('$baseUrl/MobileDashboard/Stats'));
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
         throw Exception('Failed to load dashboard data');
       }
     } catch (e) {
-      throw Exception('Network error: \$e');
+      throw Exception('Network error: $e');
     }
   }
 }

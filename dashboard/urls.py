@@ -84,6 +84,11 @@ urlpatterns = [
 
     path("api/save_file/", api_views.save_file_api, name="save_file_api"),
     path("api/live-sync/", api_views.live_sync_api, name="live_sync_api"),
+    # Workspace + data-export routes referenced by the mobile web assets
+    # (workspace.html, upload.html) that had no matching URL pattern -> 404.
+    path("api/workspace/files/", api_views.workspace_files_api, name="workspace_files_api"),
+    path("workspace/download/<str:filename>/", views.download_workspace_file, name="download_workspace_file"),
+    path("api/user-data.csv", views.export_user_data_csv, name="export_user_data_csv"),
     path("api/mobile/login", api_views.mobile_login, name="mobile_login"),
     path("api/mobile/register", api_views.mobile_register, name="mobile_register"),
     path("api/mobile/change-password", api_views.mobile_change_password, name="mobile_change_password"),

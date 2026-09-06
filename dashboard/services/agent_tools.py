@@ -42,9 +42,15 @@ logger = logging.getLogger(__name__)
 MAX_REACT_ITERATIONS = 3
 
 # The hard constraint, enforced at the code layer rather than trusted to
-# prompt wording: these are the ONLY three names ever executed, no matter
-# what the model requests.
-_TOOL_NAMES = {"run_python_code", "create_notification", "save_memory"}
+# prompt wording: these are the ONLY names ever executed, no matter what
+# the model requests.
+#
+# SECURITY (F-01): "run_python_code" was removed. It exec()'d model-chosen
+# code with full builtins inside the Django process, which any registered
+# user could drive via /api/insights/chat -> remote code execution / full
+# server + multi-tenant compromise. There is no server-side Python-exec
+# tool anymore; arithmetic the model needs is done by the model itself.
+_TOOL_NAMES = {"create_notification", "save_memory"}
 
 # Latency gate: the pre-loop costs at least one extra live round trip
 # before the final answer even starts streaming, so it's only worth
@@ -105,31 +111,6 @@ def _finalize(working_prompt, tool_was_used, lang):
     return working_prompt + closing
 
 
-def _run_python_tool(code):
-    """
-    Same sandboxed exec semantics as the existing
-    [[ACTION:RUN_PYTHON|...]] text-tag path (see ai_service.py's inline
-    run_python_code). Kept as an independent copy rather than a shared
-    import so this addition cannot change that already-tested path's
-    behavior.
-    """
-    import sys
-    from io import StringIO
-
-    old_stdout = sys.stdout
-    redirected_output = sys.stdout = StringIO()
-    try:
-        exec(code, {"__builtins__": __builtins__}, {})
-        output = redirected_output.getvalue()
-        if not output.strip():
-            output = "Code executed successfully but no output was printed."
-    except Exception as e:
-        output = f"Error executing code: {str(e)}"
-    finally:
-        sys.stdout = old_stdout
-    return output
-
-
 def _create_notification_tool(user_id, title, message, notif_type="info"):
     try:
         from dashboard.models import Notification
@@ -185,22 +166,9 @@ def build_agent_tools():
     module docstring for why financial/decision actions are deliberately
     absent from this list.
     """
-    run_python_fd = types.FunctionDeclaration(
-        name="run_python_code",
-        description=(
-            "Executes a short, self-contained Python snippet to perform a "
-            "calculation or data transformation and returns whatever it "
-            "prints. Use this only for arithmetic/data-shape work needed "
-            "to answer the user -- never to touch financial records."
-        ),
-        parameters_json_schema={
-            "type": "object",
-            "properties": {
-                "code": {"type": "string", "description": "The Python code to execute."},
-            },
-            "required": ["code"],
-        },
-    )
+    # SECURITY (F-01): a "run_python_code" tool was removed here -- see the
+    # note on _TOOL_NAMES. The model is never handed a server-side code
+    # execution tool.
     create_notification_fd = types.FunctionDeclaration(
         name="create_notification",
         description=(
@@ -231,7 +199,7 @@ def build_agent_tools():
             "required": ["content"],
         },
     )
-    return types.Tool(function_declarations=[run_python_fd, create_notification_fd, save_memory_fd])
+    return types.Tool(function_declarations=[create_notification_fd, save_memory_fd])
 
 
 def run_react_preloop(ai_service, prompt, user_id, model, lang="ar", on_state=None,
@@ -300,9 +268,7 @@ def run_react_preloop(ai_service, prompt, user_id, model, lang="ar", on_state=No
             f"AGENT_LOG: {'الوكيل ينفذ إجراءً مستقلاً (' + name + ')...' if lang == 'ar' else 'Agent is autonomously running a tool (' + name + ')...'}"
         )
 
-        if name == "run_python_code":
-            observation = _run_python_tool(args.get("code", ""))
-        elif name == "create_notification":
+        if name == "create_notification":
             observation = _create_notification_tool(
                 user_id, args.get("title", ""), args.get("message", ""), args.get("notif_type", "info"),
             )

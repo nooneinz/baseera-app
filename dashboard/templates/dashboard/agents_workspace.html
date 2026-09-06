@@ -155,6 +155,43 @@
 <script>
     lucide.createIcons();
 
+    // SECURITY (F-06): AI/agent output is inserted into innerHTML below. It
+    // is attacker-influenceable (chat input + uploaded file content via
+    // indirect prompt injection), so raw <img onerror=...>/<script> would
+    // run in this authenticated same-origin page. sanitizeHtmlString()
+    // removes dangerous elements, on* handlers and javascript:/data:text/html
+    // URLs from an HTML string before it is inserted.
+    (function () {
+      var BANNED_TAGS = ['SCRIPT','IFRAME','OBJECT','EMBED','LINK','META','BASE','FORM','STYLE','SVG','MATH'];
+      window.sanitizeHtmlString = function (html) {
+        var wrap = document.createElement('div');
+        wrap.innerHTML = html || '';
+        var walker = document.createTreeWalker(wrap, NodeFilter.SHOW_ELEMENT, null);
+        var toRemove = [];
+        var node = walker.nextNode();
+        while (node) {
+          if (BANNED_TAGS.indexOf(node.tagName) !== -1) {
+            toRemove.push(node);
+          } else {
+            for (var i = node.attributes.length - 1; i >= 0; i--) {
+              var attr = node.attributes[i];
+              var name = attr.name.toLowerCase();
+              var val = (attr.value || '').replace(/\s+/g, '').toLowerCase();
+              if (name.indexOf('on') === 0) {
+                node.removeAttribute(attr.name);
+              } else if ((name === 'href' || name === 'src' || name === 'xlink:href') &&
+                         (val.indexOf('javascript:') === 0 || val.indexOf('data:text/html') === 0)) {
+                node.removeAttribute(attr.name);
+              }
+            }
+          }
+          node = walker.nextNode();
+        }
+        toRemove.forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+        return wrap.innerHTML;
+      };
+    })();
+
     let currentAgent = 'general';
     let currentAgentColor = '#4f46e5'; // indigo
 
@@ -411,7 +448,7 @@
                                     });
                                 }
 
-                                streamDiv.querySelector('.msg-content').innerHTML = formattedResponse;
+                                streamDiv.querySelector('.msg-content').innerHTML = sanitizeHtmlString(formattedResponse);
                                 chatMessages.scrollTop = chatMessages.scrollHeight;
                             }
                         } catch (e) { console.error('Error parsing chunk:', e); }

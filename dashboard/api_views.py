@@ -1,6 +1,7 @@
 from django.contrib.auth.decorators import login_required
 import json
 import logging
+import os
 import pandas as pd
 from dashboard.services.ai_service import GeminiAIService
 from django.http import JsonResponse
@@ -13,7 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from django.core.cache import cache
-from .security import rate_limit, validate_uploaded_file, build_safe_filename, validate_ssrf_url, safe_error_message, issue_access_token, token_required
+from .security import rate_limit, validate_uploaded_file, build_safe_filename, validate_ssrf_url, safe_error_message, issue_access_token, token_required, fetch_url_ssrf_safe
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,12 @@ def mobile_register(request):
             username = data.get("username")
             email = data.get("email")
             password = data.get("password")
+
+            # SECURITY (F-03): block reserved/privileged usernames so nobody
+            # can self-register "admin" (etc.) via the mobile API.
+            RESERVED_USERNAMES = {"admin", "administrator", "superuser", "root", "sysadmin", "superadmin"}
+            if (username or "").strip().lower() in RESERVED_USERNAMES:
+                return JsonResponse({"status": "error", "message": "This username is reserved"}, status=400)
 
             if User.objects.filter(username=username).exists():
                 return JsonResponse({"status": "error", "message": "Username already exists"}, status=400)
@@ -339,7 +346,6 @@ def mobile_upload(request):
             ext = os.path.splitext(excel_file.name)[1].lower()
             if ext == '.pdf':
                 import tempfile
-                import os
                 from dashboard.views import parse_pdf_to_df
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                     for chunk in excel_file.chunks():
@@ -376,14 +382,21 @@ def mobile_connect_live(request):
 
             if not sheet_url:
                 return JsonResponse({"status": "error", "message": "Invalid Google Sheets URL"}, status=400)
-            validate_ssrf_url(sheet_url, allowed_hosts={"docs.google.com", "spreadsheets.google.com"})
 
             if "/edit" in sheet_url:
                 export_url = sheet_url.split("/edit")[0] + "/export?format=csv"
             else:
                 export_url = sheet_url
 
-            df = pd.read_csv(export_url)
+            # F-07: fetch via the SSRF-hardened helper (host allow-list +
+            # public-IP check + redirect re-validation + size cap), then hand
+            # the bytes to pandas -- pd.read_csv(url) would otherwise fetch and
+            # follow redirects itself with no SSRF protection.
+            import io
+            csv_bytes = fetch_url_ssrf_safe(
+                export_url, allowed_hosts={"docs.google.com", "spreadsheets.google.com"}
+            )
+            df = pd.read_csv(io.BytesIO(csv_bytes))
 
             insights = process_dataframe(df, "Live Connection", request.user)
             return JsonResponse({"status": "success", "data": insights})
@@ -399,6 +412,14 @@ def mobile_connect_live(request):
 def mobile_toggle_user_status(request):
     if request.method == "POST":
         try:
+            # SECURITY (F-11): this endpoint freezes/unfreezes ANY account
+            # by email. It was reachable by every authenticated user
+            # (token_required alone), so any registered user could disable
+            # any other user's account (cross-tenant account-lockout DoS).
+            # It is an admin-only action -- enforce that here.
+            if not (request.user.is_staff or request.user.is_superuser):
+                return JsonResponse({"status": "error", "message": "Admin privileges required"}, status=403)
+
             data = json.loads(request.body)
             email = data.get("email")
             if not email:
@@ -434,9 +455,12 @@ def save_file_api(request):
             if not file_path:
                 return JsonResponse({"status": "error", "message": "file_path is required"}, status=400)
 
-            import os
             from django.conf import settings
-            workspace_dir = os.path.join(settings.MEDIA_ROOT, 'workspace')
+            # Write to the SAME directory that workspace_files_api and
+            # download_workspace_file read from (BASE_DIR/sandbox/workspace).
+            # Previously this wrote to MEDIA_ROOT/workspace, so saved files
+            # never appeared in the workspace listing or downloads.
+            workspace_dir = os.path.join(settings.BASE_DIR, 'sandbox', 'workspace')
             os.makedirs(workspace_dir, exist_ok=True)
 
             clean_name = build_safe_filename(file_path)
@@ -454,16 +478,17 @@ def save_file_api(request):
                 ApprovedPlan.objects.create(
                     user=request.user,
                     file_name=file_path.replace('\\\\', '/').split('/')[-1] or clean_name,
-                    file_path=f"workspace/{clean_name}",
+                    file_path=f"sandbox/workspace/{clean_name}",
                     justification=justification
                 )
 
-            return JsonResponse({"status": "success", "message": "File saved successfully", "path": f"workspace/{clean_name}"})
+            return JsonResponse({"status": "success", "message": "File saved successfully", "path": f"sandbox/workspace/{clean_name}"})
         except Exception as e:
             return JsonResponse({"status": "error", "message": "Internal server error"}, status=500)
     return JsonResponse({"status": "invalid_method"}, status=405)
 
-@login_required
+@csrf_exempt
+@token_required
 def workspace_files_api(request):
     if request.method == "GET":
         try:

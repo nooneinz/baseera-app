@@ -127,7 +127,9 @@
 
  async function loadWorkspaceFiles() {
    try {
-     const response = await fetch('http://127.0.0.1:8000/api/workspace/files/');
+     const response = await fetch('http://127.0.0.1:8000/api/workspace/files/', {
+       headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('basira_token') || '') }
+     });
      const data = await response.json();
      const fileList = document.getElementById('fileList');
      fileList.innerHTML = '';

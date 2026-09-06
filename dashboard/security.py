@@ -1,5 +1,8 @@
 import os
 import uuid
+import socket
+import ipaddress
+import urllib.request
 from functools import wraps
 from urllib.parse import urlparse
 
@@ -73,7 +76,7 @@ def validate_uploaded_file(uploaded_file, max_size_bytes=DEFAULT_MAX_UPLOAD_SIZE
     return True
 
 
-def rate_limit(requests_per_minute=60, key_prefix="api", methods=None):
+def rate_limit(requests_per_minute=60, key_prefix="api", methods=None, per_user=False):
     """
     `methods`: when given (e.g. ("POST",)), only requests using one of these
     HTTP methods are counted/limited at all -- every other method passes
@@ -98,8 +101,16 @@ def rate_limit(requests_per_minute=60, key_prefix="api", methods=None):
             if methods is not None and request.method not in methods:
                 return view_func(request, *args, **kwargs)
 
-            client_ip = get_client_ip(request)
-            cache_key = f"rate_limit:{key_prefix}:{client_ip}"
+            # per_user=True keys the limit on the authenticated user id when
+            # available (F-10: caps expensive per-user LLM spend even behind
+            # a shared NAT/IP), falling back to client IP for anonymous
+            # callers. Place such a decorator BELOW an auth decorator (e.g.
+            # token_required) so request.user is already resolved here.
+            if per_user and getattr(getattr(request, "user", None), "is_authenticated", False):
+                scope = f"user:{request.user.id}"
+            else:
+                scope = f"ip:{get_client_ip(request)}"
+            cache_key = f"rate_limit:{key_prefix}:{scope}"
             current_count = cache.get(cache_key, 0)
             if current_count >= requests_per_minute:
                 return JsonResponse({"status": "error", "message": "Too many requests. Please retry later."}, status=429)
@@ -126,6 +137,61 @@ def validate_ssrf_url(url, allowed_hosts=None, allowed_schemes=None):
     if not parsed.netloc:
         raise ValueError("The URL is malformed.")
     return True
+
+
+def _host_resolves_public(host):
+    """True only if every A/AAAA record for `host` is a public address.
+    Blocks loopback/private/link-local/reserved/multicast targets -- the
+    ranges an SSRF payload aims for (127.0.0.1, 169.254.169.254, 10.x, ...)."""
+    if not host:
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except Exception:
+        return False
+    if not infos:
+        return False
+    for info in infos:
+        ip = info[4][0]
+        try:
+            addr = ipaddress.ip_address(ip.split("%")[0])
+        except ValueError:
+            return False
+        if (addr.is_private or addr.is_loopback or addr.is_link_local
+                or addr.is_reserved or addr.is_multicast or addr.is_unspecified):
+            return False
+    return True
+
+
+class _NoPrivateRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Re-validates every redirect hop (F-07): a Google Sheets export URL
+    legitimately 307-redirects, but the target must still be an http(s)
+    public host -- never an internal/metadata address."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urlparse(newurl)
+        if parsed.scheme.lower() not in {"http", "https"}:
+            raise ValueError("Blocked redirect to a non-http(s) scheme.")
+        if not _host_resolves_public(parsed.hostname or ""):
+            raise ValueError("Blocked redirect to a non-public host.")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def fetch_url_ssrf_safe(url, allowed_hosts=None, allowed_schemes=None,
+                        max_bytes=20 * 1024 * 1024, timeout=15):
+    """SSRF-hardened fetch (F-07): validates the initial URL against the host
+    allow-list, requires the initial host to resolve to a public IP, follows
+    redirects only to public http(s) hosts, and caps the response size.
+    Returns the response bytes."""
+    validate_ssrf_url(url, allowed_hosts=allowed_hosts, allowed_schemes=allowed_schemes)
+    parsed = urlparse(url)
+    if not _host_resolves_public(parsed.hostname or ""):
+        raise ValueError("The requested host does not resolve to a public address.")
+    opener = urllib.request.build_opener(_NoPrivateRedirectHandler)
+    with opener.open(url, timeout=timeout) as resp:
+        data = resp.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise ValueError("Remote file exceeds the maximum allowed size.")
+    return data
 
 
 def sanitize_for_output(value):
@@ -186,6 +252,42 @@ def issue_access_token(user):
     return signing.dumps({"user_id": user.pk, "pwd_hash": pwd_hash}, salt="baseera-mobile-auth")
 
 
+_CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
+
+
+def _request_origin_is_trusted(request):
+    """
+    CSRF defense for the session-cookie auth path (F-05). Returns True if the
+    request's Origin (or, failing that, Referer) is same-origin with the host
+    or listed in settings.CSRF_TRUSTED_ORIGINS. Bearer-token requests never
+    reach this -- they carry no ambient cookies, so they are not a CSRF
+    vector. If neither header is present we return True (conservative: a
+    cross-site browser attack always sends Origin on an unsafe fetch/form
+    POST, so this still blocks the real vector without breaking non-browser
+    or header-stripped same-origin callers).
+    """
+    origin = request.headers.get("Origin")
+    if not origin:
+        referer = request.headers.get("Referer")
+        if not referer:
+            return True
+        parsed_ref = urlparse(referer)
+        if not parsed_ref.scheme or not parsed_ref.netloc:
+            return True
+        origin = f"{parsed_ref.scheme}://{parsed_ref.netloc}"
+
+    try:
+        host = request.get_host()
+    except Exception:
+        host = ""
+    scheme = "https" if request.is_secure() else "http"
+    allowed = {f"https://{host}", f"http://{host}", f"{scheme}://{host}"}
+    for trusted in getattr(settings, "CSRF_TRUSTED_ORIGINS", []) or []:
+        allowed.add(trusted.strip().rstrip("/"))
+
+    return origin.rstrip("/") in allowed
+
+
 def token_required(view_func):
     """
     Dual-mode auth for the mobile API surface: a real Bearer token, or (see
@@ -202,21 +304,25 @@ def token_required(view_func):
     session-fallback gap below would break the real mobile app in
     production; that is not an oversight, it is why this exemption stays.
 
-    Known, tracked residual gap: the session-cookie fallback one line down
-    means a user who is ALSO logged into the web session is not CSRF-
-    protected on these same endpoints while authenticated that way. Closing
-    that properly needs splitting this into two decorators (a strict
-    Bearer-only one for the mobile views, session auth kept CSRF-protected
-    separately) rather than a blanket exemption removal -- a real
-    architectural change, intentionally out of scope for this pass rather
-    than risking mobile app breakage to rush it.
+    F-05: the session-cookie fallback path is now CSRF-defended by an
+    Origin/Referer same-origin check on state-changing methods (see
+    _request_origin_is_trusted). Bearer-token callers are not a CSRF vector
+    (no ambient cookies) and skip that check. SameSite=Lax on the session
+    cookie already blocks the cookie on most cross-site POSTs; the Origin
+    check is defense-in-depth on top of it.
     """
     @wraps(view_func)
     def _wrapped(request, *args, **kwargs):
         # Allow already authenticated web users (Session/Cookie)
         if hasattr(request, 'user') and request.user.is_authenticated:
+            # F-05: these views are @csrf_exempt, so for the cookie-auth
+            # path we re-impose a CSRF defense via an Origin/Referer check
+            # on state-changing methods. Bearer callers skip this branch
+            # entirely (handled below) since they are not CSRF-exposed.
+            if request.method not in _CSRF_SAFE_METHODS and not _request_origin_is_trusted(request):
+                return JsonResponse({"status": "error", "message": "Cross-origin request blocked"}, status=403)
             return view_func(request, *args, **kwargs)
-            
+
         authorization = request.headers.get("Authorization", "")
         if not authorization.startswith("Bearer "):
             return JsonResponse({"status": "error", "message": "Authentication required"}, status=401)

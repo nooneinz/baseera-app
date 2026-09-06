@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+from decimal import Decimal
 import pandas as pd
 from django.shortcuts import render, redirect
 from django.urls import reverse
@@ -11,8 +12,43 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-from .security import build_safe_filename, validate_uploaded_file, rate_limit, safe_error_message, validate_ssrf_url, sanitize_cell_for_prompt
+from .security import build_safe_filename, validate_uploaded_file, rate_limit, safe_error_message, validate_ssrf_url, sanitize_cell_for_prompt, token_required, fetch_url_ssrf_safe
 from .models import Profile, ProjectFile, SystemLog, Invoice, Announcement, AIUsageLog, SalesGoal, AnomalyAlert, WeeklyDigest, CustomAgent, BoardroomSession
+
+
+# SECURITY (F-03): platform-admin authorization is decided ONLY by Django's
+# real is_staff / is_superuser flags -- never by `username == "admin"`.
+# Registration lets anyone choose their username, so the old name-based
+# fallback meant that whoever grabbed the username "admin" (if no such
+# account existed yet) gained full super-admin, including impersonation of
+# any user. A correctly provisioned admin (createsuperuser, or the admin
+# dashboard's "create user" with role=admin) always has these flags set,
+# so removing the name shortcut does not lock a real admin out.
+# Usernames colliding with reserved names are also blocked at registration
+# (see _RESERVED_USERNAMES / _username_is_reserved).
+def _is_platform_admin(user):
+    return bool(getattr(user, "is_authenticated", False) and (user.is_staff or user.is_superuser))
+
+
+_RESERVED_USERNAMES = {"admin", "administrator", "superuser", "root", "sysadmin", "superadmin"}
+
+
+def _username_is_reserved(username):
+    return (username or "").strip().lower() in _RESERVED_USERNAMES
+
+
+# SECURITY (F-06): safely embed JSON inside an HTML <script> block. Templates
+# render these with |safe, so raw json.dumps output (containing user-supplied
+# strings from uploaded data / custom-agent names) could smuggle a literal
+# "</script>" and break out into an executable script context (stored XSS).
+# Escaping <, >, & and the JS line separators yields valid JSON that JSON.parse
+# decodes back unchanged, while making a </script> breakout impossible.
+def _safe_json_for_script(obj):
+    dumped = json.dumps(obj, ensure_ascii=False)
+    dumped = dumped.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    # JS line/paragraph separators are valid JSON but break inline scripts.
+    dumped = dumped.replace(chr(0x2028), "\\u2028").replace(chr(0x2029), "\\u2029")
+    return dumped
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +60,7 @@ def welcome(request):
             messages.success(request, f"أهلاً بك من جديد يا {request.user.username}! حلّل بياناتك وتأكد منها، فهذا أهم شيء.")
         else:
             messages.success(request, f"Welcome back, {request.user.username}! Analyze and verify your data, that's the most important thing.")
-        if request.user.is_staff or request.user.is_superuser or request.user.username == "admin":
+        if _is_platform_admin(request.user):
             return redirect("admin_dashboard")
         return redirect("dashboard")
         
@@ -54,6 +90,15 @@ def user_register(request):
             messages.error(
                 request,
                 "اسم المستخدم (Login ID) وكلمة المرور مطلوبان / Username and password are required.",
+            )
+            return redirect("register")
+
+        # SECURITY (F-03): block reserved/privileged usernames so nobody can
+        # self-register "admin" (etc.) and inherit any name-based treatment.
+        if _username_is_reserved(username):
+            messages.error(
+                request,
+                "اسم المستخدم هذا محجوز ولا يمكن استخدامه / This username is reserved.",
             )
             return redirect("register")
 
@@ -116,7 +161,7 @@ def user_register(request):
 @rate_limit(requests_per_minute=10, key_prefix="login", methods=("POST",))
 def user_login(request):
     if request.user.is_authenticated:
-        if request.user.is_staff or request.user.is_superuser or request.user.username == "admin":
+        if _is_platform_admin(request.user):
             return redirect("admin_dashboard")
         return redirect("dashboard")
         
@@ -141,7 +186,7 @@ def user_login(request):
             )
             
             messages.success(request, f"مرحباً بعودتك / Welcome back, {user.username}!")
-            if user.is_staff or user.is_superuser or user.username == "admin":
+            if _is_platform_admin(user):
                 return redirect("admin_dashboard")
             return redirect("dashboard")
         else:
@@ -152,7 +197,7 @@ def user_login(request):
 
 def admin_login(request):
     if request.user.is_authenticated:
-        if request.user.is_staff or request.user.is_superuser or request.user.username == "admin":
+        if _is_platform_admin(request.user):
             return redirect("admin_dashboard")
         messages.warning(request, "أنت مسجل كحساب مستخدم عادي. يرجى تسجيل الدخول بحساب مسؤول للوصول إلى لوحة الإدارة.")
         return redirect("dashboard")
@@ -168,7 +213,7 @@ def admin_login(request):
                 user = authenticate(request, username=user_obj.username, password=password)
 
         if user is not None:
-            if user.is_staff or user.is_superuser or user.username == "admin":
+            if _is_platform_admin(user):
                 login(request, user)
                 SystemLog.objects.create(
                     user=user,
@@ -185,10 +230,24 @@ def admin_login(request):
     return render(request, "dashboard/admin_login.html")
 
 def social_login_dummy(request, provider):
+    # SECURITY (F-04): this is a DEMO stand-in with no real OAuth/OIDC
+    # verification -- it logs any visitor into a shared "{provider}_user"
+    # account and would mass-create accounts for arbitrary provider
+    # strings. It must never be reachable in production. Gate it behind
+    # DEBUG so the demo still works locally; in production it is disabled.
+    if not settings.DEBUG:
+        messages.error(request, "تسجيل الدخول عبر مزودي الحسابات غير متاح حالياً / Social login is not available.")
+        return redirect("login")
+
     if request.user.is_authenticated:
         return redirect("dashboard")
-        
-    username = f"{provider.lower()}_user"
+
+    provider = (provider or "").strip().lower()
+    if provider not in {"google", "apple", "facebook", "twitter", "linkedin"}:
+        messages.error(request, "مزود غير مدعوم / Unsupported provider.")
+        return redirect("login")
+
+    username = f"{provider}_user"
     email = f"{username}@example.com"
     
     try:
@@ -732,7 +791,7 @@ def dashboard(request):
         request.session.pop("admin_view_mode", None)
         return redirect("admin_dashboard")
 
-    if (request.user.is_staff or request.user.is_superuser or request.user.username == "admin") and not request.session.get("impersonated_from") and request.session.get("admin_view_mode") != "user":
+    if (_is_platform_admin(request.user)) and not request.session.get("impersonated_from") and request.session.get("admin_view_mode") != "user":
         return redirect("admin_dashboard")
 
     profile, _ = Profile.objects.get_or_create(user=request.user)
@@ -877,7 +936,7 @@ def dashboard(request):
         "files": files,
         "kpis": kpis,
         "announcements": active_announcements,
-        "latest_file_json": json.dumps(latest_file_json) if latest_file_json else None,
+        "latest_file_json": _safe_json_for_script(latest_file_json) if latest_file_json else None,
         "agent_activity": agent_activity,
         "sales_goal": sales_goal,
         "anomaly_alerts": anomaly_alerts,
@@ -1186,7 +1245,7 @@ def ask_basira(request):
         "agent_id": agent_id,
         "custom_agent": custom_agent_info,
         "custom_agents_list": custom_agents_list,
-        "custom_agents_json": json.dumps(custom_agents_data, ensure_ascii=False)
+        "custom_agents_json": _safe_json_for_script(custom_agents_data)
     })
 
 
@@ -1205,9 +1264,16 @@ def boardroom_view(request):
     })
 
 
+# Dual-mode auth (Bearer token OR web session) + csrf_exempt so the mobile
+# WebView can reach it; token_required guarantees an authenticated
+# request.user, which also removes the old "User.objects.first()" fallback
+# that would silently run the debate as (and save it against) an arbitrary
+# unrelated account for an unauthenticated caller.
+@csrf_exempt
+@token_required
+@rate_limit(requests_per_minute=10, key_prefix="boardroom_llm", per_user=True)
 def api_boardroom_debate(request):
     """
-    API to simulate a live multi-agent debate on a business decision.
     API to simulate a live multi-agent debate on a business decision.
     """
     if request.method == "POST":
@@ -1217,9 +1283,8 @@ def api_boardroom_debate(request):
             file_context = data.get("file_context", "")
 
             # Build a comprehensive workspace summary
-            from django.contrib.auth.models import User
-            user = request.user if request.user.is_authenticated else User.objects.first()
-            
+            user = request.user
+
             workspace_context = f"The user has the following data files in their workspace:\n"
             if user:
                 files = ProjectFile.objects.filter(user=user).order_by('-uploaded_at')[:5]
@@ -1243,9 +1308,6 @@ def api_boardroom_debate(request):
             ai_service = GeminiAIService()
             debate_result = ai_service.generate_boardroom_debate(topic, file_context=comprehensive_context)
 
-            from django.contrib.auth.models import User
-            user = request.user if request.user.is_authenticated else User.objects.first()
-            
             # Save session
             if user:
                 session = BoardroomSession.objects.create(
@@ -1470,13 +1532,16 @@ def connect_live_web(request):
                 export_url = sheet_url.split("/edit")[0] + "/export?format=csv"
             else:
                 export_url = sheet_url
-                
-            import urllib.request
+
             from django.core.files.base import ContentFile
-            
-            response = urllib.request.urlopen(export_url)
-            file_content = response.read()
-            
+
+            # F-07: SSRF-hardened fetch (host allow-list + public-IP check +
+            # redirect re-validation + size cap) instead of a bare urlopen
+            # that blindly followed redirects to any host.
+            file_content = fetch_url_ssrf_safe(
+                export_url, allowed_hosts={"docs.google.com", "spreadsheets.google.com"}
+            )
+
             project_file = ProjectFile.objects.create(user=request.user)
             project_file.excel_file.save("Live_Connection.csv", ContentFile(file_content))
             
@@ -1859,7 +1924,7 @@ def notifications(request):
 
 @login_required
 def admin_settings(request):
-    if not (request.user.is_staff or request.user.is_superuser or request.user.username == "admin"):
+    if not (_is_platform_admin(request.user)):
         messages.error(request, "عذراً، هذه الصفحة مخصصة لمدير النظام فقط (Super Admin).")
         return redirect("dashboard")
     # admin_dashboard.html is a single-page tabbed view (no separate URL per
@@ -1872,7 +1937,7 @@ def admin_settings(request):
 @login_required
 def admin_dashboard(request):
     # Strict Super Admin Access Verification
-    if not (request.user.is_staff or request.user.is_superuser or request.user.username == "admin"):
+    if not (_is_platform_admin(request.user)):
         messages.error(request, "عذراً، هذه الصفحة مخصصة لمدير النظام فقط (Super Admin). / Access restricted to Admin only.")
         return redirect("dashboard")
 
@@ -2152,11 +2217,25 @@ def templates_feedback(request):
 def process_payment(request):
     if request.method == "POST":
         plan = request.POST.get("plan", "Pro")
-        amount = request.POST.get("amount", "15 OMR")
-        allowed_plans = {"starter", "growth", "enterprise", "pro"}
-        if plan.lower() not in allowed_plans:
+        # SECURITY (F-02): the amount is computed SERVER-SIDE from a fixed
+        # price table and the client-supplied "amount" is ignored entirely.
+        # Previously `amount` came straight from request.POST and was stored
+        # on the Invoice, so any user could pay "0 OMR" (or a negative /
+        # garbage value) for any plan. The client no longer has any say in
+        # what is charged or recorded.
+        PLAN_PRICES = {
+            "starter": Decimal("9.000"),
+            "growth": Decimal("29.000"),
+            "enterprise": Decimal("99.000"),
+            "pro": Decimal("15.000"),
+        }
+        CURRENCY = "OMR"
+        plan_key = plan.lower()
+        if plan_key not in PLAN_PRICES:
             messages.error(request, "الباقة المطلوبة غير متاحة.")
             return redirect("pricing")
+        amount_value = PLAN_PRICES[plan_key]
+        amount = f"{amount_value} {CURRENCY}"
 
         idempotency_key = request.headers.get("Idempotency-Key") or request.POST.get("idempotency_key")
         if idempotency_key:
@@ -2219,8 +2298,8 @@ def process_payment(request):
             Invoice.objects.create(
                 user=request.user,
                 plan_name=plan,
-                amount=amount,
-                currency="OMR"
+                amount=amount_value,
+                currency=CURRENCY,
             )
             
             SystemLog.objects.create(
@@ -2240,21 +2319,21 @@ def process_payment(request):
 
 @login_required
 def admin_logs(request):
-    if not (request.user.is_staff or request.user.is_superuser or request.user.username == "admin"):
+    if not (_is_platform_admin(request.user)):
         messages.error(request, "عذراً، هذه الصفحة مخصصة لمدير النظام فقط (Super Admin). / Access restricted to Admin only.")
         return redirect("dashboard")
     return redirect("admin_dashboard")
 
 @login_required
 def admin_finance(request):
-    if not (request.user.is_staff or request.user.is_superuser or request.user.username == "admin"):
+    if not (_is_platform_admin(request.user)):
         messages.error(request, "عذراً، هذه الصفحة مخصصة لمدير النظام فقط.")
         return redirect("dashboard")
     return redirect("admin_dashboard")
 
 @login_required
 def impersonate_user(request, user_id):
-    if not (request.user.is_staff or request.user.is_superuser or request.user.username == "admin"):
+    if not (_is_platform_admin(request.user)):
         return redirect("dashboard")
         
     target_user = User.objects.filter(id=user_id).first()
@@ -2325,7 +2404,14 @@ def _direct_reply_event_stream(text, suggested_actions=None):
     yield f"data: {json.dumps({'candidates': [{'content': {'parts': [{'text': 'STATUS___:DONE'}]}}]})}\n\n"
 
 
-@login_required
+# Dual-mode auth (Bearer token OR web session) + csrf_exempt so the mobile
+# WebView -- which holds a stateless Bearer token and no session/CSRF cookie
+# -- can reach the streaming chat endpoint. token_required still blocks
+# anonymous access (401), preserving the protection @login_required gave,
+# and web session users continue to pass through unchanged.
+@csrf_exempt
+@token_required
+@rate_limit(requests_per_minute=20, key_prefix="chat_llm", per_user=True)
 def chat_api(request):
     if request.method == "POST":
         try:
@@ -2525,9 +2611,11 @@ def download_workspace_file(request, filename):
     pf = ProjectFile.objects.filter(user=request.user, excel_file__icontains=clean_name).first()
     if pf and pf.excel_file and os.path.exists(pf.excel_file.path):
         return FileResponse(open(pf.excel_file.path, 'rb'), as_attachment=True, filename=clean_name)
-        
-    messages.error(request, "الملف غير موجود.")
-    return redirect('workspace')
+
+    # There is no URL named "workspace" (redirecting here raised
+    # NoReverseMatch -> 500). Return a plain 404 instead, which is also the
+    # correct response for a download endpoint hit for a missing file.
+    return HttpResponse("File not found.", status=404)
 
 
 @login_required
