@@ -1,5 +1,8 @@
 import os
 import uuid
+import socket
+import ipaddress
+import urllib.request
 from functools import wraps
 from urllib.parse import urlparse
 
@@ -134,6 +137,61 @@ def validate_ssrf_url(url, allowed_hosts=None, allowed_schemes=None):
     if not parsed.netloc:
         raise ValueError("The URL is malformed.")
     return True
+
+
+def _host_resolves_public(host):
+    """True only if every A/AAAA record for `host` is a public address.
+    Blocks loopback/private/link-local/reserved/multicast targets -- the
+    ranges an SSRF payload aims for (127.0.0.1, 169.254.169.254, 10.x, ...)."""
+    if not host:
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except Exception:
+        return False
+    if not infos:
+        return False
+    for info in infos:
+        ip = info[4][0]
+        try:
+            addr = ipaddress.ip_address(ip.split("%")[0])
+        except ValueError:
+            return False
+        if (addr.is_private or addr.is_loopback or addr.is_link_local
+                or addr.is_reserved or addr.is_multicast or addr.is_unspecified):
+            return False
+    return True
+
+
+class _NoPrivateRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Re-validates every redirect hop (F-07): a Google Sheets export URL
+    legitimately 307-redirects, but the target must still be an http(s)
+    public host -- never an internal/metadata address."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urlparse(newurl)
+        if parsed.scheme.lower() not in {"http", "https"}:
+            raise ValueError("Blocked redirect to a non-http(s) scheme.")
+        if not _host_resolves_public(parsed.hostname or ""):
+            raise ValueError("Blocked redirect to a non-public host.")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def fetch_url_ssrf_safe(url, allowed_hosts=None, allowed_schemes=None,
+                        max_bytes=20 * 1024 * 1024, timeout=15):
+    """SSRF-hardened fetch (F-07): validates the initial URL against the host
+    allow-list, requires the initial host to resolve to a public IP, follows
+    redirects only to public http(s) hosts, and caps the response size.
+    Returns the response bytes."""
+    validate_ssrf_url(url, allowed_hosts=allowed_hosts, allowed_schemes=allowed_schemes)
+    parsed = urlparse(url)
+    if not _host_resolves_public(parsed.hostname or ""):
+        raise ValueError("The requested host does not resolve to a public address.")
+    opener = urllib.request.build_opener(_NoPrivateRedirectHandler)
+    with opener.open(url, timeout=timeout) as resp:
+        data = resp.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise ValueError("Remote file exceeds the maximum allowed size.")
+    return data
 
 
 def sanitize_for_output(value):

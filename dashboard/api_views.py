@@ -14,7 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from django.core.cache import cache
-from .security import rate_limit, validate_uploaded_file, build_safe_filename, validate_ssrf_url, safe_error_message, issue_access_token, token_required
+from .security import rate_limit, validate_uploaded_file, build_safe_filename, validate_ssrf_url, safe_error_message, issue_access_token, token_required, fetch_url_ssrf_safe
 
 logger = logging.getLogger(__name__)
 
@@ -382,14 +382,21 @@ def mobile_connect_live(request):
 
             if not sheet_url:
                 return JsonResponse({"status": "error", "message": "Invalid Google Sheets URL"}, status=400)
-            validate_ssrf_url(sheet_url, allowed_hosts={"docs.google.com", "spreadsheets.google.com"})
 
             if "/edit" in sheet_url:
                 export_url = sheet_url.split("/edit")[0] + "/export?format=csv"
             else:
                 export_url = sheet_url
 
-            df = pd.read_csv(export_url)
+            # F-07: fetch via the SSRF-hardened helper (host allow-list +
+            # public-IP check + redirect re-validation + size cap), then hand
+            # the bytes to pandas -- pd.read_csv(url) would otherwise fetch and
+            # follow redirects itself with no SSRF protection.
+            import io
+            csv_bytes = fetch_url_ssrf_safe(
+                export_url, allowed_hosts={"docs.google.com", "spreadsheets.google.com"}
+            )
+            df = pd.read_csv(io.BytesIO(csv_bytes))
 
             insights = process_dataframe(df, "Live Connection", request.user)
             return JsonResponse({"status": "success", "data": insights})

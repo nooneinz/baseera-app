@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-from .security import build_safe_filename, validate_uploaded_file, rate_limit, safe_error_message, validate_ssrf_url, sanitize_cell_for_prompt, token_required
+from .security import build_safe_filename, validate_uploaded_file, rate_limit, safe_error_message, validate_ssrf_url, sanitize_cell_for_prompt, token_required, fetch_url_ssrf_safe
 from .models import Profile, ProjectFile, SystemLog, Invoice, Announcement, AIUsageLog, SalesGoal, AnomalyAlert, WeeklyDigest, CustomAgent, BoardroomSession
 
 
@@ -1532,13 +1532,16 @@ def connect_live_web(request):
                 export_url = sheet_url.split("/edit")[0] + "/export?format=csv"
             else:
                 export_url = sheet_url
-                
-            import urllib.request
+
             from django.core.files.base import ContentFile
-            
-            response = urllib.request.urlopen(export_url)
-            file_content = response.read()
-            
+
+            # F-07: SSRF-hardened fetch (host allow-list + public-IP check +
+            # redirect re-validation + size cap) instead of a bare urlopen
+            # that blindly followed redirects to any host.
+            file_content = fetch_url_ssrf_safe(
+                export_url, allowed_hosts={"docs.google.com", "spreadsheets.google.com"}
+            )
+
             project_file = ProjectFile.objects.create(user=request.user)
             project_file.excel_file.save("Live_Connection.csv", ContentFile(file_content))
             

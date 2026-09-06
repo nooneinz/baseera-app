@@ -32,6 +32,55 @@
 
 <!-- Marked.js Markdown Parser -->
 <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+<script>
+// SECURITY (F-06): AI/agent output is rendered into innerHTML via
+// marked.parse(). marked does not strip raw HTML, so an indirect prompt
+// injection (e.g. from uploaded file content or tool output) could emit
+// <img src=x onerror=...> / <script> and run in this authenticated,
+// same-origin page. renderSafeMarkdown() parses the markdown, then removes
+// dangerous elements, all on* event-handler attributes, and
+// javascript:/data:text/html URLs before the HTML is inserted.
+(function () {
+  var BANNED_TAGS = ['SCRIPT','IFRAME','OBJECT','EMBED','LINK','META','BASE','FORM','STYLE','SVG','MATH'];
+  function sanitizeNode(root) {
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
+    var toRemove = [];
+    var node = walker.nextNode();
+    while (node) {
+      if (BANNED_TAGS.indexOf(node.tagName) !== -1) {
+        toRemove.push(node);
+      } else {
+        for (var i = node.attributes.length - 1; i >= 0; i--) {
+          var attr = node.attributes[i];
+          var name = attr.name.toLowerCase();
+          var val = (attr.value || '').replace(/\s+/g, '').toLowerCase();
+          if (name.indexOf('on') === 0) {
+            node.removeAttribute(attr.name);
+          } else if ((name === 'href' || name === 'src' || name === 'xlink:href') &&
+                     (val.indexOf('javascript:') === 0 || val.indexOf('data:text/html') === 0)) {
+            node.removeAttribute(attr.name);
+          }
+        }
+      }
+      node = walker.nextNode();
+    }
+    toRemove.forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+  }
+  window.renderSafeMarkdown = function (text) {
+    text = text || '';
+    if (typeof marked === 'undefined') {
+      var d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML.replace(/\n/g, '<br>');
+    }
+    var wrap = document.createElement('div');
+    try { wrap.innerHTML = marked.parse(text); }
+    catch (e) { wrap.textContent = text; return wrap.innerHTML; }
+    sanitizeNode(wrap);
+    return wrap.innerHTML;
+  };
+})();
+</script>
 <!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
@@ -1006,7 +1055,7 @@
                         blockText = blockText.replace(/```json\s*([\s\S]*?)(```|$)/g, '').trim();
                         blockText = blockText.replace(/<file_proposal>([\s\S]*?)<\/file_proposal>/g, '').trim();
                         
-                        let htmlParsed = typeof marked !== 'undefined' ? marked.parse(blockText) : blockText.replace(/\n/g, '<br>');
+                        let htmlParsed = renderSafeMarkdown(blockText);
                         cardsHtml += createAgentCardHtml(b.id, b.name, b.icon, b.color, htmlParsed, false, `hist-card-${idx}-${b.id}`);
                     });
 
@@ -1062,7 +1111,7 @@
                     const fpCleanRegex = /<file_proposal>([\s\S]*?)<\/file_proposal>/g;
                     displayReply = displayReply.replace(fpCleanRegex, '').trim();
 
-                    let htmlContent = typeof marked !== 'undefined' ? marked.parse(displayReply) : displayReply.replace(/\n/g, '<br>');
+                    let htmlContent = renderSafeMarkdown(displayReply);
 
                     botDiv.innerHTML = `
                     <div class="flex gap-3 w-full">
@@ -1169,7 +1218,7 @@
                     const fpContainer = document.createElement('div');
                     fpContainer.className = 'w-full max-w-xl {% if trans.lang_code == "ar" %}mr-11{% else %}ml-11{% endif %} mt-2 mb-2 animate-fade-up';
 
-                    const parsedFpContent = typeof marked !== 'undefined' ? marked.parse(fpContent) : fpContent.replace(/\n/g, '<br>');
+                    const parsedFpContent = renderSafeMarkdown(fpContent);
 
                     fpContainer.innerHTML = `
                     <div class="approval-card glass-panel flex flex-col gap-3 !m-0 !p-4" dir="${isAr ? 'rtl' : 'ltr'}">
@@ -1772,7 +1821,7 @@
                                                         cleanBlock = cleanBlock.replace(/```json[\s\S]*?(```|$)/g, '').trim();
                                                         cleanBlock = cleanBlock.replace(/<file_proposal>[\s\S]*?(<\/file_proposal>|$)/g, '').trim();
 
-                                                        let htmlText = typeof marked !== 'undefined' ? marked.parse(cleanBlock) : cleanBlock.replace(/\n/g, '<br>');
+                                                        let htmlText = renderSafeMarkdown(cleanBlock);
                                                         cardContent.innerHTML = htmlText;
                                                     }
                                                 }
@@ -1788,7 +1837,7 @@
 
                                         if (displayReply) {
                                             mainBubble.style.display = 'block';
-                                            let htmlContent = typeof marked !== 'undefined' ? marked.parse(displayReply) : displayReply.replace(/\n/g, '<br>');
+                                            let htmlContent = renderSafeMarkdown(displayReply);
                                             contentContainer.innerHTML = htmlContent;
                                         }
                                     }
@@ -1958,7 +2007,7 @@
                 const fpContainer = document.createElement('div');
                 fpContainer.className = 'w-full max-w-xl {% if trans.lang_code == "ar" %}mr-11{% else %}ml-11{% endif %} mt-2 mb-2 animate-fade-up';
 
-                const parsedFpContent = typeof marked !== 'undefined' ? marked.parse(fpContent) : fpContent.replace(/\n/g, '<br>');
+                const parsedFpContent = renderSafeMarkdown(fpContent);
 
                 fpContainer.innerHTML = `
                 <div class="approval-card glass-panel flex flex-col gap-3 !m-0 !p-4" dir="${isAr ? 'rtl' : 'ltr'}">
@@ -2238,7 +2287,7 @@
         chatHistory.forEach((msg, idx) => {
             const isUser = msg.role === 'user';
             let cleanText = msg.content.replace(/```json[\s\S]*?```/g, '').replace(/<file_proposal>[\s\S]*?<\/file_proposal>/g, '').trim();
-            cleanText = typeof marked !== 'undefined' ? marked.parse(cleanText) : cleanText.replace(/\n/g, '<br>');
+            cleanText = renderSafeMarkdown(cleanText);
 
             historyHtml += `
             <div style="margin-bottom: 24px; padding: 16px 20px; border-radius: 12px; border: 1px solid ${isUser ? '#bae6fd' : '#e2e8f0'}; background: ${isUser ? '#f0f9ff' : '#ffffff'};">
