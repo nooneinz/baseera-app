@@ -397,20 +397,18 @@ When you need to show numbers or trends, generate a JSON block formatted exactly
                 print(f"Error executing action: {e}")
 
         def run_python_code(code):
-            import sys
-            from io import StringIO
-            old_stdout = sys.stdout
-            redirected_output = sys.stdout = StringIO()
-            try:
-                exec(code, {"__builtins__": __builtins__}, {})
-                output = redirected_output.getvalue()
-                if not output.strip():
-                    output = "Code executed successfully but no output was printed."
-            except Exception as e:
-                output = f"Error executing code: {str(e)}"
-            finally:
-                sys.stdout = old_stdout
-            return output
+            # SECURITY (F-01): server-side code execution is permanently
+            # disabled. This previously ran exec(code, {"__builtins__":
+            # __builtins__}, {}) on model-chosen code inside the Django
+            # process -- any registered user could drive it via
+            # /api/insights/chat to achieve remote code execution and full
+            # server + multi-tenant compromise. The [[ACTION:RUN_PYTHON|...]]
+            # branch below no longer calls this; it is kept only as a
+            # hard, self-contained backstop that never executes anything.
+            return (
+                "Code execution is disabled on this platform for security "
+                "reasons. Answer using the data already provided instead."
+            )
 
         def worker(current_prompt, iteration=0):
             if iteration > 3:
@@ -530,8 +528,11 @@ When you need to show numbers or trends, generate a JSON block formatted exactly
                                     
                                     clean_action = action_content.replace("[[ACTION:", "").strip()
                                     if clean_action.startswith("RUN_PYTHON|"):
-                                        python_code_to_run = clean_action.split("RUN_PYTHON|")[1]
-                                        has_python_action = True
+                                        # SECURITY (F-01): never execute
+                                        # model-emitted code. The RUN_PYTHON
+                                        # tag is now ignored/dropped instead
+                                        # of being exec()'d server-side.
+                                        pass
                                     elif clean_action.startswith("CREATE_NOTIFICATION|"):
                                         q.put('AGENT_LOG: أصدر الوكيل إشعاراً استباقياً')
                                         execute_action(action_content + "]]")
