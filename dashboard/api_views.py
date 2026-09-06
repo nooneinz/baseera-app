@@ -1,6 +1,7 @@
 from django.contrib.auth.decorators import login_required
 import json
 import logging
+import os
 import pandas as pd
 from dashboard.services.ai_service import GeminiAIService
 from django.http import JsonResponse
@@ -339,7 +340,6 @@ def mobile_upload(request):
             ext = os.path.splitext(excel_file.name)[1].lower()
             if ext == '.pdf':
                 import tempfile
-                import os
                 from dashboard.views import parse_pdf_to_df
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                     for chunk in excel_file.chunks():
@@ -434,9 +434,12 @@ def save_file_api(request):
             if not file_path:
                 return JsonResponse({"status": "error", "message": "file_path is required"}, status=400)
 
-            import os
             from django.conf import settings
-            workspace_dir = os.path.join(settings.MEDIA_ROOT, 'workspace')
+            # Write to the SAME directory that workspace_files_api and
+            # download_workspace_file read from (BASE_DIR/sandbox/workspace).
+            # Previously this wrote to MEDIA_ROOT/workspace, so saved files
+            # never appeared in the workspace listing or downloads.
+            workspace_dir = os.path.join(settings.BASE_DIR, 'sandbox', 'workspace')
             os.makedirs(workspace_dir, exist_ok=True)
 
             clean_name = build_safe_filename(file_path)
@@ -454,16 +457,17 @@ def save_file_api(request):
                 ApprovedPlan.objects.create(
                     user=request.user,
                     file_name=file_path.replace('\\\\', '/').split('/')[-1] or clean_name,
-                    file_path=f"workspace/{clean_name}",
+                    file_path=f"sandbox/workspace/{clean_name}",
                     justification=justification
                 )
 
-            return JsonResponse({"status": "success", "message": "File saved successfully", "path": f"workspace/{clean_name}"})
+            return JsonResponse({"status": "success", "message": "File saved successfully", "path": f"sandbox/workspace/{clean_name}"})
         except Exception as e:
             return JsonResponse({"status": "error", "message": "Internal server error"}, status=500)
     return JsonResponse({"status": "invalid_method"}, status=405)
 
-@login_required
+@csrf_exempt
+@token_required
 def workspace_files_api(request):
     if request.method == "GET":
         try:

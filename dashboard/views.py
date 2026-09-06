@@ -11,7 +11,7 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-from .security import build_safe_filename, validate_uploaded_file, rate_limit, safe_error_message, validate_ssrf_url, sanitize_cell_for_prompt
+from .security import build_safe_filename, validate_uploaded_file, rate_limit, safe_error_message, validate_ssrf_url, sanitize_cell_for_prompt, token_required
 from .models import Profile, ProjectFile, SystemLog, Invoice, Announcement, AIUsageLog, SalesGoal, AnomalyAlert, WeeklyDigest, CustomAgent, BoardroomSession
 
 logger = logging.getLogger(__name__)
@@ -1205,9 +1205,15 @@ def boardroom_view(request):
     })
 
 
+# Dual-mode auth (Bearer token OR web session) + csrf_exempt so the mobile
+# WebView can reach it; token_required guarantees an authenticated
+# request.user, which also removes the old "User.objects.first()" fallback
+# that would silently run the debate as (and save it against) an arbitrary
+# unrelated account for an unauthenticated caller.
+@csrf_exempt
+@token_required
 def api_boardroom_debate(request):
     """
-    API to simulate a live multi-agent debate on a business decision.
     API to simulate a live multi-agent debate on a business decision.
     """
     if request.method == "POST":
@@ -1217,9 +1223,8 @@ def api_boardroom_debate(request):
             file_context = data.get("file_context", "")
 
             # Build a comprehensive workspace summary
-            from django.contrib.auth.models import User
-            user = request.user if request.user.is_authenticated else User.objects.first()
-            
+            user = request.user
+
             workspace_context = f"The user has the following data files in their workspace:\n"
             if user:
                 files = ProjectFile.objects.filter(user=user).order_by('-uploaded_at')[:5]
@@ -1243,9 +1248,6 @@ def api_boardroom_debate(request):
             ai_service = GeminiAIService()
             debate_result = ai_service.generate_boardroom_debate(topic, file_context=comprehensive_context)
 
-            from django.contrib.auth.models import User
-            user = request.user if request.user.is_authenticated else User.objects.first()
-            
             # Save session
             if user:
                 session = BoardroomSession.objects.create(
@@ -2325,7 +2327,13 @@ def _direct_reply_event_stream(text, suggested_actions=None):
     yield f"data: {json.dumps({'candidates': [{'content': {'parts': [{'text': 'STATUS___:DONE'}]}}]})}\n\n"
 
 
-@login_required
+# Dual-mode auth (Bearer token OR web session) + csrf_exempt so the mobile
+# WebView -- which holds a stateless Bearer token and no session/CSRF cookie
+# -- can reach the streaming chat endpoint. token_required still blocks
+# anonymous access (401), preserving the protection @login_required gave,
+# and web session users continue to pass through unchanged.
+@csrf_exempt
+@token_required
 def chat_api(request):
     if request.method == "POST":
         try:
@@ -2525,9 +2533,11 @@ def download_workspace_file(request, filename):
     pf = ProjectFile.objects.filter(user=request.user, excel_file__icontains=clean_name).first()
     if pf and pf.excel_file and os.path.exists(pf.excel_file.path):
         return FileResponse(open(pf.excel_file.path, 'rb'), as_attachment=True, filename=clean_name)
-        
-    messages.error(request, "الملف غير موجود.")
-    return redirect('workspace')
+
+    # There is no URL named "workspace" (redirecting here raised
+    # NoReverseMatch -> 500). Return a plain 404 instead, which is also the
+    # correct response for a download endpoint hit for a missing file.
+    return HttpResponse("File not found.", status=404)
 
 
 @login_required

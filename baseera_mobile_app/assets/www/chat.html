@@ -705,9 +705,12 @@
    var currentLang = getAppLanguage();
 
    try {
-    var response = await fetch('http://localhost:8000/api/insights/chat', {
+    var response = await fetch('http://127.0.0.1:8000/api/insights/chat', {
      method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
+     headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + (localStorage.getItem('basira_token') || '')
+     },
      body: JSON.stringify({
       messages: chatHistory,
       fileContext: attachedFileContent || (attachedFile ? '[Attached: ' + attachedFile.name + ']' : ''),
