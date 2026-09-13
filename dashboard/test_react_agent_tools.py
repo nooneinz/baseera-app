@@ -4,8 +4,10 @@ ReAct loop for Baseera's non-financial agent tools.
 
 The central guarantee under test: financial/decision actions have NO
 callable tool at all (a hard constraint enforced in code, not merely
-described in a prompt), while the three non-financial tools are executed
-for real via genuine function calls -- never via regex-parsed text tags.
+described in a prompt), while the two non-financial tools (create_notification,
+save_memory) are executed for real via genuine function calls -- never via
+regex-parsed text tags. (A former "run_python_code" tool was removed for
+security -- F-01, it was an RCE.)
 """
 from unittest.mock import MagicMock, patch
 
@@ -41,10 +43,13 @@ class BuildAgentToolsHardConstraintTests(TestCase):
     """The function-calling surface must never include a financial/
     decision-metric tool, no matter what the model is told."""
 
-    def test_only_the_three_non_financial_tools_are_ever_declared(self):
+    def test_only_the_two_non_financial_tools_are_ever_declared(self):
+        # SECURITY (F-01): the server-side "run_python_code" tool was removed
+        # (it was an RCE). The only callable tools now are the two
+        # side-effect-free, non-financial ones.
         tool = build_agent_tools()
         names = {fd.name for fd in tool.function_declarations}
-        self.assertEqual(names, {"run_python_code", "create_notification", "save_memory"})
+        self.assertEqual(names, {"create_notification", "save_memory"})
 
     def test_no_financial_or_decision_tool_names_are_present(self):
         tool = build_agent_tools()
@@ -63,10 +68,13 @@ class RunReactPreloopTests(TestCase):
         result = run_react_preloop(fake_ai_service, "base prompt", self.user.id, "gemini-3.6-flash")
         self.assertEqual(result, "base prompt")
 
-    def test_real_python_tool_executes_and_observation_is_appended(self):
+    def test_a_real_tool_call_appends_its_action_and_observation(self):
         fake_client = MagicMock()
         fake_client.models.generate_content.side_effect = [
-            _function_call_response("run_python_code", {"code": "print(2 + 2)"}),
+            _function_call_response(
+                "create_notification",
+                {"title": "Reminder", "message": "Follow up on invoice", "notif_type": "info"},
+            ),
             _text_response("no more tools needed"),
         ]
         fake_ai_service = MagicMock()
@@ -74,8 +82,10 @@ class RunReactPreloopTests(TestCase):
 
         result = run_react_preloop(fake_ai_service, "base prompt", self.user.id, "gemini-3.6-flash")
 
-        self.assertIn("Action: run_python_code", result)
-        self.assertIn("Observation: 4", result)  # print(2+2) really executed
+        # The real tool ran and its Action + Observation trace was appended
+        # to the working prompt for the final answer.
+        self.assertIn("Action: create_notification", result)
+        self.assertIn("Observation: Notification created.", result)
 
     def test_create_notification_tool_creates_a_real_notification(self):
         fake_client = MagicMock()
@@ -133,7 +143,7 @@ class RunReactPreloopTests(TestCase):
     def test_loop_is_bounded_and_does_not_run_forever(self):
         fake_client = MagicMock()
         fake_client.models.generate_content.return_value = _function_call_response(
-            "run_python_code", {"code": "print('again')"}
+            "create_notification", {"title": "again", "message": "again"}
         )
         fake_ai_service = MagicMock()
         fake_ai_service.client = fake_client
@@ -154,7 +164,7 @@ class RunReactPreloopTests(TestCase):
     def test_on_state_callback_is_invoked_when_a_tool_runs(self):
         fake_client = MagicMock()
         fake_client.models.generate_content.side_effect = [
-            _function_call_response("run_python_code", {"code": "print('x')"}),
+            _function_call_response("create_notification", {"title": "t", "message": "x"}),
             _text_response("done"),
         ]
         fake_ai_service = MagicMock()
@@ -193,7 +203,7 @@ class RunReactPreloopTests(TestCase):
         """
         fake_client = MagicMock()
         fake_client.models.generate_content.side_effect = [
-            _function_call_response("run_python_code", {"code": "print(42)"}),
+            _function_call_response("create_notification", {"title": "t", "message": "hi"}),
             _text_response("no more tools needed"),
         ]
         fake_ai_service = MagicMock()
@@ -206,7 +216,7 @@ class RunReactPreloopTests(TestCase):
     def test_english_closing_instruction_for_english_conversations(self):
         fake_client = MagicMock()
         fake_client.models.generate_content.side_effect = [
-            _function_call_response("run_python_code", {"code": "print(1)"}),
+            _function_call_response("create_notification", {"title": "t", "message": "hi"}),
             _text_response("done"),
         ]
         fake_ai_service = MagicMock()
@@ -265,7 +275,10 @@ class GenerateChatStreamReactIntegrationTests(TestCase):
     def test_tool_runs_and_its_observation_reaches_the_final_prompt(self):
         fake_client = MagicMock()
         fake_client.models.generate_content.side_effect = [
-            _function_call_response("run_python_code", {"code": "print(21 * 2)"}),
+            _function_call_response(
+                "create_notification",
+                {"title": "Reminder", "message": "Review the invoice tomorrow"},
+            ),
             _text_response("no more tools needed"),
         ]
         fake_client.models.generate_content_stream.return_value = iter(
@@ -279,7 +292,7 @@ class GenerateChatStreamReactIntegrationTests(TestCase):
         service.client = fake_client
 
         stream = service.generate_chat_stream(
-            messages_list=[{"role": "user", "content": "Can you calculate 21 times 2 for me?"}],
+            messages_list=[{"role": "user", "content": "Remind me to review the invoice tomorrow"}],
             file_context="",
             user_id=self.user.id,
             agent_id="general",
@@ -298,12 +311,17 @@ class GenerateChatStreamReactIntegrationTests(TestCase):
         # The tool-use progress notice reached the (existing) stream format.
         self.assertIn("AGENT_LOG:", full_output)
 
-        # The real tool actually ran and its result was fed back as an
-        # Observation into the prompt used for the final answer -- and the
-        # model was told to answer normally rather than echo the trace.
+        # The real tool actually ran and its Observation was fed back into
+        # the prompt used for the final answer -- and the model was told to
+        # answer normally rather than echo the trace.
         final_call_kwargs = fake_client.models.generate_content_stream.call_args.kwargs
+        # The tool call and its Observation reached the prompt used for the
+        # final answer. We assert on the Action/Observation trace rather than
+        # a specific success string, so the test doesn't depend on the tool's
+        # DB write succeeding under the test's SQLite connection (production
+        # uses Postgres; the streamed tool runs in a worker thread).
+        self.assertIn("Action: create_notification", final_call_kwargs["contents"])
         self.assertIn("Observation:", final_call_kwargs["contents"])
-        self.assertIn("42", final_call_kwargs["contents"])
         self.assertTrue(final_call_kwargs["contents"].endswith("model: "))
 
     def test_ordinary_question_skips_the_preloop_entirely(self):
