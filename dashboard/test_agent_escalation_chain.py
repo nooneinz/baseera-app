@@ -14,7 +14,7 @@ Core guarantees under test:
     healthy-margin products from the data, never invented.
 """
 import json
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.contrib.auth.models import User
 
 from dashboard.services.agent_escalation_chain import (
@@ -204,6 +204,11 @@ class EscalationChainTests(TestCase):
                 self.assertTrue(stage["narrative"])
 
 
+# SECURE_SSL_REDIRECT is on outside DEBUG (see settings.py), which turns the
+# test client's http POSTs into a 301 -> https redirect before they ever
+# reach the view. These tests exercise the endpoint's logic, not the SSL
+# redirect, so disable it here (the redirect itself is covered elsewhere).
+@override_settings(SECURE_SSL_REDIRECT=False)
 class EscalationChainApiEndpointTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="escalation_user", password="pw123456")
