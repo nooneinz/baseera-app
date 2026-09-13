@@ -1,0 +1,176 @@
+{
+  "name": "Baseera WhatsApp Bot (Meta Cloud API)",
+  "meta": {
+    "note": "Replace the four placeholders: META_ACCESS_TOKEN, META_PHONE_NUMBER_ID, META_VERIFY_TOKEN, BASEERA_WEBHOOK_SECRET. See docs/whatsapp/README.md."
+  },
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "GET", "path": "baseera-whatsapp", "responseMode": "responseNode", "options": {} },
+      "id": "webhook-verify",
+      "name": "Meta Verify (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 120]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": {}
+      },
+      "id": "respond-challenge",
+      "name": "Respond Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [520, 120]
+    },
+    {
+      "parameters": { "httpMethod": "POST", "path": "baseera-whatsapp", "options": {} },
+      "id": "webhook-inbound",
+      "name": "WhatsApp Inbound (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 360]
+    },
+    {
+      "parameters": {
+        "jsCode": "const root = $input.first().json.body || $input.first().json;\nconst value = root?.entry?.[0]?.changes?.[0]?.value || {};\nconst msg = value?.messages?.[0] || {};\nconst type = msg.type || 'text';\nconst phone = msg.from || '';\nconst text = msg.text?.body || '';\nlet media_id = '';\nlet media_mime = '';\nif (type === 'image') { media_id = msg.image?.id || ''; media_mime = msg.image?.mime_type || 'image/jpeg'; }\nif (type === 'document') { media_id = msg.document?.id || ''; media_mime = msg.document?.mime_type || 'application/pdf'; }\nreturn [{ json: { phone, type, text, media_id, media_mime } }];"
+      },
+      "id": "extract-message",
+      "name": "Extract Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 360]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            { "leftValue": "={{ ['image','document'].includes($json.type) }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-image",
+      "name": "Is Image / Document?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [760, 360]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v20.0/{{ $json.media_id }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "Authorization", "value": "Bearer META_ACCESS_TOKEN" } ] },
+        "options": {}
+      },
+      "id": "get-media-url",
+      "name": "Get Media URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 260]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "Authorization", "value": "Bearer META_ACCESS_TOKEN" } ] },
+        "options": { "response": { "response": { "responseFormat": "file" } } }
+      },
+      "id": "download-media",
+      "name": "Download Media",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1220, 260]
+    },
+    {
+      "parameters": {
+        "jsCode": "const buf = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: { media_base64: buf.toString('base64') } }];"
+      },
+      "id": "to-base64",
+      "name": "To Base64",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 260]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://baseera.it.com/api/integrations/whatsapp/inbound/",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "X-Baseera-Webhook-Secret", "value": "BASEERA_WEBHOOK_SECRET" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { phone: $('Extract Message').item.json.phone, media_base64: $json.media_base64, media_mime: $('Extract Message').item.json.media_mime } }}",
+        "options": {}
+      },
+      "id": "baseera-image",
+      "name": "Baseera Inbound (Image)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1660, 260]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://baseera.it.com/api/integrations/whatsapp/inbound/",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "X-Baseera-Webhook-Secret", "value": "BASEERA_WEBHOOK_SECRET" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { phone: $json.phone, text: $json.text } }}",
+        "options": {}
+      },
+      "id": "baseera-text",
+      "name": "Baseera Inbound (Text)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 460]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v20.0/META_PHONE_NUMBER_ID/messages",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Authorization", "value": "Bearer META_ACCESS_TOKEN" },
+          { "name": "Content-Type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { messaging_product: 'whatsapp', to: $('Extract Message').item.json.phone, type: 'text', text: { body: $json.reply } } }}",
+        "options": {}
+      },
+      "id": "send-reply",
+      "name": "Send Reply (Meta)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1900, 360]
+    }
+  ],
+  "connections": {
+    "Meta Verify (GET)": { "main": [ [ { "node": "Respond Challenge", "type": "main", "index": 0 } ] ] },
+    "WhatsApp Inbound (POST)": { "main": [ [ { "node": "Extract Message", "type": "main", "index": 0 } ] ] },
+    "Extract Message": { "main": [ [ { "node": "Is Image / Document?", "type": "main", "index": 0 } ] ] },
+    "Is Image / Document?": { "main": [
+      [ { "node": "Get Media URL", "type": "main", "index": 0 } ],
+      [ { "node": "Baseera Inbound (Text)", "type": "main", "index": 0 } ]
+    ] },
+    "Get Media URL": { "main": [ [ { "node": "Download Media", "type": "main", "index": 0 } ] ] },
+    "Download Media": { "main": [ [ { "node": "To Base64", "type": "main", "index": 0 } ] ] },
+    "To Base64": { "main": [ [ { "node": "Baseera Inbound (Image)", "type": "main", "index": 0 } ] ] },
+    "Baseera Inbound (Image)": { "main": [ [ { "node": "Send Reply (Meta)", "type": "main", "index": 0 } ] ] },
+    "Baseera Inbound (Text)": { "main": [ [ { "node": "Send Reply (Meta)", "type": "main", "index": 0 } ] ] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
