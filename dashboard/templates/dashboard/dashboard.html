@@ -891,7 +891,7 @@
 
       grid.innerHTML = activeKpis.slice(0,4).map(k => `
         <div class="rounded-2xl p-6 shadow-sm ${k.isWaste ? 'bg-gradient-to-br from-rose-500/5 to-amber-500/5 glass' : 'glass'}" ${k.isWaste ? 'id="wasteKpiCard"' : ''}>
-          <div class="text-sm font-semibold uppercase tracking-wider ${k.isWaste ? 'text-rose-500' : 'text-slate-400'}">${k.l}</div>
+          <div class="text-sm font-semibold uppercase tracking-wider ${k.isWaste ? 'text-rose-500' : 'text-slate-400'}" ${k.isWaste ? 'id="wasteKpiLabel"' : ''}>${k.l}</div>
           <div class="mt-2 text-3xl font-bold ${k.isWaste ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-white'} sensitive-value" ${k.isWaste ? 'id="wasteKpiValue"' : ''}>${k.v}</div>
           <div class="mt-2 inline-flex items-center gap-1 text-xs sm:text-sm font-medium ${k.isWaste ? 'text-rose-500' : (k.neutral ? 'text-slate-400' : (k.up ? 'text-emerald-500' : 'text-rose-500'))}">
             ${k.isWaste ? `<i data-lucide="alert-triangle" class="h-4 w-4 text-rose-500"></i>` : (k.neutral ? '' : `<i data-lucide="${k.up ? 'trending-up' : 'trending-down'}" class="h-4 w-4"></i>`)}
@@ -937,6 +937,26 @@
         if (data.status !== 'success') throw new Error(data.message || 'analysis failed');
 
         if (!data.analyzable) {
+          // Transaction / bank-statement files carry no per-item cost, so the
+          // waste engine can't run -- but /api/analyze-waste/ now returns a
+          // cash-flow fallback (biggest expense + net) for them. Show that
+          // (and relabel the card) instead of the dead-end "not enough data".
+          if (data.cashflow) {
+            const cf = data.cashflow;
+            const labelEl = document.getElementById('wasteKpiLabel');
+            if (labelEl) labelEl.textContent = isAr ? 'أكبر بند مصروف' : 'Top Expense';
+            if (valueEl) {
+              const headline = (cf.top_expense_total != null) ? cf.top_expense_total : cf.total_expense;
+              valueEl.textContent = fmt(headline) + ' ' + dict.currency;
+            }
+            if (detailEl) {
+              const name = cf.top_expense_name || (isAr ? 'مصروفات' : 'Expenses');
+              detailEl.textContent = isAr
+                ? `${name} · صافي التدفّق ${fmt(cf.net)} ${dict.currency}`
+                : `${name} · net ${fmt(cf.net)} ${dict.currency}`;
+            }
+            return;
+          }
           if (valueEl) valueEl.textContent = isAr ? 'غير كافٍ للتحليل' : 'Not enough data';
           if (detailEl) detailEl.textContent = isAr ? 'أضف عمود تكلفة أو كمية' : 'Add a cost or quantity column';
           return;

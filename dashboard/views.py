@@ -1222,6 +1222,28 @@ def api_analyze_waste(request):
     try:
         result = analyze_waste(rows, ai_service=ai_service, lang=lang, company_profile=company_profile)
         result["status"] = "success"
+        # Transaction / bank-statement fallback: the waste engine needs
+        # per-item cost to find leakage, which a bank statement (Amount / Type
+        # = income/expense) simply doesn't carry -- so instead of the
+        # dead-end "not enough data, add a cost column", surface the cash-flow
+        # story (biggest expense destination + net) computed from the very
+        # same rows. Same deterministic engine the First Win screen uses.
+        if not result.get("analyzable"):
+            try:
+                from .services.first_win_insights import compute_transaction_signal
+                cf = compute_transaction_signal(rows)
+            except Exception as cf_err:
+                print(f"Waste widget cash-flow fallback error: {cf_err}")
+                cf = None
+            if cf:
+                top_group = (cf.get("top_groups") or [None])[0]
+                result["cashflow"] = {
+                    "total_expense": cf["total_expense"],
+                    "net": cf["net"],
+                    "expense_count": cf["expense_count"],
+                    "top_expense_name": top_group["name"] if top_group else None,
+                    "top_expense_total": top_group["total"] if top_group else None,
+                }
         # Task 5 (UI transparency): tell the frontend outright when the
         # analysis only covered a prefix of the data, instead of silently
         # presenting a partial result as if it covered everything.
