@@ -1,0 +1,163 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}أهم اكتشاف في بياناتك · {{ trans.brand }}{% endblock %}
+
+{% block content %}
+<style>
+  .fw-wrap { min-height: calc(100vh - 2px); display: flex; align-items: center; justify-content: center; padding: 40px 16px; }
+  .fw-grad { background: linear-gradient(135deg, #4f46e5 0%, #6d5ae8 45%, #7c3aed 100%); }
+  .dark .fw-grad { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%); }
+  .fw-big { font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif; font-weight: 800; line-height: 1;
+            letter-spacing: -0.03em; font-size: clamp(3rem, 11vw, 5.2rem); unicode-bidi: plaintext; }
+  .fw-pulse { animation: fwPulse 1.9s infinite; }
+  @keyframes fwPulse { 0% { box-shadow: 0 0 0 0 rgba(99,102,241,.4);} 70%{box-shadow:0 0 0 20px rgba(99,102,241,0);} 100%{box-shadow:0 0 0 0 rgba(99,102,241,0);} }
+  .fw-bar { height: 22px; border-radius: 8px; background: rgba(148,163,184,.22); overflow: hidden; }
+  .fw-bar > i { display: block; height: 100%; border-radius: 8px;
+                background: linear-gradient(90deg, #e11d48, #fb7185); }
+  .dark .fw-bar > i { background: linear-gradient(90deg, #fb7185, #f43f5e); }
+  @media (prefers-reduced-motion: reduce) { .fw-pulse { animation: none; } }
+</style>
+
+<div class="fw-wrap animate-fade-up">
+  <div class="w-full max-w-3xl">
+    <div class="glass-strong rounded-3xl overflow-hidden">
+
+      <!-- Brand bar -->
+      <div class="fw-grad px-6 py-4 flex items-center gap-3">
+        <span class="inline-flex items-center bg-white/95 rounded-xl px-3 py-1.5 shadow-sm">
+          <img src="{% static 'dashboard/img/logo_full.png' %}" alt="بصيرة" class="h-7 w-auto" />
+        </span>
+        <span class="mr-auto text-white/90 text-xs font-bold flex items-center gap-2">
+          <i data-lucide="check-circle" class="w-4 h-4"></i>
+          حلّلنا <span class="num">{{ rows_analyzed }}</span> عملية من ملفك
+        </span>
+      </div>
+
+      <div class="p-7 sm:p-10">
+
+        {% if total_waste %}
+        <!-- STATE A: a real, quantified money leak was found -->
+        <span class="inline-flex items-center gap-2 text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/25 rounded-full px-4 py-1.5 text-sm font-extrabold mb-5">
+          <i data-lucide="alert-triangle" class="w-4 h-4"></i> اكتشفنا شيئاً مهماً في بياناتك
+        </span>
+
+        <div class="flex items-baseline gap-3 flex-wrap mb-1">
+          <span class="fw-big num text-rose-600 dark:text-rose-400">{{ total_waste|floatformat:0 }}</span>
+          <span class="text-rose-600 dark:text-rose-400 font-extrabold text-xl">{{ currency }}</span>
+          <span class="text-muted-foreground text-base">مكتشفة كهدر قابل للإيقاف في بياناتك</span>
+        </div>
+        <p class="text-lg font-bold mb-6">أكبر مصدر: {{ top.title }}</p>
+
+        <!-- Evidence -->
+        <div class="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/50 dark:bg-slate-800/40 p-5 mb-5">
+          <div class="flex items-center gap-2 text-sm font-extrabold text-muted-foreground mb-1">
+            <i data-lucide="badge-check" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
+            الدليل من بياناتك — لا تخمين
+          </div>
+          <p class="text-sm text-muted-foreground leading-relaxed mb-4">{{ top.detail }}</p>
+          {% if top.examples %}
+          <div class="flex flex-col gap-2.5">
+            {% for e in top.examples %}
+            <div class="grid items-center gap-3" style="grid-template-columns: minmax(90px,1.1fr) 2fr auto;">
+              <span class="text-sm font-semibold truncate">{{ e.name }}</span>
+              <div class="fw-bar"><i style="width: {{ e.pct }}%"></i></div>
+              <span class="num text-sm font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                {% if e.value %}{{ e.value|floatformat:2 }} {{ currency }}{% endif %}
+                {% if e.range %}<span class="text-muted-foreground font-medium">({{ e.range }})</span>{% endif %}
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Trust -->
+        <div class="flex items-start gap-2.5 text-sm text-muted-foreground bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-4 py-3 mb-6 leading-relaxed">
+          <i data-lucide="shield-check" class="w-[18px] h-[18px] text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5"></i>
+          <span><b class="text-ink dark:text-white">محسوب من <span class="num">{{ top.evidence_count }}</span> حالة فعلية</b> في ملفك — بصيرة لا تختلق الأرقام، تعرض لك مصدرها دائماً.</span>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex flex-wrap items-center gap-3">
+          <a href="{% url 'dashboard' %}" class="fw-grad text-white font-extrabold text-base px-6 py-3.5 rounded-full inline-flex items-center gap-2.5 shadow-lg shadow-indigo-500/30 hover:scale-[1.03] transition-transform">
+            أوقف الخسارة — افتح لوحتك
+            <i data-lucide="arrow-left" class="w-[18px] h-[18px]"></i>
+          </a>
+          <a href="{% url 'ask_basira' %}" class="border border-slate-200 dark:border-white/15 text-muted-foreground hover:text-ink dark:hover:text-white font-bold text-sm px-5 py-3.5 rounded-full inline-flex items-center gap-2 transition-colors">
+            <i data-lucide="message-circle" class="w-4 h-4"></i>
+            اسأل بصيرة عن الحل
+          </a>
+        </div>
+
+        {% if other_count %}
+        <p class="mt-5 pt-4 border-t border-dashed border-slate-200 dark:border-white/10 text-sm text-muted-foreground flex items-center gap-2">
+          <span class="w-5 h-5 rounded-full bg-indigo-500/10 grid place-items-center num font-extrabold text-indigo-600 dark:text-indigo-300">+</span>
+          ووجدنا <b class="text-indigo-600 dark:text-indigo-300"><span class="num">{{ other_count }}</span> {% if other_count == 1 %}تسريباً آخر{% else %}تسريبات أخرى{% endif %}</b>
+          {% if other_amount %}بقيمة <span class="num font-bold">{{ other_amount|floatformat:0 }}</span> {{ currency }}{% endif %} — تظهر داخل لوحتك.
+        </p>
+        {% endif %}
+
+        {% elif top %}
+        <!-- STATE B: a real risk with no single currency figure (thin margins / dead stock) -->
+        <span class="inline-flex items-center gap-2 text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-full px-4 py-1.5 text-sm font-extrabold mb-5">
+          <i data-lucide="alert-triangle" class="w-4 h-4"></i> انتبه لهذا في بياناتك
+        </span>
+        <div class="flex items-baseline gap-3 flex-wrap mb-1">
+          <span class="fw-big num text-amber-600 dark:text-amber-400">{{ top.amount|floatformat:0 }}</span>
+          <span class="text-muted-foreground text-base font-semibold">حالة تستحق مراجعتك</span>
+        </div>
+        <p class="text-lg font-bold mb-6">{{ top.title }}</p>
+        <div class="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/50 dark:bg-slate-800/40 p-5 mb-6">
+          <p class="text-sm text-muted-foreground leading-relaxed">{{ top.detail }}</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <a href="{% url 'dashboard' %}" class="fw-grad text-white font-extrabold text-base px-6 py-3.5 rounded-full inline-flex items-center gap-2.5 shadow-lg shadow-indigo-500/30 hover:scale-[1.03] transition-transform">
+            افتح لوحتك الكاملة <i data-lucide="arrow-left" class="w-[18px] h-[18px]"></i>
+          </a>
+          <a href="{% url 'ask_basira' %}" class="border border-slate-200 dark:border-white/15 text-muted-foreground hover:text-ink dark:hover:text-white font-bold text-sm px-5 py-3.5 rounded-full inline-flex items-center gap-2 transition-colors">
+            <i data-lucide="message-circle" class="w-4 h-4"></i> اسأل بصيرة
+          </a>
+        </div>
+
+        {% elif analyzable %}
+        <!-- STATE C: analyzable data, genuinely no leak found (a real, honest win) -->
+        <div class="w-16 h-16 rounded-2xl fw-grad grid place-items-center mb-5 fw-pulse">
+          <i data-lucide="shield-check" class="w-8 h-8 text-white"></i>
+        </div>
+        <h1 class="text-2xl font-extrabold mb-2">بياناتك سليمة 👏</h1>
+        <p class="text-muted-foreground leading-relaxed mb-6">
+          فحصنا <span class="num">{{ rows_analyzed }}</span> عملية بحثاً عن الهدر (هوامش سالبة، بيع تحت التكلفة، تذبذب التسعير، المخزون الراكد) ولم نرصد أي تسريب واضح. افتح لوحتك لمتابعة أداءك ومؤشراتك.
+        </p>
+        <a href="{% url 'dashboard' %}" class="fw-grad text-white font-extrabold text-base px-6 py-3.5 rounded-full inline-flex items-center gap-2.5 shadow-lg shadow-indigo-500/30 hover:scale-[1.03] transition-transform">
+          افتح لوحتك الكاملة <i data-lucide="arrow-left" class="w-[18px] h-[18px]"></i>
+        </a>
+
+        {% else %}
+        <!-- STATE D: not enough structure to reason about leakage -->
+        <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 grid place-items-center mb-5">
+          <i data-lucide="sparkles" class="w-8 h-8 text-indigo-600 dark:text-indigo-300"></i>
+        </div>
+        <h1 class="text-2xl font-extrabold mb-2">تم رفع بياناتك بنجاح</h1>
+        <p class="text-muted-foreground leading-relaxed mb-6">
+          لنكشف لك الهدر تلقائياً، احرص أن يحتوي ملفك على أعمدة مثل <b class="text-ink dark:text-white">السعر</b> و<b class="text-ink dark:text-white">التكلفة</b> أو <b class="text-ink dark:text-white">الكمية</b>. بإمكانك الآن استعراض لوحتك الكاملة.
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <a href="{% url 'dashboard' %}" class="fw-grad text-white font-extrabold text-base px-6 py-3.5 rounded-full inline-flex items-center gap-2.5 shadow-lg shadow-indigo-500/30 hover:scale-[1.03] transition-transform">
+            افتح لوحتك الكاملة <i data-lucide="arrow-left" class="w-[18px] h-[18px]"></i>
+          </a>
+          <a href="{% url 'onboarding_upload' %}" class="border border-slate-200 dark:border-white/15 text-muted-foreground hover:text-ink dark:hover:text-white font-bold text-sm px-5 py-3.5 rounded-full inline-flex items-center gap-2 transition-colors">
+            <i data-lucide="upload" class="w-4 h-4"></i> ارفع ملفاً آخر
+          </a>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <p class="text-center text-xs text-muted-foreground mt-5">
+      بصيرة — تحليلات أعمالك · الأرقام أعلاه محسوبة مباشرة من ملفك، لا تقديرات.
+    </p>
+  </div>
+</div>
+{% endblock %}
