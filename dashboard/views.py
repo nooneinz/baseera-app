@@ -1054,8 +1054,70 @@ def first_win(request):
         print(f"First-win computation error: {exc}")
         return redirect("dashboard")
 
+    has_money_waste = bool(top and (top.get("currency_amount") or 0) > 0)
+
+    # Transaction / bank-statement path: when the per-item waste engine found
+    # no monetary leak, the file may still be a transaction ledger (Date /
+    # Description / Amount / Income-Expense) with a real story of its own --
+    # income vs expense and the biggest recurring outflow. Computed
+    # deterministically; None when the rows aren't transaction-shaped.
+    cf = None
+    cf_hero = None
+    if not has_money_waste:
+        try:
+            from .services.first_win_insights import compute_transaction_signal
+            cf = compute_transaction_signal(rows)
+        except Exception as exc:
+            print(f"First-win transaction computation error: {exc}")
+            cf = None
+        if cf:
+            if cf["net"] < 0:
+                cf_hero = {
+                    "kind": "deficit",
+                    "value": round(abs(cf["net"]), 2),
+                    "title": "مصروفاتك تجاوزت دخلك في هذا الملف",
+                }
+            elif cf["top_groups"]:
+                g = cf["top_groups"][0]
+                cf_hero = {
+                    "kind": "topexpense",
+                    "value": g["total"],
+                    "title": "أكبر وجهة لمصروفاتك: " + g["name"],
+                }
+            else:
+                cf_hero = {
+                    "kind": "topexpense",
+                    "value": cf["total_expense"],
+                    "title": "إجمالي مصروفاتك في هذا الملف",
+                }
+
+    # Decide which screen state to render.
+    if has_money_waste:
+        mode = "waste"
+    elif cf:
+        mode = "cashflow"
+    elif top:
+        mode = "countrisk"
+    elif analyzable:
+        mode = "healthy"
+    else:
+        mode = "glance"
+
+    glance = None
+    if mode == "glance":
+        try:
+            from .services.first_win_insights import compute_glance
+            glance = compute_glance(rows)
+        except Exception as exc:
+            print(f"First-win glance computation error: {exc}")
+            glance = None
+
     context = {
+        "mode": mode,
         "top": top,
+        "cf": cf,
+        "cf_hero": cf_hero,
+        "glance": glance,
         "analyzable": analyzable,
         "total_waste": total_waste,
         "other_amount": other_amount,

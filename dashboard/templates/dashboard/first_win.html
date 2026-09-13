@@ -36,7 +36,7 @@
 
       <div class="p-7 sm:p-10">
 
-        {% if total_waste %}
+        {% if mode == 'waste' %}
         <!-- STATE A: a real, quantified money leak was found -->
         <span class="inline-flex items-center gap-2 text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/25 rounded-full px-4 py-1.5 text-sm font-extrabold mb-5">
           <i data-lucide="alert-triangle" class="w-4 h-4"></i> اكتشفنا شيئاً مهماً في بياناتك
@@ -98,7 +98,76 @@
         </p>
         {% endif %}
 
-        {% elif top %}
+        {% elif mode == 'cashflow' %}
+        <!-- STATE CF: transaction / bank-statement file -> income vs expense + biggest outflow -->
+        <span class="inline-flex items-center gap-2 {% if cf_hero.kind == 'deficit' %}text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/25{% else %}text-indigo-600 dark:text-indigo-300 bg-indigo-500/10 border-indigo-500/25{% endif %} border rounded-full px-4 py-1.5 text-sm font-extrabold mb-5">
+          <i data-lucide="{% if cf_hero.kind == 'deficit' %}alert-triangle{% else %}wallet{% endif %}" class="w-4 h-4"></i> نظرة أولى على تدفّقك النقدي
+        </span>
+
+        <div class="flex items-baseline gap-3 flex-wrap mb-1">
+          <span class="fw-big num {% if cf_hero.kind == 'deficit' %}text-rose-600 dark:text-rose-400{% else %}text-indigo-600 dark:text-indigo-300{% endif %}">{{ cf_hero.value|floatformat:0 }}</span>
+          <span class="{% if cf_hero.kind == 'deficit' %}text-rose-600 dark:text-rose-400{% else %}text-indigo-600 dark:text-indigo-300{% endif %} font-extrabold text-xl">{{ currency }}</span>
+        </div>
+        <p class="text-lg font-bold mb-6">{{ cf_hero.title }}</p>
+
+        <!-- Income / Expense / Net tiles -->
+        <div class="grid grid-cols-3 gap-3 mb-5">
+          <div class="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/50 dark:bg-slate-800/40 p-4 text-center">
+            <div class="num text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{{ cf.total_income|floatformat:0 }}</div>
+            <div class="text-xs text-muted-foreground mt-1">الدخل ({{ currency }})</div>
+          </div>
+          <div class="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/50 dark:bg-slate-800/40 p-4 text-center">
+            <div class="num text-xl font-extrabold text-rose-600 dark:text-rose-400">{{ cf.total_expense|floatformat:0 }}</div>
+            <div class="text-xs text-muted-foreground mt-1">المصروف ({{ currency }})</div>
+          </div>
+          <div class="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/50 dark:bg-slate-800/40 p-4 text-center">
+            <div class="num text-xl font-extrabold {% if cf.net < 0 %}text-rose-600 dark:text-rose-400{% else %}text-emerald-600 dark:text-emerald-400{% endif %}">{{ cf.net|floatformat:0 }}</div>
+            <div class="text-xs text-muted-foreground mt-1">الصافي ({{ currency }})</div>
+          </div>
+        </div>
+
+        {% if cf.top_groups %}
+        <div class="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/50 dark:bg-slate-800/40 p-5 mb-5">
+          <div class="flex items-center gap-2 text-sm font-extrabold text-muted-foreground mb-4">
+            <i data-lucide="badge-check" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
+            أكبر وجهات مصروفاتك — من ملفك
+          </div>
+          <div class="flex flex-col gap-2.5">
+            {% for g in cf.top_groups %}
+            <div class="grid items-center gap-3" style="grid-template-columns: minmax(110px,1.2fr) 2fr auto;">
+              <span class="text-sm font-semibold truncate">{{ g.name }}</span>
+              <div class="fw-bar"><i style="width: {{ g.pct }}%"></i></div>
+              <span class="num text-sm font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">{{ g.total|floatformat:2 }} {{ currency }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="flex items-start gap-2.5 text-sm text-muted-foreground bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-4 py-3 mb-6 leading-relaxed">
+          <i data-lucide="shield-check" class="w-[18px] h-[18px] text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5"></i>
+          <span><b class="text-ink dark:text-white">محسوب من <span class="num">{{ cf.expense_count }}</span> عملية مصروف</b> في ملفك — أرقام مجموعة مباشرة من معاملاتك، لا تخمين.</span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <a href="{% url 'dashboard' %}" class="fw-grad text-white font-extrabold text-base px-6 py-3.5 rounded-full inline-flex items-center gap-2.5 shadow-lg shadow-indigo-500/30 hover:scale-[1.03] transition-transform">
+            افتح لوحتك الكاملة <i data-lucide="arrow-left" class="w-[18px] h-[18px]"></i>
+          </a>
+          <a href="{% url 'ask_basira' %}" class="border border-slate-200 dark:border-white/15 text-muted-foreground hover:text-ink dark:hover:text-white font-bold text-sm px-5 py-3.5 rounded-full inline-flex items-center gap-2 transition-colors">
+            <i data-lucide="message-circle" class="w-4 h-4"></i> اسأل بصيرة عن الحل
+          </a>
+        </div>
+
+        {% if cf.top_recurring %}
+        <p class="mt-5 pt-4 border-t border-dashed border-slate-200 dark:border-white/10 text-sm text-muted-foreground flex items-center gap-2">
+          <i data-lucide="repeat" class="w-4 h-4 text-indigo-600 dark:text-indigo-300"></i>
+          مصروف متكرر: <b class="text-indigo-600 dark:text-indigo-300">{{ cf.top_recurring.name }}</b> —
+          <span class="num font-bold">{{ cf.top_recurring.count }}</span> مرات بإجمالي
+          <span class="num font-bold">{{ cf.top_recurring.total|floatformat:0 }}</span> {{ currency }}.
+        </p>
+        {% endif %}
+
+        {% elif mode == 'countrisk' %}
         <!-- STATE B: a real risk with no single currency figure (thin margins / dead stock) -->
         <span class="inline-flex items-center gap-2 text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-full px-4 py-1.5 text-sm font-extrabold mb-5">
           <i data-lucide="alert-triangle" class="w-4 h-4"></i> انتبه لهذا في بياناتك
@@ -120,7 +189,7 @@
           </a>
         </div>
 
-        {% elif analyzable %}
+        {% elif mode == 'healthy' %}
         <!-- STATE C: analyzable data, genuinely no leak found (a real, honest win) -->
         <div class="w-16 h-16 rounded-2xl fw-grad grid place-items-center mb-5 fw-pulse">
           <i data-lucide="shield-check" class="w-8 h-8 text-white"></i>
@@ -139,8 +208,24 @@
           <i data-lucide="sparkles" class="w-8 h-8 text-indigo-600 dark:text-indigo-300"></i>
         </div>
         <h1 class="text-2xl font-extrabold mb-2">تم رفع بياناتك بنجاح</h1>
+        {% if glance %}
+        <div class="grid grid-cols-3 gap-3 mb-5">
+          <div class="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/50 dark:bg-slate-800/40 p-4 text-center">
+            <div class="num text-xl font-extrabold text-indigo-600 dark:text-indigo-300">{{ glance.row_count }}</div>
+            <div class="text-xs text-muted-foreground mt-1">عملية قرأناها</div>
+          </div>
+          <div class="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/50 dark:bg-slate-800/40 p-4 text-center">
+            <div class="num text-xl font-extrabold text-indigo-600 dark:text-indigo-300">{% if glance.total != None %}{{ glance.total|floatformat:0 }}{% else %}—{% endif %}</div>
+            <div class="text-xs text-muted-foreground mt-1">إجمالي القيم ({{ currency }})</div>
+          </div>
+          <div class="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/50 dark:bg-slate-800/40 p-4 text-center">
+            <div class="num text-base font-extrabold text-indigo-600 dark:text-indigo-300">{% if glance.date_start %}{{ glance.date_start }} ← {{ glance.date_end }}{% else %}—{% endif %}</div>
+            <div class="text-xs text-muted-foreground mt-1">المدة الزمنية</div>
+          </div>
+        </div>
+        {% endif %}
         <p class="text-muted-foreground leading-relaxed mb-6">
-          لنكشف لك الهدر تلقائياً، احرص أن يحتوي ملفك على أعمدة مثل <b class="text-ink dark:text-white">السعر</b> و<b class="text-ink dark:text-white">التكلفة</b> أو <b class="text-ink dark:text-white">الكمية</b>. بإمكانك الآن استعراض لوحتك الكاملة.
+          قرأنا بياناتك، لكن لكشف <b class="text-ink dark:text-white">الهدر</b> أو <b class="text-ink dark:text-white">تدفّقك النقدي</b> تلقائياً نحتاج أعمدة مثل <b class="text-ink dark:text-white">السعر</b> و<b class="text-ink dark:text-white">التكلفة</b>، أو <b class="text-ink dark:text-white">المبلغ</b> مع <b class="text-ink dark:text-white">النوع</b> (دخل/مصروف). بإمكانك الآن استعراض لوحتك الكاملة.
         </p>
         <div class="flex flex-wrap items-center gap-3">
           <a href="{% url 'dashboard' %}" class="fw-grad text-white font-extrabold text-base px-6 py-3.5 rounded-full inline-flex items-center gap-2.5 shadow-lg shadow-indigo-500/30 hover:scale-[1.03] transition-transform">
