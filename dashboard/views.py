@@ -336,7 +336,11 @@ def portal(request):
                 request,
                 "تم رفع وتحليل المستند بنجاح! / File uploaded and analyzed successfully!",
             )
-            return redirect("dashboard")
+            # Route through the "first win" moment (one grounded, high-impact
+            # insight computed from the just-uploaded data) before the full
+            # dashboard -- see first_win(). Falls through to the dashboard if
+            # nothing analyzable was found.
+            return redirect("first_win")
         else:
             project_file.delete()
             messages.error(
@@ -414,7 +418,7 @@ def use_sample_data(request):
         request,
         "تم تحميل بيانات تجريبية لمنشأة عُمانية صغيرة! استكشف لوحة التحكم -- يمكنك حذفها لاحقاً واستبدالها ببياناتك الحقيقية.",
     )
-    return redirect("dashboard")
+    return redirect("first_win")
 
 
 @login_required
@@ -980,6 +984,87 @@ def api_generate_weekly_digest(request):
         request=request,
     )
     return JsonResponse({"html": html, "ready": weekly_digest is not None})
+
+
+@login_required
+def first_win(request):
+    """
+    The "First Win" moment shown right after a successful upload, before the
+    full dashboard.
+
+    Instead of dropping a brand-new user straight into a 12-KPI dashboard they
+    have to decode, this shows ONE concrete, high-impact insight computed
+    DIRECTLY from the data they just uploaded -- the single biggest money leak
+    Baseera found -- with the real evidence behind it and one clear next action.
+
+    Every number here comes from waste_analyzer.compute_waste_signals (pure,
+    deterministic arithmetic over the user's own rows): nothing is invented,
+    and no LLM call is made, so this screen is fast and always grounded. If the
+    data has no analyzable structure, or genuinely has no leak, the page still
+    shows an honest, positive state and routes onward to the dashboard.
+    """
+    files = ProjectFile.objects.filter(user=request.user)
+    if not files.exists():
+        return redirect("onboarding_upload")
+
+    # Scope to the just-uploaded file when we know it; otherwise all records.
+    records_qs = DynamicRecord.objects.filter(user=request.user)
+    active_id = request.session.get("active_file_id")
+    if active_id:
+        scoped = records_qs.filter(project_file_id=active_id)
+        if scoped.exists():
+            records_qs = scoped
+
+    ROW_CAP = 10000
+    rows = list(records_qs.values_list("row_data", flat=True)[:ROW_CAP])
+
+    top = None
+    other_amount = 0.0
+    other_count = 0
+    total_waste = 0.0
+    analyzable = False
+    signals_count = 0
+
+    try:
+        from .services.waste_analyzer import compute_waste_signals
+        computed = compute_waste_signals(rows)
+        analyzable = bool(computed.get("analyzable"))
+        total_waste = computed.get("total_waste", 0.0) or 0.0
+        signals = sorted(
+            computed.get("signals", []) or [],
+            key=lambda s: s.get("currency_amount", 0) or 0,
+            reverse=True,
+        )
+        signals_count = len(signals)
+        if signals:
+            monetary = [s for s in signals if (s.get("currency_amount") or 0) > 0]
+            top = monetary[0] if monetary else signals[0]
+            rest = [s for s in signals if s is not top]
+            other_amount = round(sum((s.get("currency_amount") or 0) for s in rest), 2)
+            other_count = len(rest)
+            # Pre-compute relative bar widths for the evidence examples so the
+            # template stays logic-free.
+            examples = top.get("examples") or []
+            max_val = max([(e.get("value") or 0) for e in examples] or [0]) or 1
+            for e in examples:
+                e["pct"] = int(round((e.get("value") or 0) / max_val * 100)) if max_val else 0
+    except Exception as exc:
+        # This screen is a nicety, never a blocker: if anything goes wrong,
+        # skip straight to the dashboard the user was headed to anyway.
+        print(f"First-win computation error: {exc}")
+        return redirect("dashboard")
+
+    context = {
+        "top": top,
+        "analyzable": analyzable,
+        "total_waste": total_waste,
+        "other_amount": other_amount,
+        "other_count": other_count,
+        "rows_analyzed": len(rows),
+        "signals_count": signals_count,
+        "currency": "ر.ع",
+    }
+    return render(request, "dashboard/first_win.html", context)
 
 
 def contact(request):
