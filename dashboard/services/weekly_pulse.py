@@ -22,15 +22,12 @@ logger = logging.getLogger(__name__)
 
 def _sample_records(user, cap=100):
     from dashboard.models import DynamicRecord
+    from dashboard.services.privacy import redacted_json
     rows = list(
         DynamicRecord.objects.filter(user=user).values_list("row_data", flat=True)[:cap]
     )
-    if not rows:
-        return ""
-    try:
-        return json.dumps(rows, ensure_ascii=False)
-    except Exception:
-        return ""
+    # Redact identifying/sensitive fields before this leaves for Gemini.
+    return redacted_json(rows, cap=cap)
 
 
 def build_pulse_message(digest, dashboard_url):

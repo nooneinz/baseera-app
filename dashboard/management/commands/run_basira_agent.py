@@ -29,8 +29,9 @@ class Command(BaseCommand):
                 # Format context
                 context = f"Company: {profile.company_name} | Sector: {profile.get_project_type_display()}\n\n"
                 context += "Recent Data Snapshot (Latest 50 records):\n"
+                from dashboard.services.privacy import redact_row
                 for record in recent_records:
-                    context += f"- {json.dumps(record.row_data, ensure_ascii=False)}\n"
+                    context += f"- {json.dumps(redact_row(record.row_data), ensure_ascii=False)}\n"
                     
                 # The Proactive Prompt
                 agent_prompt = """

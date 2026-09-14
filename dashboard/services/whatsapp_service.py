@@ -125,11 +125,9 @@ def _recent_file_context(user, max_rows=60):
     )
     if not rows:
         return ""
-    import json as _json
-    try:
-        return _json.dumps(rows, ensure_ascii=False)[:6000]
-    except Exception:
-        return ""
+    # Redact identifying/sensitive fields before this leaves for Gemini.
+    from dashboard.services.privacy import redacted_json
+    return redacted_json(rows, cap=max_rows, max_chars=6000)
 
 
 def generate_agent_reply(user, message, lang="ar"):
