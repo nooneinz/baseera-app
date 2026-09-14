@@ -1060,3 +1060,29 @@ def api_whatsapp_inbound(request):
         phone, text=data.get("text"), media_bytes=media_bytes, media_mime=data.get("media_mime"),
     )
     return JsonResponse(result, json_dumps_params={"ensure_ascii": False})
+
+
+@csrf_exempt
+def api_cron_weekly_pulse(request):
+    """
+    Weekly "Business Pulse" job endpoint. Meant to be hit on a schedule
+    (e.g. n8n's Schedule node, once a week), secret-protected the same way as
+    the WhatsApp endpoint. Regenerates every active user's WeeklyDigest and,
+    when an outbound WhatsApp webhook is configured, pushes a short pulse.
+    """
+    import hmac
+
+    if request.method not in ("POST", "GET"):
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+
+    secret = os.environ.get("CRON_SECRET", "")
+    provided = request.headers.get("X-Baseera-Cron-Secret", "")
+    if not secret or not hmac.compare_digest(str(secret), str(provided)):
+        return JsonResponse({"status": "error", "message": "unauthorized"}, status=401)
+
+    from dashboard.services.weekly_pulse import run_weekly_pulse
+    try:
+        result = run_weekly_pulse(push=True)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=500)
+    return JsonResponse({"status": "success", **result})
