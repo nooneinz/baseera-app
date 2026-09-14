@@ -1006,3 +1006,57 @@ def charts_engine_api(request):
     }
 
     return JsonResponse(response_payload, json_dumps_params={'ensure_ascii': False})
+
+
+@csrf_exempt
+@rate_limit(requests_per_minute=60, key_prefix="wa_inbound", methods=("POST",))
+def api_whatsapp_inbound(request):
+    """
+    Single inbound endpoint the n8n WhatsApp workflow calls (see
+    docs/whatsapp/). Protected by a shared secret header, NOT a user token,
+    because the sender is identified by their WhatsApp phone number, not a
+    logged-in session.
+
+    Expected JSON body from n8n:
+      { "phone": "<sender msisdn>", "text": "<optional>",
+        "media_base64": "<optional>", "media_mime": "<optional>" }
+
+    Returns: { "status": "...", "reply": "<WhatsApp-ready Arabic text>" }.
+    n8n forwards `reply` to the user via the Meta Cloud API.
+    """
+    import hmac
+    import base64
+
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+
+    secret = os.environ.get("WHATSAPP_WEBHOOK_SECRET", "")
+    provided = request.headers.get("X-Baseera-Webhook-Secret", "")
+    if not secret or not hmac.compare_digest(str(secret), str(provided)):
+        # 401 with no detail: never leak whether the secret is set/valid.
+        return JsonResponse({"status": "error", "message": "unauthorized"}, status=401)
+
+    try:
+        data = json.loads(request.body or "{}")
+    except (ValueError, TypeError):
+        return JsonResponse({"status": "error", "message": "invalid json"}, status=400)
+
+    phone = (data.get("phone") or "").strip()
+    if not phone:
+        return JsonResponse({"status": "error", "message": "phone required"}, status=400)
+
+    media_bytes = None
+    media_b64 = data.get("media_base64")
+    if media_b64:
+        try:
+            media_bytes = base64.b64decode(media_b64)
+        except Exception:
+            return JsonResponse({"status": "error", "message": "invalid media_base64"}, status=400)
+        if len(media_bytes) > 20 * 1024 * 1024:
+            return JsonResponse({"status": "error", "message": "media too large"}, status=400)
+
+    from dashboard.services.whatsapp_service import handle_inbound
+    result = handle_inbound(
+        phone, text=data.get("text"), media_bytes=media_bytes, media_mime=data.get("media_mime"),
+    )
+    return JsonResponse(result, json_dumps_params={"ensure_ascii": False})
