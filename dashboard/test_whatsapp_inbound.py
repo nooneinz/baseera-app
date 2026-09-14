@@ -39,14 +39,29 @@ class WhatsAppInboundEndpointTests(TestCase):
             self.assertEqual(self._post({"phone": "96891234567"}, secret="wrong").status_code, 401)
             self.assertEqual(self._post({"phone": "96891234567"}, secret=None).status_code, 401)
 
-    def test_valid_secret_registered_text_message_gets_help_reply(self):
+    def test_registered_text_falls_back_to_help_when_ai_unavailable(self):
         import os
         os.environ["WHATSAPP_WEBHOOK_SECRET"] = _SECRET
-        res = self._post({"phone": "96891234567", "text": "مرحبا"})
+        # No GEMINI client (generate_agent_reply returns None) -> static help.
+        with patch("dashboard.services.whatsapp_service.generate_agent_reply", return_value=None):
+            res = self._post({"phone": "96891234567", "text": "مرحبا"})
         self.assertEqual(res.status_code, 200)
         payload = res.json()
         self.assertEqual(payload["status"], "text")
         self.assertIn("بصيرة", payload["reply"])
+
+    def test_registered_text_routes_to_the_agent_when_ai_is_available(self):
+        import os
+        os.environ["WHATSAPP_WEBHOOK_SECRET"] = _SECRET
+        # When the AI client is available, a text question is answered by the
+        # real agent (here stubbed) rather than the static help fallback.
+        with patch("dashboard.services.whatsapp_service.generate_agent_reply",
+                   return_value="ربحك هذا الشهر تقريباً 320 ر.ع."):
+            res = self._post({"phone": "96891234567", "text": "كم ربحت هذا الشهر؟"})
+        self.assertEqual(res.status_code, 200)
+        payload = res.json()
+        self.assertEqual(payload["status"], "agent")
+        self.assertIn("320", payload["reply"])
 
     def test_unregistered_phone_gets_onboarding_reply(self):
         import os

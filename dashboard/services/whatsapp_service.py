@@ -111,6 +111,79 @@ def build_reply_from_rows(rows, currency="ر.ع"):
     return f"استلمنا رسالتك، لكن تعذّر استخراج بيانات مالية واضحة منها. جرّب صورة أوضح أو ملف Excel.\n{DASHBOARD_URL}"
 
 
+def _recent_file_context(user, max_rows=60):
+    """A compact sample of the user's most recent uploaded rows, to ground
+    the agent's WhatsApp reply in real data (never invented)."""
+    from dashboard.models import ProjectFile, DynamicRecord
+
+    latest = ProjectFile.objects.filter(user=user).order_by("-uploaded_at").first()
+    if not latest:
+        return ""
+    rows = list(
+        DynamicRecord.objects.filter(user=user, project_file=latest)
+        .values_list("row_data", flat=True)[:max_rows]
+    )
+    if not rows:
+        return ""
+    import json as _json
+    try:
+        return _json.dumps(rows, ensure_ascii=False)[:6000]
+    except Exception:
+        return ""
+
+
+def generate_agent_reply(user, message, lang="ar"):
+    """
+    A real, grounded agent answer for a WhatsApp text message -- the same
+    Baseera agent persona the web "اسأل بصيرة" chat uses, but shaped for
+    WhatsApp (short, plain text). Returns None when the AI client is
+    unavailable (no GEMINI_API_KEY) so the caller can fall back gracefully.
+    """
+    try:
+        from dashboard.services.ai_service import GeminiAIService, GEMINI_MODEL
+        from dashboard.security import sanitize_cell_for_prompt
+    except Exception:
+        return None
+
+    ai = GeminiAIService()
+    if not getattr(ai, "client", None):
+        return None
+
+    safe_msg = sanitize_cell_for_prompt(message or "", max_len=1200)
+    file_context = _recent_file_context(user)
+    try:
+        meta = ai.get_agent_meta("general", user_id=user.id, lang=lang)
+        persona = meta["system_prompt_ar"] if lang == "ar" else meta["system_prompt_en"]
+    except Exception:
+        persona = "أنت بصيرة، المحلل المالي الذكي." if lang == "ar" else "You are Baseera, the smart financial analyst."
+
+    if lang == "ar":
+        wa_rules = (
+            "\n\nأنت الآن ترد عبر واتساب. قواعد إلزامية:\n"
+            "- اجعل الرد قصيراً جداً (٢-٤ أسطر كحد أقصى)، بلا جداول ولا عناوين Markdown ولا أكواد.\n"
+            "- استند حصراً إلى بيانات المستخدم أدناه؛ لا تختلق أي رقم غير موجود فيها.\n"
+            "- إن لم تكفِ البيانات للإجابة، اطلب منه رفع ملف/صورة بإيجاز.\n"
+        )
+        tail = f"\n\nبيانات المستخدم (عينة JSON):\n{file_context or 'لا توجد بيانات مرفوعة بعد.'}\n\nسؤال المستخدم: {safe_msg}\n\nردك المختصر:"
+    else:
+        wa_rules = (
+            "\n\nYou are replying over WhatsApp. Mandatory rules:\n"
+            "- Keep it very short (max 2-4 lines), no tables, no Markdown headings, no code.\n"
+            "- Rely ONLY on the user's data below; never invent a number.\n"
+            "- If the data is insufficient, briefly ask them to upload a file/photo.\n"
+        )
+        tail = f"\n\nUser data (JSON sample):\n{file_context or 'No data uploaded yet.'}\n\nUser question: {safe_msg}\n\nYour short reply:"
+
+    prompt = persona + wa_rules + tail
+    try:
+        resp = ai.client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+        text = (getattr(resp, "text", "") or "").strip()
+        return text or None
+    except Exception as e:
+        logger.info("WhatsApp agent reply generation failed: %s", e)
+        return None
+
+
 def handle_inbound(phone, text=None, media_bytes=None, media_mime=None):
     """
     Returns {"status": <str>, "reply": <str>} for n8n to send back.
@@ -134,6 +207,22 @@ def handle_inbound(phone, text=None, media_bytes=None, media_mime=None):
         t = (text or "").strip()
         if not t:
             return {"status": "empty", "reply": "أرسل *صورة* كشف حساب أو فاتورة، أو ملف Excel، وسأكشف لك أين تخسر فلوسك 📊"}
+
+        # Let the real agent answer the customer's question, grounded in their
+        # own uploaded data -- the same persona as the web "اسأل بصيرة" chat.
+        agent_reply = generate_agent_reply(user, t, lang="ar")
+        if agent_reply:
+            try:
+                from dashboard.models import SystemLog
+                SystemLog.objects.create(
+                    user=user, action_type="واتساب / WhatsApp Chat",
+                    details=f"رد الوكيل على رسالة واتساب من {normalize_phone(phone)}.",
+                )
+            except Exception:
+                pass
+            return {"status": "agent", "reply": agent_reply}
+
+        # Fallback when the AI client is unavailable (no GEMINI_API_KEY):
         return {
             "status": "text",
             "reply": (
