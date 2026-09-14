@@ -1129,6 +1129,21 @@ def first_win(request):
     return render(request, "dashboard/first_win.html", context)
 
 
+@login_required
+def api_sector_benchmark(request):
+    """
+    Sector benchmark for the current user (anonymized peer medians). Returns
+    status 'ready' with comparisons, or 'building' when there aren't yet
+    enough similar businesses -- never an invented comparison. Never 500s.
+    """
+    from .services.sector_benchmark import sector_benchmark_for
+    try:
+        return JsonResponse(sector_benchmark_for(request.user))
+    except Exception as exc:
+        print(f"Sector benchmark error: {exc}")
+        return JsonResponse({"status": "building", "comparisons": [], "message": ""})
+
+
 def contact(request):
     if request.method == "POST":
         name = request.POST.get("name", "").strip()
