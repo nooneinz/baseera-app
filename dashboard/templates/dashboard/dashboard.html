@@ -136,7 +136,43 @@
                     
                     <!-- KPI Cards Grid (Row of 4: 1. Total Sales, 2. Avg Sales, 3. Records, 4. Financial Waste) -->
                     <div id="kpiGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10 mb-4"></div>
-                    
+
+                    <!-- Sector Benchmark (data network-effect). Self-contained &
+                         defensive: hidden unless the API returns comparisons or
+                         the honest "still building" message; never blocks the page. -->
+                    <div id="benchmarkCard" class="glass rounded-3xl p-5 mb-4 border border-white/80 dark:border-slate-800 relative z-10" style="display:none;">
+                        <div class="flex items-center gap-2 mb-3">
+                            <div class="h-8 w-8 rounded-xl bg-indigo-500/10 text-indigo-500 grid place-items-center"><i data-lucide="bar-chart-2" class="h-5 w-5"></i></div>
+                            <h3 class="text-base font-black text-ink dark:text-white">{% if trans.lang_code == 'ar' %}مقارنتك بقطاعك{% else %}You vs. your sector{% endif %} <span id="benchSector" class="text-indigo-500 font-bold"></span></h3>
+                        </div>
+                        <div id="benchBody"></div>
+                    </div>
+                    <script>
+                    (function(){
+                        fetch('/api/benchmark/').then(function(r){return r.json();}).then(function(d){
+                            var card=document.getElementById('benchmarkCard'), body=document.getElementById('benchBody'), sec=document.getElementById('benchSector');
+                            if(!card||!body) return;
+                            if(d.sector && sec) sec.textContent='('+d.sector+')';
+                            if(d.status==='ready' && d.comparisons && d.comparisons.length){
+                                body.innerHTML=d.comparisons.map(function(c){
+                                    var color=c.is_good?'text-emerald-600 dark:text-emerald-400':'text-rose-600 dark:text-rose-400';
+                                    var arrow=c.direction==='above'?'▲':'▼';
+                                    var word=c.direction==='above'?'أعلى':'أقل';
+                                    return '<div class="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800 text-sm last:border-0">'
+                                        +'<span class="font-semibold text-slate-700 dark:text-slate-200">'+c.label+'</span>'
+                                        +'<span class="'+color+' font-bold">'+arrow+' '+Math.abs(c.delta_pct)+'% '+word+' من متوسط القطاع</span>'
+                                        +'</div>';
+                                }).join('');
+                                card.style.display='';
+                            } else if(d.status==='building' && d.message){
+                                body.innerHTML='<p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">'+d.message+'</p>';
+                                card.style.display='';
+                            }
+                            if(window.lucide) lucide.createIcons();
+                        }).catch(function(){});
+                    })();
+                    </script>
+
                     <script>
                         // Listen for agent decisions applied via Ask Baseera iframe
                         window.addEventListener('agent-action-applied', function(e) {

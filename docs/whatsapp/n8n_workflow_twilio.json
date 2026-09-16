@@ -1,0 +1,143 @@
+{
+  "name": "Baseera WhatsApp Bot (Twilio Sandbox)",
+  "meta": {
+    "note": "Twilio variant. Baseera's inbound endpoint is unchanged. Create ONE n8n 'Basic Auth' credential (user = Twilio Account SID, password = Twilio Auth Token) and select it on 'Download Media' and 'Send Reply'. Replace TWILIO_ACCOUNT_SID in the Send Reply URL, the sandbox From number, and BASEERA_WEBHOOK_SECRET. See docs/whatsapp/README_twilio.md."
+  },
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "twilio-whatsapp", "options": {} },
+      "id": "twilio-webhook",
+      "name": "Twilio Inbound (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 360]
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $input.first().json.body || $input.first().json;\nconst waFrom = b.From || '';\nconst phone = String(waFrom).replace(/\\D/g, '');\nconst text = b.Body || '';\nconst numMedia = parseInt(b.NumMedia || '0', 10);\nconst has_media = numMedia > 0;\nconst media_url = has_media ? (b.MediaUrl0 || '') : '';\nconst media_mime = has_media ? (b.MediaContentType0 || '') : '';\nreturn [{ json: { phone, wa_from: waFrom, text, has_media, media_url, media_mime } }];"
+      },
+      "id": "extract-message",
+      "name": "Extract Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 360]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            { "leftValue": "={{ $json.has_media }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-media",
+      "name": "Has Media?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [740, 360]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.media_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": { "response": { "response": { "responseFormat": "file" } } }
+      },
+      "id": "download-media",
+      "name": "Download Media (Twilio)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [980, 260],
+      "credentials": { "httpBasicAuth": { "id": "REPLACE_WITH_TWILIO_CREDENTIAL", "name": "Twilio Basic Auth" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const buf = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: { media_base64: buf.toString('base64') } }];"
+      },
+      "id": "to-base64",
+      "name": "To Base64",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 260]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://baseera.it.com/api/integrations/whatsapp/inbound/",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "X-Baseera-Webhook-Secret", "value": "BASEERA_WEBHOOK_SECRET" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { phone: $('Extract Message').item.json.phone, media_base64: $json.media_base64, media_mime: $('Extract Message').item.json.media_mime } }}",
+        "options": {}
+      },
+      "id": "baseera-image",
+      "name": "Baseera Inbound (Media)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1420, 260]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://baseera.it.com/api/integrations/whatsapp/inbound/",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "X-Baseera-Webhook-Secret", "value": "BASEERA_WEBHOOK_SECRET" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { phone: $json.phone, text: $json.text } }}",
+        "options": {}
+      },
+      "id": "baseera-text",
+      "name": "Baseera Inbound (Text)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [980, 460]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/TWILIO_ACCOUNT_SID/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": { "parameters": [
+          { "name": "From", "value": "whatsapp:+14155238886" },
+          { "name": "To", "value": "={{ $('Extract Message').item.json.wa_from }}" },
+          { "name": "Body", "value": "={{ $json.reply }}" }
+        ] },
+        "options": {}
+      },
+      "id": "send-reply",
+      "name": "Send Reply (Twilio)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1660, 360],
+      "credentials": { "httpBasicAuth": { "id": "REPLACE_WITH_TWILIO_CREDENTIAL", "name": "Twilio Basic Auth" } }
+    }
+  ],
+  "connections": {
+    "Twilio Inbound (POST)": { "main": [ [ { "node": "Extract Message", "type": "main", "index": 0 } ] ] },
+    "Extract Message": { "main": [ [ { "node": "Has Media?", "type": "main", "index": 0 } ] ] },
+    "Has Media?": { "main": [
+      [ { "node": "Download Media (Twilio)", "type": "main", "index": 0 } ],
+      [ { "node": "Baseera Inbound (Text)", "type": "main", "index": 0 } ]
+    ] },
+    "Download Media (Twilio)": { "main": [ [ { "node": "To Base64", "type": "main", "index": 0 } ] ] },
+    "To Base64": { "main": [ [ { "node": "Baseera Inbound (Media)", "type": "main", "index": 0 } ] ] },
+    "Baseera Inbound (Media)": { "main": [ [ { "node": "Send Reply (Twilio)", "type": "main", "index": 0 } ] ] },
+    "Baseera Inbound (Text)": { "main": [ [ { "node": "Send Reply (Twilio)", "type": "main", "index": 0 } ] ] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

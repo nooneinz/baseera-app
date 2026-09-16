@@ -728,7 +728,8 @@ def process_excel_to_db(project_file, user, accepted_sheets=None, extracted_rows
                 except Exception as digest_err:
                     print(f"Digest generation error: {digest_err}")
 
-            sample_str = json.dumps(records_json[:100], ensure_ascii=False)
+            from .services.privacy import redacted_json
+            sample_str = redacted_json(records_json, cap=100)
             threading.Thread(
                 target=_generate_digest_in_background, args=(sample_str, user), daemon=True,
             ).start()
@@ -969,7 +970,8 @@ def api_generate_weekly_digest(request):
         all_records = DynamicRecord.objects.filter(user=request.user)
         if all_records.exists():
             records_list = list(all_records.values_list('row_data', flat=True)[:100])
-            sample_str = json.dumps(records_list, ensure_ascii=False)
+            from .services.privacy import redacted_json
+            sample_str = redacted_json(records_list, cap=100)
             try:
                 from .services.ai_service import GeminiAIService
                 ai_service = GeminiAIService()
@@ -1127,6 +1129,21 @@ def first_win(request):
         "currency": "ر.ع",
     }
     return render(request, "dashboard/first_win.html", context)
+
+
+@login_required
+def api_sector_benchmark(request):
+    """
+    Sector benchmark for the current user (anonymized peer medians). Returns
+    status 'ready' with comparisons, or 'building' when there aren't yet
+    enough similar businesses -- never an invented comparison. Never 500s.
+    """
+    from .services.sector_benchmark import sector_benchmark_for
+    try:
+        return JsonResponse(sector_benchmark_for(request.user))
+    except Exception as exc:
+        print(f"Sector benchmark error: {exc}")
+        return JsonResponse({"status": "building", "comparisons": [], "message": ""})
 
 
 def contact(request):
@@ -1465,7 +1482,8 @@ def api_boardroom_debate(request):
                 latest_file = files.first()
                 if latest_file:
                     sample_records = list(DynamicRecord.objects.filter(project_file=latest_file).values_list('row_data', flat=True)[:3])
-                    workspace_context += f"\nSample data from latest file ({latest_file.excel_file.name.split('/')[-1] if latest_file.excel_file else 'File'}):\n{json.dumps(sample_records, ensure_ascii=False)}\n"
+                    from .services.privacy import redacted_json
+                    workspace_context += f"\nSample data from latest file ({latest_file.excel_file.name.split('/')[-1] if latest_file.excel_file else 'File'}):\n{redacted_json(sample_records, cap=3)}\n"
             
             # Combine any frontend context with our backend workspace context
             comprehensive_context = f"Workspace Context:\n{workspace_context}\n\nUser Context:\n{file_context}"
