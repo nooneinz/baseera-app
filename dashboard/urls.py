@@ -80,6 +80,8 @@ urlpatterns = [
     path("api/anomalies/dismiss/<int:alert_id>/", views.api_dismiss_anomaly, name="api_dismiss_anomaly"),
     path("api/weekly-digest/", views.api_get_weekly_digest, name="api_get_weekly_digest"),
     path("api/benchmark/", views.api_sector_benchmark, name="api_sector_benchmark"),
+    path("api/runway/", views.api_runway, name="api_runway"),
+    path("api/agent/proactive-action/", views.api_agent_proactive_action, name="api_agent_proactive_action"),
     path("api/dashboard/apply-agent-decision/", views.api_apply_agent_decision, name="api_apply_agent_decision"),
 
     path("api/receipt/save/", views.save_receipt_record, name="save_receipt_record"),

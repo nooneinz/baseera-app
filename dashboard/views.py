@@ -1146,6 +1146,44 @@ def api_sector_benchmark(request):
         return JsonResponse({"status": "building", "comparisons": [], "message": ""})
 
 
+@login_required
+def api_agent_proactive_action(request):
+    """
+    Runs the proactive agent: detects the biggest recurring expense (a real
+    renegotiation opportunity), creates a Notification (a real action), and
+    returns a ready-to-send negotiation draft. Deterministic finding; never
+    invents numbers. Never 500s.
+    """
+    from .services.agent_actions import run_proactive_action
+    try:
+        return JsonResponse(run_proactive_action(request.user))
+    except Exception as exc:
+        print(f"Proactive action error: {exc}")
+        return JsonResponse({"status": "no_signal", "message": ""})
+
+
+@login_required
+def api_runway(request):
+    """
+    Cash-flow runway for the current user: average monthly net and, when the
+    business is burning cash, the projected date the money runs out. Computed
+    deterministically from the user's own dated transactions -- never an
+    invented number. Returns status 'insufficient' when the file lacks the
+    columns needed, rather than guessing. Never 500s.
+    """
+    from .models import DynamicRecord
+    from .services.runway import compute_runway
+    try:
+        rows = list(
+            DynamicRecord.objects.filter(user=request.user)
+            .values_list("row_data", flat=True)[:10000]
+        )
+        return JsonResponse(compute_runway(rows))
+    except Exception as exc:
+        print(f"Runway error: {exc}")
+        return JsonResponse({"status": "insufficient", "reason": ""})
+
+
 def contact(request):
     if request.method == "POST":
         name = request.POST.get("name", "").strip()
