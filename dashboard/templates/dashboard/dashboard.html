@@ -137,6 +137,55 @@
                     <!-- KPI Cards Grid (Row of 4: 1. Total Sales, 2. Avg Sales, 3. Records, 4. Financial Waste) -->
                     <div id="kpiGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10 mb-4"></div>
 
+                    <!-- Cash-flow Runway: the shift from analysing the past to
+                         warning about the future. Self-contained & defensive:
+                         hidden unless the API returns a computable result;
+                         numbers computed deterministically server-side. -->
+                    <div id="runwayCard" class="glass rounded-3xl p-5 mb-4 border border-white/80 dark:border-slate-800 relative z-10" style="display:none;">
+                        <div class="flex items-center gap-2 mb-3">
+                            <div class="h-8 w-8 rounded-xl bg-cyan-500/10 text-cyan-500 grid place-items-center"><i data-lucide="trending-up" class="h-5 w-5"></i></div>
+                            <h3 class="text-base font-black text-ink dark:text-white">{% if trans.lang_code == 'ar' %}توقّع السيولة{% else %}Cash Runway{% endif %}</h3>
+                        </div>
+                        <div id="runwayBody"></div>
+                    </div>
+                    <script>
+                    (function(){
+                        var ar = ('{{ trans.lang_code }}' === 'ar');
+                        function fmt(n){ try { return Math.round(n).toLocaleString('en-US'); } catch(e){ return n; } }
+                        function fmtDate(iso){ try {
+                            var d=new Date(iso+'T00:00:00');
+                            return d.toLocaleDateString(ar?'ar':'en-US',{year:'numeric',month:'long',day:'numeric'});
+                        } catch(e){ return iso; } }
+                        fetch('/api/runway/').then(function(r){return r.json();}).then(function(d){
+                            var card=document.getElementById('runwayCard'), body=document.getElementById('runwayBody');
+                            if(!card||!body||!d||d.status==='insufficient') return;
+                            var html='';
+                            if(d.status==='burning'){
+                                html='<div class="flex items-end gap-2 flex-wrap">'
+                                    +'<span class="text-3xl font-black text-cyan-600 dark:text-cyan-400" style="font-family:Outfit,sans-serif;">'+fmtDate(d.runway_date)+'</span>'
+                                    +'</div>'
+                                    +'<p class="text-sm text-slate-600 dark:text-slate-300 mt-1">'
+                                    +(ar?'سيولتك تكفيك حتى هذا التاريخ تقريباً بمعدّل صرفك الحالي.':'Your cash lasts until about this date at the current burn rate.')+'</p>'
+                                    +'<div class="grid grid-cols-3 gap-3 mt-4 text-center">'
+                                    +'<div><div class="text-lg font-bold text-slate-800 dark:text-slate-100" style="font-family:Outfit;">'+d.runway_months+'</div><div class="text-xs text-slate-500">'+(ar?'شهر متبقٍ':'months left')+'</div></div>'
+                                    +'<div><div class="text-lg font-bold text-rose-600 dark:text-rose-400" style="font-family:Outfit;">'+fmt(d.monthly_burn)+'</div><div class="text-xs text-slate-500">'+(ar?'صرف شهري':'monthly burn')+'</div></div>'
+                                    +'<div><div class="text-lg font-bold text-slate-800 dark:text-slate-100" style="font-family:Outfit;">'+fmt(d.current_cash)+'</div><div class="text-xs text-slate-500">'+(ar?'السيولة الحالية':'current cash')+'</div></div>'
+                                    +'</div>';
+                                if(d.cash_estimated) html+='<p class="text-xs text-slate-400 mt-2">'+(ar?'* السيولة مُقدّرة من صافي حركتك المسجّلة (أضف عمود «الرصيد» لدقة أعلى).':'* Cash estimated from your recorded net (add a Balance column for accuracy).')+'</p>';
+                            } else if(d.status==='surplus'){
+                                html='<div class="text-2xl font-black text-emerald-600 dark:text-emerald-400" style="font-family:Outfit,sans-serif;">+'+fmt(d.avg_monthly_net)+'</div>'
+                                    +'<p class="text-sm text-slate-600 dark:text-slate-300 mt-1">'+(ar?'وضعك الشهري فائض — تكسب أكثر مما تصرف بمعدّل هذا المبلغ شهرياً. 🎉':'You are cash-positive — earning more than you spend each month. 🎉')+'</p>';
+                            } else if(d.status==='critical'){
+                                html='<div class="text-2xl font-black text-rose-600 dark:text-rose-400">'+(ar?'⚠️ سيولتك سالبة':'⚠️ Cash is negative')+'</div>'
+                                    +'<p class="text-sm text-slate-600 dark:text-slate-300 mt-1">'+(ar?'مصروفاتك تجاوزت دخلك ورصيدك المقدّر أقل من صفر — يحتاج تدخّلاً عاجلاً.':'Expenses exceed income and estimated cash is below zero — urgent action needed.')+'</p>';
+                            } else { return; }
+                            body.innerHTML=html;
+                            card.style.display='';
+                            if(window.lucide) lucide.createIcons();
+                        }).catch(function(){});
+                    })();
+                    </script>
+
                     <!-- Sector Benchmark (data network-effect). Self-contained &
                          defensive: hidden unless the API returns comparisons or
                          the honest "still building" message; never blocks the page. -->
