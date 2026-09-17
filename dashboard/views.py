@@ -1147,6 +1147,22 @@ def api_sector_benchmark(request):
 
 
 @login_required
+def api_agent_proactive_action(request):
+    """
+    Runs the proactive agent: detects the biggest recurring expense (a real
+    renegotiation opportunity), creates a Notification (a real action), and
+    returns a ready-to-send negotiation draft. Deterministic finding; never
+    invents numbers. Never 500s.
+    """
+    from .services.agent_actions import run_proactive_action
+    try:
+        return JsonResponse(run_proactive_action(request.user))
+    except Exception as exc:
+        print(f"Proactive action error: {exc}")
+        return JsonResponse({"status": "no_signal", "message": ""})
+
+
+@login_required
 def api_runway(request):
     """
     Cash-flow runway for the current user: average monthly net and, when the

@@ -186,6 +186,57 @@
                     })();
                     </script>
 
+                    <!-- Proactive Agent Action: proof of "Agentic". Detects a
+                         renegotiation opportunity, creates a real notification,
+                         and drafts a ready-to-send message. -->
+                    <div id="agentActionCard" class="glass rounded-3xl p-5 mb-4 border border-white/80 dark:border-slate-800 relative z-10">
+                        <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                            <div class="flex items-center gap-2">
+                                <div class="h-8 w-8 rounded-xl bg-violet-500/10 text-violet-500 grid place-items-center"><i data-lucide="bot" class="h-5 w-5"></i></div>
+                                <h3 class="text-base font-black text-ink dark:text-white">{% if trans.lang_code == 'ar' %}الوكيل الاستباقي{% else %}Proactive Agent{% endif %}</h3>
+                            </div>
+                            <button id="runAgentBtn" class="text-sm font-bold text-white px-4 py-2 rounded-xl" style="background:linear-gradient(105deg,#6366f1,#a855f7);">
+                                {% if trans.lang_code == 'ar' %}شغّل الوكيل{% else %}Run agent{% endif %}
+                            </button>
+                        </div>
+                        <p id="agentHint" class="text-sm text-slate-500 dark:text-slate-400">{% if trans.lang_code == 'ar' %}اضغط ليبحث الوكيل عن أكبر فرصة توفير ويتصرّف نيابةً عنك.{% else %}Let the agent find your biggest saving opportunity and act on it.{% endif %}</p>
+                        <div id="agentResult" style="display:none;"></div>
+                    </div>
+                    <script>
+                    (function(){
+                        var ar=('{{ trans.lang_code }}'==='ar');
+                        function csrf(){ var m=document.cookie.match(/csrftoken=([^;]+)/); return m?m[1]:''; }
+                        var btn=document.getElementById('runAgentBtn'), res=document.getElementById('agentResult'), hint=document.getElementById('agentHint');
+                        if(!btn) return;
+                        btn.addEventListener('click', function(){
+                            btn.disabled=true; var old=btn.textContent; btn.textContent=ar?'...يعمل الوكيل':'working...';
+                            fetch('/api/agent/proactive-action/',{method:'POST',headers:{'X-CSRFToken':csrf(),'Content-Type':'application/json'},body:'{}'})
+                            .then(function(r){return r.json();}).then(function(d){
+                                btn.disabled=false; btn.textContent=old;
+                                if(!d||d.status!=='acted'){
+                                    if(hint) hint.textContent=(d&&d.message)?d.message:(ar?'لا توجد فرصة واضحة بعد.':'No clear opportunity yet.');
+                                    return;
+                                }
+                                if(hint) hint.style.display='none';
+                                var esc=function(s){var e=document.createElement('div');e.textContent=s||'';return e.innerHTML;};
+                                res.innerHTML=
+                                    '<div class="rounded-2xl bg-violet-500/5 border border-violet-500/20 p-4">'
+                                    +'<div class="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-bold mb-2"><i data-lucide="check-circle" class="h-4 w-4"></i>'+(ar?'تصرّف الوكيل — أنشأ تنبيهاً':'Agent acted — notification created')+'</div>'
+                                    +'<p class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1">'+esc(d.notification_title)+'</p>'
+                                    +'<p class="text-sm text-slate-600 dark:text-slate-300 mb-3">'+esc(d.notification_message)+'</p>'
+                                    +'<div class="text-xs font-bold text-slate-500 mb-1">'+(ar?'رسالة تفاوض جاهزة:':'Ready negotiation draft:')+'</div>'
+                                    +'<pre id="agentDraft" class="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-wrap bg-white dark:bg-slate-900 rounded-xl p-3 border border-slate-200 dark:border-slate-700" style="font-family:inherit;">'+esc(d.draft_message)+'</pre>'
+                                    +'<button id="copyDraft" class="mt-2 text-xs font-bold text-violet-600 dark:text-violet-400">'+(ar?'نسخ الرسالة':'Copy message')+'</button>'
+                                    +'</div>';
+                                res.style.display='';
+                                if(window.lucide) lucide.createIcons();
+                                var cp=document.getElementById('copyDraft');
+                                if(cp) cp.addEventListener('click',function(){try{navigator.clipboard.writeText(d.draft_message);cp.textContent=ar?'✓ تم النسخ':'✓ Copied';}catch(e){}});
+                            }).catch(function(){ btn.disabled=false; btn.textContent=old; });
+                        });
+                    })();
+                    </script>
+
                     <!-- Sector Benchmark (data network-effect). Self-contained &
                          defensive: hidden unless the API returns comparisons or
                          the honest "still building" message; never blocks the page. -->
