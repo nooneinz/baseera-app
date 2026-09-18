@@ -100,6 +100,22 @@ class WhatsAppInboundEndpointTests(TestCase):
         # A file was really created and processed for this user.
         self.assertTrue(ProjectFile.objects.filter(user=self.user).exists())
 
+    def test_invalid_upload_records_a_failure_log(self):
+        import os
+        os.environ["WHATSAPP_WEBHOOK_SECRET"] = _SECRET
+        from dashboard.models import SystemLog
+        b64 = base64.b64encode(b"not a real financial file").decode("ascii")
+        fake_validation = {"is_valid": False, "status": "reject", "reason": "unreadable"}
+        with patch.dict(sys.modules, {"magic": MagicMock()}):
+            with patch("dashboard.services.validation_service.validate_financial_file", return_value=fake_validation):
+                res = self._post({"phone": "96891234567", "media_base64": b64, "media_mime": "image/jpeg"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["status"], "invalid")
+        # The failure is now visible in the logs instead of silent.
+        self.assertTrue(
+            SystemLog.objects.filter(user=self.user, action_type__icontains="Failure").exists()
+        )
+
 
 class WhatsAppServiceUnitTests(TestCase):
     def test_resolve_user_by_phone_matches_on_last_8_digits(self):

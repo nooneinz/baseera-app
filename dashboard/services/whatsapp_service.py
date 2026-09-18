@@ -36,6 +36,29 @@ def _fmt(n):
         return str(n)
 
 
+def _record_whatsapp_failure(user, phone, status, detail=""):
+    """
+    Make WhatsApp processing/reply failures visible instead of silent: write a
+    SystemLog row (shown in admin logs) and report to Sentry if configured.
+    Best-effort -- monitoring must never itself break the reply path.
+    """
+    try:
+        from dashboard.models import SystemLog
+        SystemLog.objects.create(
+            user=user if getattr(user, "id", None) else None,
+            action_type="واتساب / WhatsApp Failure",
+            details=f"فشل معالجة رسالة واتساب ({status}) من {normalize_phone(phone)}: {detail}"[:500],
+        )
+    except Exception:
+        pass
+    try:
+        import sentry_sdk
+        sentry_sdk.capture_message(f"WhatsApp failure [{status}] from {normalize_phone(phone)}: {detail}", level="warning")
+    except Exception:
+        pass
+    logger.warning("WhatsApp failure [%s] from %s: %s", status, normalize_phone(phone), detail)
+
+
 def normalize_phone(phone):
     """Digits only, so numbers stored with/without country code or spaces still match."""
     return re.sub(r"\D", "", str(phone or ""))
@@ -244,6 +267,7 @@ def handle_inbound(phone, text=None, media_bytes=None, media_mime=None):
         }
     except Exception as exc:
         logger.exception("WhatsApp inbound failed: %s", exc)
+        _record_whatsapp_failure(locals().get("user"), phone, "error", str(exc))
         return {"status": "error", "reply": "حدث خطأ مؤقت أثناء المعالجة. حاول مرة أخرى بعد قليل."}
 
 
@@ -262,6 +286,7 @@ def _handle_media(user, phone, media_bytes, media_mime):
 
     validation = validate_financial_file(upload)
     if not validation.get("is_valid"):
+        _record_whatsapp_failure(user, phone, "invalid", validation.get("reason", "validation failed"))
         return {
             "status": "invalid",
             "reply": "تعذّر قراءة ما أرسلته كبيانات مالية. جرّب صورة أوضح لكشف الحساب/الفاتورة، أو أرسل ملف Excel/CSV.",
@@ -278,6 +303,7 @@ def _handle_media(user, phone, media_bytes, media_mime):
     )
     if not ok:
         project_file.delete()
+        _record_whatsapp_failure(user, phone, "process_error", str(err))
         return {"status": "error", "reply": "تعذّرت معالجة الملف. تأكد من وضوح البيانات وحاول مجدداً."}
 
     try:
