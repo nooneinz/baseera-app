@@ -48,9 +48,36 @@ jobs:
     - name: Test Docker Compose Build
       run: docker compose config
 
+  django-tests:
+    name: Django Tests (Python)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    - name: Install system deps (libmagic for python-magic)
+      run: sudo apt-get update && sudo apt-get install -y libmagic1
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Django system check
+      env:
+        SECRET_KEY: ci-insecure-secret-key-only-for-testing-1234567890
+        DEBUG: "True"
+      run: python manage.py check
+    - name: Run tests
+      env:
+        SECRET_KEY: ci-insecure-secret-key-only-for-testing-1234567890
+        DEBUG: "True"
+      run: python manage.py test --verbosity 2
+
   deploy:
     name: Deploy to Production
-    needs: [build-backend, build-flutter, docker-compose-check]
+    needs: [build-backend, build-flutter, docker-compose-check, django-tests]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
