@@ -2730,6 +2730,18 @@ def chat_api(request):
     return JsonResponse({"status": "invalid_method"}, status=400)
 
 
+def healthz(request):
+    """
+    Ultra-light liveness probe for keep-alive pingers (UptimeRobot / cron) to
+    stop the host (e.g. Render free tier) from sleeping and cold-starting on
+    the next real request. Deliberately public with NO auth, NO database, and
+    NO AI call -- it just proves the process is up, cheaply, so pinging it
+    every few minutes keeps the server warm without burning any quota.
+    """
+    from django.http import HttpResponse
+    return HttpResponse("ok", content_type="text/plain; charset=utf-8")
+
+
 @login_required
 def api_ai_health(request):
     """
