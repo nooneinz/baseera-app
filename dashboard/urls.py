@@ -63,6 +63,7 @@ urlpatterns = [
     
     # API endpoints
     path("api/insights/chat", views.chat_api, name="chat_api"),
+    path("healthz/", views.healthz, name="healthz"),
     path("api/ai/health/", views.api_ai_health, name="api_ai_health"),
     path("api/documents/auto-save/", views.api_auto_save_document, name="api_auto_save_document"),
     path("api/record-ai-usage/", views.record_ai_usage, name="record_ai_usage"),

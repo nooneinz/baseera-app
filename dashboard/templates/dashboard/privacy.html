@@ -7,14 +7,50 @@
 
 <main class="mx-auto w-[min(1100px,calc(100%-2rem))] pb-20 pt-32 text-{{ trans.align }}">
     <section class="animate-fade-up">
-        <h1 class="text-3xl font-extrabold mb-6">{% if trans.lang_code == 'ar' %}سياسة الخصوصية{% else %}Privacy Policy{% endif %}</h1>
-        <div class="glass p-8 rounded-3xl text-sm leading-relaxed text-muted-foreground space-y-4">
-            <p>{% if trans.lang_code == 'ar' %}نحن في بصيرة نولي أهمية قصوى لخصوصية بياناتك المالية والمحاسبية. يتم تشفير جميع البيانات وتخزينها بشكل آمن وفق أعلى المعايير.{% else %}At Baseera, we prioritize the privacy of your financial and accounting data. All data is securely encrypted and stored according to the highest standards.{% endif %}</p>
-            <p>{% if trans.lang_code == 'ar' %}لا يتم مشاركة أرقام مشاريعك أو بيانات عملائك مع أي جهة خارجية تحت أي ظرف من الظروف.{% else %}Your project numbers and customer data are never shared with any third party under any circumstances.{% endif %}</p>
+        <h1 class="text-3xl font-extrabold mb-2">{% if trans.lang_code == 'ar' %}سياسة الخصوصية{% else %}Privacy Policy{% endif %}</h1>
+        <p class="text-xs text-slate-400 mb-6">{% if trans.lang_code == 'ar' %}آخر تحديث: سبتمبر 2026{% else %}Last updated: September 2026{% endif %}</p>
+
+        <div class="glass p-8 rounded-3xl text-sm leading-relaxed text-muted-foreground space-y-6">
+
+            <p class="font-semibold text-slate-700 dark:text-slate-200">{% if trans.lang_code == 'ar' %}مبدؤنا: بياناتك المالية ملكك، ولا تخرج خاماً من نظامنا أبداً. نحسب أرقامك داخلياً، ونشرحها لك — بلا بيع، بلا مشاركة، بلا مفاجآت.{% else %}Our principle: your financial data is yours. It never leaves our system in raw form. We compute your numbers internally and explain them to you — no selling, no sharing, no surprises.{% endif %}</p>
+
+            <div>
+                <h2 class="text-base font-bold text-slate-800 dark:text-white mb-2">{% if trans.lang_code == 'ar' %}1) ما الذي نجمعه{% else %}1) What we collect{% endif %}</h2>
+                <p>{% if trans.lang_code == 'ar' %}الملفات المالية التي ترفعها (مبيعات، مصروفات، كشوف بنكية، فواتير)، ومعلومات حسابك الأساسية (الاسم، البريد، رقم الهاتف، نوع النشاط). لا نطلب أكثر مما يلزم لتحليل أعمالك.{% else %}The financial files you upload (sales, expenses, bank statements, invoices) and basic account information (name, email, phone number, business type). We ask for no more than what is needed to analyze your business.{% endif %}</p>
+            </div>
+
+            <div>
+                <h2 class="text-base font-bold text-slate-800 dark:text-white mb-2">{% if trans.lang_code == 'ar' %}2) كيف نستخدمها{% else %}2) How we use it{% endif %}</h2>
+                <p>{% if trans.lang_code == 'ar' %}نحسب مؤشراتك المالية (الهدر، هامش الربح، التدفق النقدي، توقّع السيولة) <strong>حسابياً داخل نظامنا</strong> — الأرقام لا يقدّرها ذكاء اصطناعي، بل تُحسب بمعادلات ثابتة. نستخدمها فقط لخدمتك أنت.{% else %}We compute your financial metrics (waste, margin, cash flow, runway) <strong>deterministically inside our own system</strong> — the numbers are not estimated by AI; they are calculated with fixed formulas. We use them only to serve you.{% endif %}</p>
+            </div>
+
+            <div>
+                <h2 class="text-base font-bold text-slate-800 dark:text-white mb-2">{% if trans.lang_code == 'ar' %}3) المعالجة عبر طرف ثالث (بصراحة تامة){% else %}3) Third-party processing (full transparency){% endif %}</h2>
+                <p>{% if trans.lang_code == 'ar' %}لصياغة الشرح بلغة طبيعية، ولقراءة النص من الصور والمستندات الممسوحة (OCR)، نستعين بخدمة نموذج لغوي متقدّم (Google Gemini). <strong>قبل أي إرسال، نُجهّل بياناتك تلقائياً</strong>: تُحجب الأسماء وأرقام الحسابات البنكية والهويات والبريد والهواتف والعناوين. لا تخرج بياناتك المالية الخام — فقط ملخّص مجهّل يكفي للشرح. الخدمة المستخدمة لا تستعمل بياناتك لتدريب نماذجها.{% else %}To phrase explanations in natural language and to read text from images and scanned documents (OCR), we use an advanced language-model service (Google Gemini). <strong>Before anything is sent, your data is automatically de-identified</strong>: names, bank-account numbers, national IDs, emails, phones and addresses are masked. Your raw financial data never leaves — only an anonymized summary sufficient for explanation. The service used does not use your data to train its models.{% endif %}</p>
+            </div>
+
+            <div>
+                <h2 class="text-base font-bold text-slate-800 dark:text-white mb-2">{% if trans.lang_code == 'ar' %}4) العزل والأمان{% else %}4) Isolation & security{% endif %}</h2>
+                <p>{% if trans.lang_code == 'ar' %}بيانات كل منشأة معزولة تماماً عن غيرها؛ لا يصل أي مستخدم لبيانات مستخدم آخر. الاتصال كله مشفّر (HTTPS)، والملفات تُخزَّن بشكل آمن. مقارنات القطاع تُبنى على وسيط إحصائي <strong>مجهّل</strong> — لا تكشف أي منشأة بعينها.{% else %}Each business's data is fully isolated from others; no user can access another user's data. All traffic is encrypted (HTTPS) and files are stored securely. Sector comparisons are built on an <strong>anonymized</strong> statistical median — they never reveal any individual business.{% endif %}</p>
+            </div>
+
+            <div>
+                <h2 class="text-base font-bold text-slate-800 dark:text-white mb-2">{% if trans.lang_code == 'ar' %}5) الاحتفاظ والحذف{% else %}5) Retention & deletion{% endif %}</h2>
+                <p>{% if trans.lang_code == 'ar' %}تحتفظ ببياناتك ما دام حسابك نشطاً. يمكنك حذف أي مجموعة بيانات من صفحة «مجموعات البيانات» في أي وقت، أو طلب حذف حسابك وبياناته بالكامل عبر التواصل معنا — ويُنفَّذ خلال مدة معقولة.{% else %}We keep your data as long as your account is active. You can delete any dataset from the "Datasets" page at any time, or request full deletion of your account and data by contacting us — carried out within a reasonable period.{% endif %}</p>
+            </div>
+
+            <div>
+                <h2 class="text-base font-bold text-slate-800 dark:text-white mb-2">{% if trans.lang_code == 'ar' %}6) ما لا نفعله{% else %}6) What we never do{% endif %}</h2>
+                <p>{% if trans.lang_code == 'ar' %}لا نبيع بياناتك، ولا نشاركها لأغراض تسويقية، ولا نرسل بياناتك المالية الخام لأي طرف ثالث. لا نستخدم بيانات منشأتك لصالح منشأة أخرى.{% else %}We do not sell your data, do not share it for marketing, and do not send your raw financial data to any third party. We never use one business's data for the benefit of another.{% endif %}</p>
+            </div>
+
+            <div>
+                <h2 class="text-base font-bold text-slate-800 dark:text-white mb-2">{% if trans.lang_code == 'ar' %}7) التواصل{% else %}7) Contact{% endif %}</h2>
+                <p>{% if trans.lang_code == 'ar' %}لأي سؤال حول خصوصيتك أو لطلب حذف بياناتك، تواصل معنا عبر صفحة «تواصل معنا».{% else %}For any question about your privacy or to request data deletion, reach us via the "Contact" page.{% endif %}</p>
+            </div>
+
         </div>
     </section>
-
-
 </main>
 
 {% include 'dashboard/footer.html' %}
