@@ -147,6 +147,16 @@ def generate_agent_reply(user, message, lang="ar"):
     if not getattr(ai, "client", None):
         return None
 
+    # Cost guardrail: cap Gemini-backed replies per user/day and globally.
+    # Over the cap we return None so the caller falls back to the static help
+    # message instead of making an (uncapped) paid call.
+    try:
+        from dashboard.services.ai_quota import check_gemini_quota
+        if not check_gemini_quota(user_id=getattr(user, "id", None)):
+            return None
+    except Exception:
+        pass
+
     safe_msg = sanitize_cell_for_prompt(message or "", max_len=1200)
     file_context = _recent_file_context(user)
     try:
