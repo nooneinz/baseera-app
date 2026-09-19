@@ -53,6 +53,8 @@ class BuildAgentToolsHardConstraintTests(TestCase):
         self.assertEqual(names, {
             "create_notification", "save_memory",
             "get_runway", "get_cashflow", "get_benchmark",
+            "get_waste_summary", "get_recent_files", "search_documents",
+            "draft_negotiation_message",
         })
 
     def test_no_financial_or_decision_MUTATION_tool_names_are_present(self):

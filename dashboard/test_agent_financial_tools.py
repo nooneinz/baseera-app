@@ -66,3 +66,29 @@ class AgentFinancialToolsTests(TestCase):
         # Never raises on a missing user session.
         self.assertIsInstance(agent_tools._get_cashflow_tool(None), str)
         self.assertIsInstance(agent_tools._get_runway_tool(None), str)
+
+    def test_recent_files_lists_uploads(self):
+        u = _make_user("files05", [_txn("مبيعات", 500, "دخل")])
+        out = agent_tools._get_recent_files_tool(u.id)
+        parsed = json.loads(out)
+        self.assertTrue(parsed and parsed[0]["rows"] >= 1)
+
+    def test_waste_summary_returns_shape(self):
+        u = _make_user("waste06", [
+            {"الصنف": "وجبة", "سعر البيع": 4.5, "التكلفة": 5.2, "الكمية": 10},
+        ])
+        out = json.loads(agent_tools._get_waste_summary_tool(u.id))
+        self.assertIn("total_waste", out)
+        self.assertIn("top_sources", out)
+
+    def test_draft_negotiation_grounds_in_recurring_expense(self):
+        u = _make_user("nego07", [
+            _txn("مورد الأجبان", 800, "مصروف"),
+            _txn("مورد الأجبان", 750, "مصروف"),
+            _txn("مبيعات", 5000, "دخل"),
+        ])
+        msg = agent_tools._draft_negotiation_tool(u.id)
+        self.assertIn("مورد الأجبان", msg)
+
+    def test_search_documents_never_raises_without_user(self):
+        self.assertIsInstance(agent_tools._search_documents_tool(None, "إيجار"), str)

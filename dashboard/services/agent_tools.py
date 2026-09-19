@@ -52,8 +52,10 @@ MAX_REACT_ITERATIONS = 3
 # tool anymore; arithmetic the model needs is done by the model itself.
 _TOOL_NAMES = {
     "create_notification", "save_memory",
-    # READ-ONLY financial query tools (compute & return, never mutate):
+    # READ-ONLY query tools (compute/read & return, never mutate):
     "get_runway", "get_cashflow", "get_benchmark",
+    "get_waste_summary", "get_recent_files", "search_documents",
+    "draft_negotiation_message",
 }
 
 # Latency gate: the pre-loop costs at least one extra live round trip
@@ -74,7 +76,15 @@ _REACT_TRIGGER_TERMS = [
     # Financial read-only tools:
     "سيولة", "الرصيد", "تكفي", "تخلص فلوس", "متى ينفد", "runway", "burn", "cash",
     "دخل", "مصروف", "صافي", "وين تروح", "أكبر مصروف", "income", "expense", "net",
-    "قارن", "مقارنة", "قطاع", "مثيلاتي", "النظراء", "benchmark", "compare", "sector",
+    # Financial read-only tools -- explicit phrases only, so an ordinary
+    # analytical "why is my waste high?" question does NOT pay the pre-loop.
+    "متى تخلص", "متى ينفد", "كم يكفيني", "كم يكفي", "الرصيد يكفي", "توقع السيولة",
+    "runway", "burn rate", "how long will my", "when will i run out",
+    "كم دخلي", "كم مصروفي", "وين تروح فلوسي", "my cash flow",
+    "قارني", "قارنّي", "مقارنتي", "مقارنة القطاع", "compare me", "vs my sector",
+    "ملفاتي", "بياناتي المرفوعة", "وش رفعت", "my uploaded files",
+    "ابحث في", "دوّر لي", "search my", "find in my",
+    "رسالة تفاوض", "صيغ لي رسالة", "تفاوض مع", "negotiation message", "negotiate with",
 ]
 
 
@@ -212,13 +222,81 @@ def _get_benchmark_tool(user_id):
         return "Could not compute sector benchmark."
 
 
+def _get_waste_summary_tool(user_id):
+    """READ-ONLY: the biggest quantified money-leak sources."""
+    try:
+        from dashboard.services.waste_analyzer import compute_waste_signals
+        w = compute_waste_signals(_rows_for(user_id)) or {}
+        top = sorted(
+            (w.get("signals") or []),
+            key=lambda s: s.get("currency_amount", 0) or 0, reverse=True,
+        )[:3]
+        return json.dumps({
+            "total_waste": w.get("total_waste", 0),
+            "top_sources": [
+                {"title": s.get("title"), "amount": s.get("currency_amount"),
+                 "evidence_count": s.get("evidence_count")} for s in top
+            ],
+        }, ensure_ascii=False)
+    except Exception as e:
+        logger.info("get_waste_summary tool failed: %s", e)
+        return "Could not compute waste summary."
+
+
+def _get_recent_files_tool(user_id):
+    """READ-ONLY: what data the user has, so the agent knows what it can use."""
+    try:
+        from dashboard.models import ProjectFile, DynamicRecord
+        if not user_id:
+            return "No active user session."
+        files = ProjectFile.objects.filter(user_id=user_id).order_by("-uploaded_at")[:5]
+        out = []
+        for f in files:
+            out.append({
+                "name": (f.excel_file.name.split("/")[-1] if f.excel_file else f"file-{f.id}"),
+                "rows": DynamicRecord.objects.filter(project_file=f).count(),
+                "uploaded": f.uploaded_at.strftime("%Y-%m-%d") if f.uploaded_at else None,
+            })
+        return json.dumps(out, ensure_ascii=False) if out else "No files uploaded yet."
+    except Exception as e:
+        logger.info("get_recent_files tool failed: %s", e)
+        return "Could not list recent files."
+
+
+def _search_documents_tool(user_id, query):
+    """READ-ONLY: hybrid RAG search over the user's own uploaded sheets."""
+    try:
+        from dashboard.services.retrieval_service import search_relevant_sheets
+        if not user_id:
+            return "No active user session."
+        hits = search_relevant_sheets(user_id, (query or "").strip(), top_k=5) or []
+        return json.dumps(hits, ensure_ascii=False) if hits else "No relevant documents found."
+    except Exception as e:
+        logger.info("search_documents tool failed: %s", e)
+        return "Could not search documents."
+
+
+def _draft_negotiation_tool(user_id):
+    """READ-ONLY: a ready-to-send supplier renegotiation message for the
+    biggest recurring expense, grounded in the real numbers."""
+    try:
+        from dashboard.services.agent_actions import _detect_finding, _draft_negotiation
+        finding = _detect_finding(_rows_for(user_id))
+        if not finding:
+            return "No clear recurring expense to negotiate yet."
+        return _draft_negotiation(finding)
+    except Exception as e:
+        logger.info("draft_negotiation tool failed: %s", e)
+        return "Could not draft a negotiation message."
+
+
 def build_agent_tools():
     """
     The ONLY function-calling surface the agent is ever given -- see
     module docstring for why financial/decision *mutations* are deliberately
-    absent. The get_* tools below are READ-ONLY: they compute and return
-    numbers from the user's own rows (via the deterministic engines) but never
-    change a financial figure or decision metric.
+    absent. The get_*/search_*/draft_* tools below are READ-ONLY: they compute
+    and return values from the user's own rows (via the deterministic engines)
+    but never change a financial figure or decision metric.
     """
     # SECURITY (F-01): a "run_python_code" tool was removed here -- see the
     # note on _TOOL_NAMES. The model is never handed a server-side code
@@ -284,9 +362,52 @@ def build_agent_tools():
         ),
         parameters_json_schema={"type": "object", "properties": {}},
     )
+    get_waste_summary_fd = types.FunctionDeclaration(
+        name="get_waste_summary",
+        description=(
+            "READ-ONLY. Returns the biggest quantified money-leak sources and "
+            "total waste from the user's own data. Use it when the user asks "
+            "where they lose money or about waste/leakage."
+        ),
+        parameters_json_schema={"type": "object", "properties": {}},
+    )
+    get_recent_files_fd = types.FunctionDeclaration(
+        name="get_recent_files",
+        description=(
+            "READ-ONLY. Lists the user's most recent uploaded files with row "
+            "counts and dates, so you know what data is available. Use it when "
+            "you need to know what the user has uploaded, or they ask what data "
+            "you have."
+        ),
+        parameters_json_schema={"type": "object", "properties": {}},
+    )
+    search_documents_fd = types.FunctionDeclaration(
+        name="search_documents",
+        description=(
+            "READ-ONLY. Searches the user's own uploaded sheets/documents for "
+            "the given query and returns the most relevant ones. Use it to "
+            "find a specific file or detail the user refers to."
+        ),
+        parameters_json_schema={
+            "type": "object",
+            "properties": {"query": {"type": "string", "description": "What to search for."}},
+            "required": ["query"],
+        },
+    )
+    draft_negotiation_fd = types.FunctionDeclaration(
+        name="draft_negotiation_message",
+        description=(
+            "READ-ONLY. Returns a ready-to-send supplier renegotiation message "
+            "for the user's biggest recurring expense, grounded in the real "
+            "numbers. Use it when the user wants to negotiate or reduce a "
+            "recurring cost."
+        ),
+        parameters_json_schema={"type": "object", "properties": {}},
+    )
     return types.Tool(function_declarations=[
         create_notification_fd, save_memory_fd,
         get_runway_fd, get_cashflow_fd, get_benchmark_fd,
+        get_waste_summary_fd, get_recent_files_fd, search_documents_fd, draft_negotiation_fd,
     ])
 
 
@@ -368,6 +489,14 @@ def run_react_preloop(ai_service, prompt, user_id, model, lang="ar", on_state=No
             observation = _get_cashflow_tool(user_id)
         elif name == "get_benchmark":
             observation = _get_benchmark_tool(user_id)
+        elif name == "get_waste_summary":
+            observation = _get_waste_summary_tool(user_id)
+        elif name == "get_recent_files":
+            observation = _get_recent_files_tool(user_id)
+        elif name == "search_documents":
+            observation = _search_documents_tool(user_id, args.get("query", ""))
+        elif name == "draft_negotiation_message":
+            observation = _draft_negotiation_tool(user_id)
         else:
             observation = "Tool not available."
 
