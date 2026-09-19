@@ -56,6 +56,8 @@ _TOOL_NAMES = {
     "get_runway", "get_cashflow", "get_benchmark",
     "get_waste_summary", "get_recent_files", "search_documents",
     "draft_negotiation_message",
+    # Safe natural-language data exploration (parameters only, no exec):
+    "describe_dataset", "count_where",
 }
 
 # Latency gate: the pre-loop costs at least one extra live round trip
@@ -85,6 +87,8 @@ _REACT_TRIGGER_TERMS = [
     "ملفاتي", "بياناتي المرفوعة", "وش رفعت", "my uploaded files",
     "ابحث في", "دوّر لي", "search my", "find in my",
     "رسالة تفاوض", "صيغ لي رسالة", "تفاوض مع", "negotiation message", "negotiate with",
+    "كم عدد", "كم من", "عدد المعاملات", "كم معاملة", "كم عملية", "متوسط", "توزيع",
+    "how many", "count of", "average of", "distribution of", "describe the data",
 ]
 
 
@@ -290,13 +294,96 @@ def _draft_negotiation_tool(user_id):
         return "Could not draft a negotiation message."
 
 
+# Safe, whitelisted comparison operators for count_where. Note: there is NO
+# code-execution here -- the model supplies only a column name, an operator
+# from this set, and a value; trusted pandas code does the comparison. This is
+# the SAFE equivalent of a "pandas agent" that avoids the F-01 RCE that comes
+# from letting a model generate and exec() arbitrary code on a DataFrame.
+_ALLOWED_QUERY_OPS = {"==", "!=", ">", ">=", "<", "<=", "contains"}
+
+
+def _describe_dataset_tool(user_id):
+    """READ-ONLY: a safe profile of the user's data (shape, numeric stats, top
+    categorical values), computed by trusted pandas -- never generated code."""
+    try:
+        import pandas as pd
+        rows = _rows_for(user_id)
+        if not rows:
+            return "No data uploaded yet."
+        df = pd.DataFrame(rows)
+        out = {"rows": int(len(df)), "columns": [str(c) for c in list(df.columns)[:50]]}
+        num = df.apply(pd.to_numeric, errors="coerce")
+        num = num.dropna(axis=1, how="all")
+        if not num.empty:
+            out["numeric"] = {
+                str(c): {
+                    "min": round(float(num[c].min()), 2),
+                    "max": round(float(num[c].max()), 2),
+                    "mean": round(float(num[c].mean()), 2),
+                    "sum": round(float(num[c].sum()), 2),
+                } for c in list(num.columns)[:15]
+            }
+        top = {}
+        for c in df.columns:
+            if str(c) in out.get("numeric", {}):
+                continue
+            vc = df[c].astype(str).value_counts().head(5)
+            if len(vc):
+                top[str(c)] = {str(k): int(v) for k, v in vc.items()}
+        if top:
+            out["top_values"] = {k: top[k] for k in list(top)[:10]}
+        return json.dumps(out, ensure_ascii=False)[:6000]
+    except Exception as e:
+        logger.info("describe_dataset tool failed: %s", e)
+        return "Could not describe the dataset."
+
+
+def _count_where_tool(user_id, column, op, value):
+    """READ-ONLY: count rows where <column> <op> <value>. Parameters only --
+    no generated code, only a whitelisted operator applied by trusted pandas."""
+    try:
+        import pandas as pd
+        op = (op or "").strip()
+        if op not in _ALLOWED_QUERY_OPS:
+            return f"Unsupported operator. Use one of: {sorted(_ALLOWED_QUERY_OPS)}"
+        rows = _rows_for(user_id)
+        if not rows:
+            return "No data uploaded yet."
+        df = pd.DataFrame(rows)
+        if column not in df.columns:
+            return f"Column '{column}' not found. Available: {[str(c) for c in list(df.columns)[:20]]}"
+        col = df[column]
+        if op == "contains":
+            mask = col.astype(str).str.contains(str(value), case=False, na=False)
+        else:
+            num = pd.to_numeric(col, errors="coerce")
+            try:
+                v = float(value)
+            except (TypeError, ValueError):
+                v = None
+            if v is not None and num.notna().any() and op in {">", ">=", "<", "<=", "==", "!="}:
+                mask = {">": num > v, ">=": num >= v, "<": num < v, "<=": num <= v,
+                        "==": num == v, "!=": num != v}[op]
+            else:
+                s = col.astype(str)
+                mask = (s == str(value)) if op == "==" else (s != str(value))
+        return json.dumps(
+            {"column": str(column), "op": op, "value": value, "count": int(mask.sum())},
+            ensure_ascii=False,
+        )
+    except Exception as e:
+        logger.info("count_where tool failed: %s", e)
+        return "Could not run the count."
+
+
 def build_agent_tools():
     """
     The ONLY function-calling surface the agent is ever given -- see
     module docstring for why financial/decision *mutations* are deliberately
-    absent. The get_*/search_*/draft_* tools below are READ-ONLY: they compute
-    and return values from the user's own rows (via the deterministic engines)
-    but never change a financial figure or decision metric.
+    absent. The get_*/search_*/draft_*/describe_*/count_* tools below are
+    READ-ONLY: they compute and return values from the user's own rows (via
+    the deterministic engines and trusted pandas) but never change a financial
+    figure, and never execute model-generated code.
     """
     # SECURITY (F-01): a "run_python_code" tool was removed here -- see the
     # note on _TOOL_NAMES. The model is never handed a server-side code
@@ -404,10 +491,39 @@ def build_agent_tools():
         ),
         parameters_json_schema={"type": "object", "properties": {}},
     )
+    describe_dataset_fd = types.FunctionDeclaration(
+        name="describe_dataset",
+        description=(
+            "READ-ONLY. Returns a safe profile of the user's uploaded data: "
+            "row count, columns, numeric stats (min/max/mean/sum per numeric "
+            "column) and the top values of categorical columns. Use it to "
+            "explore the data, answer 'what's the average / distribution of X', "
+            "or understand the columns before answering."
+        ),
+        parameters_json_schema={"type": "object", "properties": {}},
+    )
+    count_where_fd = types.FunctionDeclaration(
+        name="count_where",
+        description=(
+            "READ-ONLY. Counts how many rows in the user's data match a simple "
+            "condition on one column. Use it for 'how many transactions above "
+            "1000', 'how many expense rows', etc."
+        ),
+        parameters_json_schema={
+            "type": "object",
+            "properties": {
+                "column": {"type": "string", "description": "Exact column name to filter on."},
+                "op": {"type": "string", "description": "One of: ==, !=, >, >=, <, <=, contains"},
+                "value": {"type": "string", "description": "The value to compare against."},
+            },
+            "required": ["column", "op", "value"],
+        },
+    )
     return types.Tool(function_declarations=[
         create_notification_fd, save_memory_fd,
         get_runway_fd, get_cashflow_fd, get_benchmark_fd,
         get_waste_summary_fd, get_recent_files_fd, search_documents_fd, draft_negotiation_fd,
+        describe_dataset_fd, count_where_fd,
     ])
 
 
@@ -497,6 +613,10 @@ def run_react_preloop(ai_service, prompt, user_id, model, lang="ar", on_state=No
             observation = _search_documents_tool(user_id, args.get("query", ""))
         elif name == "draft_negotiation_message":
             observation = _draft_negotiation_tool(user_id)
+        elif name == "describe_dataset":
+            observation = _describe_dataset_tool(user_id)
+        elif name == "count_where":
+            observation = _count_where_tool(user_id, args.get("column", ""), args.get("op", ""), args.get("value", ""))
         else:
             observation = "Tool not available."
 
