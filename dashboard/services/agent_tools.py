@@ -50,7 +50,11 @@ MAX_REACT_ITERATIONS = 3
 # user could drive via /api/insights/chat -> remote code execution / full
 # server + multi-tenant compromise. There is no server-side Python-exec
 # tool anymore; arithmetic the model needs is done by the model itself.
-_TOOL_NAMES = {"create_notification", "save_memory"}
+_TOOL_NAMES = {
+    "create_notification", "save_memory",
+    # READ-ONLY financial query tools (compute & return, never mutate):
+    "get_runway", "get_cashflow", "get_benchmark",
+}
 
 # Latency gate: the pre-loop costs at least one extra live round trip
 # before the final answer even starts streaming, so it's only worth
@@ -67,6 +71,10 @@ _REACT_TRIGGER_TERMS = [
     "remember this", "save this note", "note this down",
     "ذكرني", "ذكريني", "نبهني", "نبهيني",
     "remind me", "notify me", "alert me",
+    # Financial read-only tools:
+    "سيولة", "الرصيد", "تكفي", "تخلص فلوس", "متى ينفد", "runway", "burn", "cash",
+    "دخل", "مصروف", "صافي", "وين تروح", "أكبر مصروف", "income", "expense", "net",
+    "قارن", "مقارنة", "قطاع", "مثيلاتي", "النظراء", "benchmark", "compare", "sector",
 ]
 
 
@@ -160,11 +168,57 @@ def _save_memory_tool(ai_service, user_id, content):
         return f"Could not save memory: {e}"
 
 
+def _rows_for(user_id, cap=10000):
+    from dashboard.models import DynamicRecord
+    if not user_id:
+        return []
+    return list(
+        DynamicRecord.objects.filter(user_id=user_id)
+        .values_list("row_data", flat=True)[:cap]
+    )
+
+
+def _get_runway_tool(user_id):
+    """READ-ONLY: the user's cash-flow runway, computed deterministically."""
+    try:
+        from dashboard.services.runway import compute_runway
+        return json.dumps(compute_runway(_rows_for(user_id)), ensure_ascii=False)
+    except Exception as e:
+        logger.info("get_runway tool failed: %s", e)
+        return "Could not compute runway."
+
+
+def _get_cashflow_tool(user_id):
+    """READ-ONLY: income / expense / net and the biggest expense groups."""
+    try:
+        from dashboard.services.first_win_insights import compute_transaction_signal
+        cf = compute_transaction_signal(_rows_for(user_id))
+        return json.dumps(cf, ensure_ascii=False) if cf else "No transaction-shaped data available."
+    except Exception as e:
+        logger.info("get_cashflow tool failed: %s", e)
+        return "Could not compute cash flow."
+
+
+def _get_benchmark_tool(user_id):
+    """READ-ONLY: anonymized sector benchmark for this user."""
+    try:
+        from django.contrib.auth.models import User
+        from dashboard.services.sector_benchmark import sector_benchmark_for
+        if not user_id:
+            return "No active user session."
+        return json.dumps(sector_benchmark_for(User.objects.get(id=user_id)), ensure_ascii=False)
+    except Exception as e:
+        logger.info("get_benchmark tool failed: %s", e)
+        return "Could not compute sector benchmark."
+
+
 def build_agent_tools():
     """
     The ONLY function-calling surface the agent is ever given -- see
-    module docstring for why financial/decision actions are deliberately
-    absent from this list.
+    module docstring for why financial/decision *mutations* are deliberately
+    absent. The get_* tools below are READ-ONLY: they compute and return
+    numbers from the user's own rows (via the deterministic engines) but never
+    change a financial figure or decision metric.
     """
     # SECURITY (F-01): a "run_python_code" tool was removed here -- see the
     # note on _TOOL_NAMES. The model is never handed a server-side code
@@ -199,7 +253,41 @@ def build_agent_tools():
             "required": ["content"],
         },
     )
-    return types.Tool(function_declarations=[create_notification_fd, save_memory_fd])
+    get_runway_fd = types.FunctionDeclaration(
+        name="get_runway",
+        description=(
+            "READ-ONLY. Returns the business's cash-flow runway (average "
+            "monthly net, monthly burn, current cash, and the projected date "
+            "the money runs out) computed deterministically from the user's "
+            "own transactions. Use it when the user asks how long their money "
+            "lasts, about burn rate, or when they will run out of cash."
+        ),
+        parameters_json_schema={"type": "object", "properties": {}},
+    )
+    get_cashflow_fd = types.FunctionDeclaration(
+        name="get_cashflow",
+        description=(
+            "READ-ONLY. Returns total income, total expense, net, and the "
+            "biggest/most recurring expense destinations from the user's own "
+            "transactions. Use it when the user asks about income vs expense, "
+            "their net, or where their money goes."
+        ),
+        parameters_json_schema={"type": "object", "properties": {}},
+    )
+    get_benchmark_fd = types.FunctionDeclaration(
+        name="get_benchmark",
+        description=(
+            "READ-ONLY. Returns an anonymized comparison of the user's key "
+            "ratios against the median of peer businesses in the same sector. "
+            "Use it when the user asks how they compare to similar businesses "
+            "or to their sector."
+        ),
+        parameters_json_schema={"type": "object", "properties": {}},
+    )
+    return types.Tool(function_declarations=[
+        create_notification_fd, save_memory_fd,
+        get_runway_fd, get_cashflow_fd, get_benchmark_fd,
+    ])
 
 
 def run_react_preloop(ai_service, prompt, user_id, model, lang="ar", on_state=None,
@@ -274,6 +362,12 @@ def run_react_preloop(ai_service, prompt, user_id, model, lang="ar", on_state=No
             )
         elif name == "save_memory":
             observation = _save_memory_tool(ai_service, user_id, args.get("content", ""))
+        elif name == "get_runway":
+            observation = _get_runway_tool(user_id)
+        elif name == "get_cashflow":
+            observation = _get_cashflow_tool(user_id)
+        elif name == "get_benchmark":
+            observation = _get_benchmark_tool(user_id)
         else:
             observation = "Tool not available."
 

@@ -49,9 +49,15 @@ class BuildAgentToolsHardConstraintTests(TestCase):
         # side-effect-free, non-financial ones.
         tool = build_agent_tools()
         names = {fd.name for fd in tool.function_declarations}
-        self.assertEqual(names, {"create_notification", "save_memory"})
+        # The two side-effect tools plus the READ-ONLY financial query tools.
+        self.assertEqual(names, {
+            "create_notification", "save_memory",
+            "get_runway", "get_cashflow", "get_benchmark",
+        })
 
-    def test_no_financial_or_decision_tool_names_are_present(self):
+    def test_no_financial_or_decision_MUTATION_tool_names_are_present(self):
+        # The get_* tools are read-only; no tool may MUTATE a financial figure
+        # or decision metric -- those stay [[ACTION:...]] tags a human clicks.
         tool = build_agent_tools()
         names = {fd.name for fd in tool.function_declarations}
         forbidden = {"update_decision_metric", "resolve_risk", "resolve_leak", "apply_agent_decision"}

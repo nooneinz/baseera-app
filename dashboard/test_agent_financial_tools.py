@@ -1,0 +1,68 @@
+"""
+Tests for the READ-ONLY financial query tools exposed to the ReAct agent
+(get_runway / get_cashflow / get_benchmark). They must compute real numbers
+from the user's own rows via the deterministic engines, and never mutate data.
+"""
+import json
+from django.test import TestCase
+from django.contrib.auth.models import User
+
+from dashboard.models import Profile, ProjectFile, DynamicRecord
+from dashboard.services import agent_tools
+
+
+def _make_user(username, rows):
+    u = User.objects.create_user(username=username, password="pw123456")
+    Profile.objects.create(user=u, phone_number="9689" + username[-7:].rjust(7, "0"),
+                           project_type="retail")
+    pf = ProjectFile.objects.create(user=u, excel_file="excel_files/x.csv")
+    for r in rows:
+        DynamicRecord.objects.create(user=u, project_file=pf, schema_hash="h", row_data=r)
+    return u
+
+
+def _txn(desc, amount, kind, date=None):
+    row = {"البيان": desc, "المبلغ": amount, "النوع": kind}
+    if date:
+        row["التاريخ"] = date
+    return row
+
+
+class AgentFinancialToolsTests(TestCase):
+    def test_get_cashflow_returns_real_totals(self):
+        u = _make_user("cfuser01", [
+            _txn("مبيعات", 1000, "دخل"),
+            _txn("إيجار", 400, "مصروف"),
+        ])
+        out = json.loads(agent_tools._get_cashflow_tool(u.id))
+        self.assertEqual(out["total_income"], 1000)
+        self.assertEqual(out["total_expense"], 400)
+        self.assertEqual(out["net"], 600)
+
+    def test_get_runway_returns_a_status(self):
+        u = _make_user("rwuser02", [
+            _txn("مبيعات", 3000, "دخل", "2026-01-05"),
+            _txn("إيجار", 3500, "مصروف", "2026-01-20"),
+            _txn("مبيعات", 3000, "دخل", "2026-02-05"),
+            _txn("إيجار", 3500, "مصروف", "2026-02-20"),
+        ])
+        out = json.loads(agent_tools._get_runway_tool(u.id))
+        self.assertIn(out["status"], ("burning", "surplus", "critical", "insufficient"))
+
+    def test_get_benchmark_returns_status(self):
+        u = _make_user("bmuser03", [_txn("مبيعات", 1000, "دخل"), _txn("إيجار", 400, "مصروف")])
+        out = json.loads(agent_tools._get_benchmark_tool(u.id))
+        self.assertIn(out["status"], ("ready", "building"))
+
+    def test_tools_never_create_or_delete_rows(self):
+        u = _make_user("robot04", [_txn("مبيعات", 500, "دخل")])
+        before = DynamicRecord.objects.filter(user=u).count()
+        agent_tools._get_cashflow_tool(u.id)
+        agent_tools._get_runway_tool(u.id)
+        agent_tools._get_benchmark_tool(u.id)
+        self.assertEqual(DynamicRecord.objects.filter(user=u).count(), before)
+
+    def test_no_user_is_handled_gracefully(self):
+        # Never raises on a missing user session.
+        self.assertIsInstance(agent_tools._get_cashflow_tool(None), str)
+        self.assertIsInstance(agent_tools._get_runway_tool(None), str)
