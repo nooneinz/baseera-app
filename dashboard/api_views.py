@@ -10,6 +10,9 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
 from .models import DynamicRecord
 import hashlib
+import hmac
+import threading
+from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
@@ -1158,3 +1161,56 @@ def api_document_audit(request):
         "archived_at": pf.archived_at.isoformat() if pf.archived_at else None,
         "audit_trail": entries,
     }, json_dumps_params={"ensure_ascii": False})
+
+
+@csrf_exempt
+def api_whatsapp_webhook(request):
+    """
+    Direct Meta WhatsApp Cloud API webhook -- lets Baseera receive messages and
+    send replies WITHOUT n8n. Point Meta's webhook Callback URL here.
+
+    GET  = Meta's one-time verification handshake (echoes hub.challenge when
+           hub.verify_token matches WHATSAPP_VERIFY_TOKEN).
+    POST = an incoming message. Optionally verified against WHATSAPP_APP_SECRET
+           (X-Hub-Signature-256). Each user message is handled in a background
+           thread so Meta gets an immediate 200 and never retries while the
+           agent is thinking; the reply is sent back over the Graph API.
+    """
+    # --- verification handshake ---
+    if request.method == "GET":
+        verify_token = os.environ.get("WHATSAPP_VERIFY_TOKEN", "")
+        mode = request.GET.get("hub.mode")
+        token = request.GET.get("hub.verify_token")
+        challenge = request.GET.get("hub.challenge", "")
+        if mode == "subscribe" and verify_token and token == verify_token:
+            return HttpResponse(challenge, content_type="text/plain")
+        return HttpResponse("forbidden", status=403)
+
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "method not allowed"}, status=405)
+
+    raw = request.body or b""
+
+    # Optional but recommended: verify Meta's payload signature.
+    app_secret = os.environ.get("WHATSAPP_APP_SECRET", "").strip()
+    if app_secret:
+        got = request.headers.get("X-Hub-Signature-256", "")
+        expected = "sha256=" + hmac.new(app_secret.encode("utf-8"), raw, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(got, expected):
+            return JsonResponse({"status": "forbidden"}, status=403)
+
+    try:
+        payload = json.loads(raw or b"{}")
+    except (ValueError, TypeError):
+        return JsonResponse({"status": "ignored"}, status=200)
+
+    from dashboard.services.whatsapp_service import parse_meta_messages, process_and_reply
+    messages = parse_meta_messages(payload)
+    for m in messages:
+        threading.Thread(
+            target=process_and_reply,
+            kwargs={"phone": m["phone"], "text": m.get("text"), "media_id": m.get("media_id")},
+            daemon=True,
+        ).start()
+    # Always 200 so Meta marks it delivered and doesn't retry.
+    return JsonResponse({"status": "ok", "received": len(messages)})
