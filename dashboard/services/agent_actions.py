@@ -63,13 +63,35 @@ def _draft_negotiation(finding):
     )
 
 
-def run_proactive_action(user):
+def _push_finding_to_whatsapp(user, title, message, draft):
+    """Reach the user on WhatsApp with the finding + the ready-to-send draft,
+    using their Profile phone and the outbound webhook. Never raises; returns
+    True only if the push was actually sent."""
+    try:
+        from dashboard.models import Profile
+        from dashboard.services.whatsapp_service import push_whatsapp_message
+        profile = Profile.objects.filter(user=user).exclude(phone_number="").first()
+        if not profile:
+            return False
+        body = f"{title}\n\n{message}\n\nرسالة التفاوض الجاهزة:\n{draft}"
+        return bool(push_whatsapp_message(profile.phone_number, body))
+    except Exception as e:
+        logger.info("Proactive WhatsApp push failed: %s", e)
+        return False
+
+
+def run_proactive_action(user, push_whatsapp=False):
     """
     Returns:
       {"status": "acted", "finding": {...}, "notification_id": int,
        "notification_title": str, "notification_message": str,
-       "draft_message": str}
+       "draft_message": str, "pushed_whatsapp": bool}
       or {"status": "no_signal", "message": "<ar>"}
+
+    With push_whatsapp=True the agent also reaches the user on WhatsApp (their
+    Profile phone) with the finding and the ready-to-send draft -- proactive,
+    not waiting to be asked. The push is best-effort and never blocks the
+    action; pushed_whatsapp reports whether it actually went out.
     """
     from dashboard.models import Notification
 
@@ -92,6 +114,11 @@ def run_proactive_action(user):
     notif = Notification.objects.create(
         user=user, title=title, message=message, type="warning",
     )
+    draft = _draft_negotiation(finding)
+
+    pushed = False
+    if push_whatsapp:
+        pushed = _push_finding_to_whatsapp(user, title, message, draft)
 
     return {
         "status": "acted",
@@ -99,5 +126,6 @@ def run_proactive_action(user):
         "notification_id": notif.id,
         "notification_title": title,
         "notification_message": message,
-        "draft_message": _draft_negotiation(finding),
+        "draft_message": draft,
+        "pushed_whatsapp": pushed,
     }

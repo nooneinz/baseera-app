@@ -67,6 +67,32 @@ def normalize_phone(phone):
     return re.sub(r"\D", "", str(phone or ""))
 
 
+def push_whatsapp_message(phone, message):
+    """
+    Best-effort OUTBOUND WhatsApp message via the configured n8n outbound
+    webhook -- the same channel the weekly pulse uses -- so the agent can
+    reach the user on WhatsApp without being asked (proactive alerts).
+    Returns True on success, False otherwise. Never raises; a missing webhook
+    or phone is just a no-op.
+    """
+    import urllib.request
+
+    url = os.environ.get("WHATSAPP_OUTBOUND_WEBHOOK_URL", "").strip()
+    ph = normalize_phone(phone)
+    if not url or not ph or not (message or "").strip():
+        return False
+    try:
+        data = json.dumps({"phone": ph, "message": message}).encode("utf-8")
+        req = urllib.request.Request(
+            url, data=data, headers={"Content-Type": "application/json"}, method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return 200 <= getattr(resp, "status", 200) < 300
+    except Exception as e:
+        logger.info("WhatsApp outbound push failed for %s: %s", phone, e)
+        return False
+
+
 def resolve_user_by_phone(phone):
     """
     Match a WhatsApp sender to a Baseera user by the phone on their Profile.
