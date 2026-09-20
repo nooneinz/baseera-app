@@ -1095,3 +1095,66 @@ def api_cron_weekly_pulse(request):
     except Exception as e:
         return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=500)
     return JsonResponse({"status": "success", **result})
+
+
+@login_required
+def api_document_verify(request):
+    """
+    Human-in-the-loop confirmation of a document the AI read (OCR is ~85-95%
+    accurate, so a person confirms it before it counts as trusted). Marks the
+    document verified, records who/when, and writes an audit entry. Scoped to
+    the requesting user's own documents only.
+    """
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "POST required"}, status=405)
+    try:
+        data = json.loads(request.body or "{}")
+    except (ValueError, TypeError):
+        return JsonResponse({"status": "error", "message": "invalid json"}, status=400)
+
+    from .models import ProjectFile
+    from dashboard.services.archiving import human_verify
+    pf = ProjectFile.objects.filter(id=data.get("document_id"), user=request.user).first()
+    if not pf:
+        return JsonResponse({"status": "error", "message": "document not found"}, status=404)
+    human_verify(pf, request.user, note=(data.get("note") or ""))
+    return JsonResponse({
+        "status": "verified",
+        "document_id": pf.id,
+        "archive_status": pf.archive_status,
+        "verified_at": pf.verified_at.isoformat() if pf.verified_at else None,
+    })
+
+
+@login_required
+def api_document_audit(request):
+    """
+    The archiving record for one of the user's documents: its integrity hash,
+    lifecycle status, and the append-only audit trail (who did what, when).
+    """
+    from .models import ProjectFile
+    from dashboard.services.archiving import audit_trail
+    pf = ProjectFile.objects.filter(id=request.GET.get("document_id"), user=request.user).first()
+    if not pf:
+        return JsonResponse({"status": "error", "message": "document not found"}, status=404)
+    entries = [
+        {
+            "action": e.action,
+            "action_label": e.get_action_display(),
+            "detail": e.detail,
+            "content_hash": e.content_hash,
+            "at": e.created_at.isoformat(),
+        }
+        for e in audit_trail(pf)
+    ]
+    return JsonResponse({
+        "status": "ok",
+        "document_id": pf.id,
+        "content_hash": pf.content_hash,
+        "archive_status": pf.archive_status,
+        "archive_status_label": pf.get_archive_status_display(),
+        "verified_by": getattr(pf.verified_by, "username", None),
+        "verified_at": pf.verified_at.isoformat() if pf.verified_at else None,
+        "archived_at": pf.archived_at.isoformat() if pf.archived_at else None,
+        "audit_trail": entries,
+    }, json_dumps_params={"ensure_ascii": False})

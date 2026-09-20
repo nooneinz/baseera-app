@@ -403,6 +403,15 @@ def _handle_media(user, phone, media_bytes, media_mime):
     except Exception as idx_err:
         logger.info("WhatsApp retrieval indexing skipped: %s", idx_err)
 
+    # Archive the incoming document: fingerprint it for integrity and open its
+    # lifecycle (a photographed invoice/receipt is AI-read, so it lands in
+    # needs_review pending a human confirm; a structured file is 'received').
+    try:
+        from dashboard.services.archiving import stamp_document
+        stamp_document(project_file, raw_bytes=media_bytes, user=user)
+    except Exception as arch_err:
+        logger.info("WhatsApp archiving stamp skipped: %s", arch_err)
+
     rows = list(
         DynamicRecord.objects.filter(user=user, project_file=project_file)
         .values_list("row_data", flat=True)[:10000]
