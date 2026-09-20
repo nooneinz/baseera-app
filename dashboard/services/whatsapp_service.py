@@ -481,6 +481,9 @@ def generate_agent_reply(user, message, lang="ar"):
             "- خلّ ردك قصير (سطر إلى ٣ أسطر)، بلا جداول ولا رموز Markdown ولا أكواد ولا لغة رسمية جافة.\n"
             "- إذا سلّم عليك أو سولف كلام عام (سلام، كيف الحال، شكراً)، ردّ عليه بترحيب طبيعي وسولف معه بلطف — ولا تقحم أرقاماً مالية إلا إذا سأل عن ماليته أو رفع ملفاً.\n"
             "- لا تختلق أي رقم أبداً؛ استخدم بيانات المستخدم أدناه فقط، وفقط لو كان سؤاله متعلقاً بماليته.\n"
+            "- ⚠️ ممنوع منعاً باتاً أن تذكر اسم أي صنف أو منتج أو مثال غير موجود حرفياً في بيانات المستخدم أدناه. لا تخترع أمثلة عامة إطلاقاً (مثل حليب أطفال، واقي شمس، أجهزة ضغط، أو أي منتج لم يرد في بياناته). إذا احتجت ذكر صنف، انسخ اسمه كما ورد في بياناته فقط.\n"
+            "- إذا سألك عن الهدر أو الربح لكل صنف ولا تملك في بياناته أعمدة (سعر البيع/التكلفة/الكمية)، قل له بصدق إن الملف الحالي لا يكفي لحساب الهدر واطلب ملف مبيعات فيه سعر البيع والتكلفة — بدون ما تخمّن أو تعطي أمثلة.\n"
+            "- إذا طلب صورة أو رسم أو تقرير مرئي، لا تعتذر ولا تقل أبداً إنك لا تقدر ترسل صوراً — قل له بلطف إنك جهّزت له صورة/تقريراً وسيصله الآن.\n"
             "- إذا ذكر أنه أرسل صورة أو ملفاً ولا توجد بيانات جديدة عندك، لا تدّعِ أبداً أنك حلّلته أو تعطيه أرقاماً — قل له بصدق ولطف إن الملف ما وصلك واطلب منه يعيد إرساله.\n"
             "- إذا ما كفت البيانات، اطلب منه بلطف يرفع ملف أو صورة، بدون ما تفبرك.\n"
         )
@@ -490,6 +493,9 @@ def generate_agent_reply(user, message, lang="ar"):
             "\n\nYou are replying over WhatsApp. Mandatory rules:\n"
             "- Keep it very short (max 2-4 lines), no tables, no Markdown headings, no code.\n"
             "- Rely ONLY on the user's data below; never invent a number.\n"
+            "- NEVER name any item/product/example that is not literally present in the user's data below. Do not invent generic examples. If you must name an item, copy it verbatim from their data.\n"
+            "- If asked about waste/per-item profit but the data lacks price/cost/quantity columns, say honestly the current file isn't enough and ask for a sales file with selling price and cost -- do not guess.\n"
+            "- If they ask for an image/chart/report, never say you cannot send images -- tell them you've prepared an image and it's on its way.\n"
             "- If the data is insufficient, briefly ask them to upload a file/photo.\n"
         )
         tail = f"\n\nUser data (JSON sample):\n{file_context or 'No data uploaded yet.'}\n\nUser question: {safe_msg}\n\nYour short reply:"
