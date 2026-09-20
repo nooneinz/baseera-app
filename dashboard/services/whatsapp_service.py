@@ -93,6 +93,90 @@ def push_whatsapp_message(phone, message):
         return False
 
 
+def send_whatsapp_reply(phone, message):
+    """
+    Send a text message to a user via the Meta WhatsApp Cloud API directly --
+    this is what lets Baseera reply without n8n. Needs WHATSAPP_GRAPH_TOKEN and
+    WHATSAPP_PHONE_NUMBER_ID in the env. Returns True on success. Never raises.
+    """
+    import urllib.request
+
+    token = os.environ.get("WHATSAPP_GRAPH_TOKEN", "").strip()
+    phone_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "").strip()
+    ph = normalize_phone(phone)
+    if not token or not phone_id or not ph or not (message or "").strip():
+        return False
+    version = os.environ.get("WHATSAPP_GRAPH_VERSION", "v20.0").strip() or "v20.0"
+    url = f"https://graph.facebook.com/{version}/{phone_id}/messages"
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": ph,
+        "type": "text",
+        "text": {"body": message[:4096]},
+    }
+    try:
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(url, data=data, method="POST", headers={
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json",
+        })
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return 200 <= getattr(resp, "status", 200) < 300
+    except Exception as e:
+        logger.info("WhatsApp send reply failed for %s: %s", phone, e)
+        return False
+
+
+def parse_meta_messages(payload):
+    """
+    Pull the user messages out of a raw Meta WhatsApp Cloud API webhook body.
+    Returns a list of {phone, text, media_id} -- media_id is set for a photo/
+    document/audio/video, text for a text message. Ignores delivery/read
+    status callbacks (which carry no `messages`). Never raises.
+    """
+    out = []
+    try:
+        for entry in (payload.get("entry") or []):
+            for change in (entry.get("changes") or []):
+                value = change.get("value") or {}
+                for msg in (value.get("messages") or []):
+                    phone = msg.get("from")
+                    if not phone:
+                        continue
+                    mtype = msg.get("type")
+                    text = None
+                    media_id = None
+                    if mtype == "text":
+                        text = ((msg.get("text") or {}).get("body")) or None
+                    elif mtype in ("image", "document", "audio", "video"):
+                        media_id = ((msg.get(mtype) or {}).get("id")) or None
+                    out.append({"phone": phone, "text": text, "media_id": media_id})
+    except Exception as e:
+        logger.info("parse_meta_messages failed: %s", e)
+    return out
+
+
+def process_and_reply(phone, text=None, media_id=None):
+    """
+    The full inbound pipeline for one message arriving straight from Meta (no
+    n8n): download the media if a media_id was given, run the shared
+    handle_inbound engine, then send the reply back to the user. Never raises.
+    """
+    try:
+        media_bytes = None
+        media_mime = None
+        if media_id:
+            media_bytes, media_mime = download_whatsapp_media(media_id)
+        result = handle_inbound(phone, text=text, media_bytes=media_bytes, media_mime=media_mime)
+        reply = (result or {}).get("reply")
+        if reply:
+            send_whatsapp_reply(phone, reply)
+        return result
+    except Exception as e:
+        logger.exception("process_and_reply failed: %s", e)
+        return {"status": "error"}
+
+
 def resolve_user_by_phone(phone):
     """
     Match a WhatsApp sender to a Baseera user by the phone on their Profile.

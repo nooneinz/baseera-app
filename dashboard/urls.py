@@ -88,6 +88,7 @@ urlpatterns = [
     path("api/receipt/save/", views.save_receipt_record, name="save_receipt_record"),
 
     path("api/integrations/whatsapp/inbound/", api_views.api_whatsapp_inbound, name="api_whatsapp_inbound"),
+    path("api/integrations/whatsapp/webhook/", api_views.api_whatsapp_webhook, name="api_whatsapp_webhook"),
     path("api/documents/verify/", api_views.api_document_verify, name="api_document_verify"),
     path("api/documents/audit/", api_views.api_document_audit, name="api_document_audit"),
     path("api/cron/weekly-pulse/", api_views.api_cron_weekly_pulse, name="api_cron_weekly_pulse"),
