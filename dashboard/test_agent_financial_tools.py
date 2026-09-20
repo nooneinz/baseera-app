@@ -92,3 +92,29 @@ class AgentFinancialToolsTests(TestCase):
 
     def test_search_documents_never_raises_without_user(self):
         self.assertIsInstance(agent_tools._search_documents_tool(None, "إيجار"), str)
+
+    def test_describe_dataset_profiles_the_data(self):
+        u = _make_user("desc08", [
+            _txn("مبيعات", 1000, "دخل"),
+            _txn("إيجار", 400, "مصروف"),
+            _txn("رواتب", 600, "مصروف"),
+        ])
+        out = json.loads(agent_tools._describe_dataset_tool(u.id))
+        self.assertEqual(out["rows"], 3)
+        self.assertIn("المبلغ", out.get("numeric", {}))
+        self.assertEqual(out["numeric"]["المبلغ"]["max"], 1000)
+
+    def test_count_where_numeric_and_contains(self):
+        u = _make_user("cnt09", [
+            _txn("مبيعات", 1500, "دخل"),
+            _txn("إيجار", 400, "مصروف"),
+            _txn("مورد", 1200, "مصروف"),
+        ])
+        gt = json.loads(agent_tools._count_where_tool(u.id, "المبلغ", ">", "1000"))
+        self.assertEqual(gt["count"], 2)  # 1500 and 1200
+        exp = json.loads(agent_tools._count_where_tool(u.id, "النوع", "==", "مصروف"))
+        self.assertEqual(exp["count"], 2)
+
+    def test_count_where_rejects_bad_operator(self):
+        u = _make_user("cnt10", [_txn("مبيعات", 100, "دخل")])
+        self.assertIn("operator", agent_tools._count_where_tool(u.id, "المبلغ", "DROP", "1").lower())

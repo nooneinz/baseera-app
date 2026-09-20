@@ -100,6 +100,42 @@ class WhatsAppInboundEndpointTests(TestCase):
         # A file was really created and processed for this user.
         self.assertTrue(ProjectFile.objects.filter(user=self.user).exists())
 
+    def test_media_id_is_downloaded_by_baseera_and_processed(self):
+        # n8n forwards only the WhatsApp media id; Baseera downloads the bytes
+        # itself and runs the SAME upload -> process -> insight pipeline. We
+        # stub the Meta download (no live token in CI) and the MIME gate; the
+        # real CSV still flows through the actual pipeline.
+        import os
+        os.environ["WHATSAPP_WEBHOOK_SECRET"] = _SECRET
+        csv = "الصنف,سعر البيع,التكلفة,الكمية\nوجبة,4.5,5.2,10\nعصير,2.0,1.0,5\n"
+        fake_validation = {
+            "is_valid": True, "status": "accept", "message": "",
+            "accepted_sheets": ["csv_file"], "document_type": "spreadsheet",
+            "extracted_rows": None,
+        }
+        with patch("dashboard.services.whatsapp_service.download_whatsapp_media",
+                   return_value=(csv.encode("utf-8"), "text/csv")):
+            with patch.dict(sys.modules, {"magic": MagicMock()}):
+                with patch("dashboard.services.validation_service.validate_financial_file",
+                           return_value=fake_validation):
+                    res = self._post({"phone": "96891234567", "media_id": "MID.9x"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["status"], "success")
+        self.assertTrue(ProjectFile.objects.filter(user=self.user).exists())
+
+    def test_media_id_that_cannot_be_fetched_falls_back_gracefully(self):
+        # If Baseera can't fetch the media (no token / Meta hiccup), the turn
+        # degrades to a normal text turn instead of erroring.
+        import os
+        os.environ["WHATSAPP_WEBHOOK_SECRET"] = _SECRET
+        with patch("dashboard.services.whatsapp_service.download_whatsapp_media",
+                   return_value=(None, None)):
+            with patch("dashboard.services.whatsapp_service.generate_agent_reply", return_value=None):
+                res = self._post({"phone": "96891234567", "media_id": "MID.dead"})
+        self.assertEqual(res.status_code, 200)
+        # No media bytes -> not a "success" upload; it's handled as text.
+        self.assertNotEqual(res.json()["status"], "success")
+
     def test_invalid_upload_records_a_failure_log(self):
         import os
         os.environ["WHATSAPP_WEBHOOK_SECRET"] = _SECRET
@@ -133,3 +169,38 @@ class WhatsAppServiceUnitTests(TestCase):
             {"البيان": "مبيعات", "المبلغ": 700, "النوع": "دخل"},
         ]
         self.assertIn("تدفّق", whatsapp_service.build_reply_from_rows(cash_rows))
+
+    def test_whatsapp_text_runs_the_same_react_agent_for_tool_questions(self):
+        # A tool-worthy question (e.g. "compute my monthly profit") must go
+        # through the SAME bounded ReAct + tools pre-loop the website uses --
+        # so WhatsApp is fully agentic and gives identical results, not a
+        # lighter reply path.
+        u = User.objects.create_user(username="wa_react", password="pw123456")
+        Profile.objects.create(user=u, phone_number="91112223")
+        fake_ai = MagicMock()
+        fake_ai.client.models.generate_content.return_value = MagicMock(text="ربحك 600 ر.ع")
+        with patch("dashboard.services.ai_service.GeminiAIService", return_value=fake_ai), \
+             patch("dashboard.services.agent_tools.run_react_preloop",
+                   return_value="ENRICHED PROMPT") as rp:
+            out = whatsapp_service.generate_agent_reply(u, "احسبلي الربح الشهري")
+        self.assertTrue(rp.called)  # the real agent loop ran
+        self.assertEqual(out, "ربحك 600 ر.ع")
+
+    def test_download_whatsapp_media_without_token_is_graceful(self):
+        import os
+        os.environ.pop("WHATSAPP_GRAPH_TOKEN", None)
+        self.assertEqual(whatsapp_service.download_whatsapp_media("MID.1"), (None, None))
+        # A blank media id is likewise a no-op, never a crash.
+        self.assertEqual(whatsapp_service.download_whatsapp_media(""), (None, None))
+
+    def test_whatsapp_greeting_skips_the_react_agent(self):
+        # An ordinary greeting must NOT pay for the extra tool round trip.
+        u = User.objects.create_user(username="wa_hi", password="pw123456")
+        Profile.objects.create(user=u, phone_number="93334445")
+        fake_ai = MagicMock()
+        fake_ai.client.models.generate_content.return_value = MagicMock(text="هلا والله 👋")
+        with patch("dashboard.services.ai_service.GeminiAIService", return_value=fake_ai), \
+             patch("dashboard.services.agent_tools.run_react_preloop") as rp:
+            out = whatsapp_service.generate_agent_reply(u, "مرحبا كيف حالك")
+        self.assertFalse(rp.called)  # gate skipped the loop
+        self.assertEqual(out, "هلا والله 👋")

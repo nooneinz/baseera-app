@@ -3,6 +3,8 @@ Tests for the proactive agent action: it must DETECT a deterministic finding,
 ACT (create a real Notification), and return a grounded negotiation draft --
 or honestly report no signal, never invent one.
 """
+from unittest.mock import patch
+
 from django.test import TestCase, override_settings
 from django.contrib.auth.models import User
 
@@ -49,6 +51,37 @@ class ProactiveAgentActionTests(TestCase):
         self.assertEqual(r["status"], "no_signal")
         self.assertTrue(r["message"])
         self.assertFalse(Notification.objects.filter(user=u).exists())
+
+    def test_push_whatsapp_reaches_the_user_with_the_draft(self):
+        u = _user_with_rows("agent003", [
+            _txn("مورد الخضار", 600, "مصروف"),
+            _txn("مورد الخضار", 640, "مصروف"),
+            _txn("مبيعات", 5000, "دخل"),
+        ])
+        with patch("dashboard.services.whatsapp_service.push_whatsapp_message",
+                   return_value=True) as push:
+            r = run_proactive_action(u, push_whatsapp=True)
+        self.assertEqual(r["status"], "acted")
+        self.assertTrue(r["pushed_whatsapp"])
+        self.assertTrue(push.called)
+        # The pushed body carries the ready-to-send draft.
+        sent_body = push.call_args[0][1]
+        self.assertIn("مورد الخضار", sent_body)
+        self.assertIn("رسالة التفاوض", sent_body)
+
+    def test_push_whatsapp_is_a_safe_noop_when_unconfigured(self):
+        # With no outbound webhook the real helper returns False; the action
+        # still succeeds, it just didn't push.
+        u = _user_with_rows("agent004", [
+            _txn("إيجار", 700, "مصروف"),
+            _txn("إيجار", 700, "مصروف"),
+            _txn("مبيعات", 5000, "دخل"),
+        ])
+        import os
+        os.environ.pop("WHATSAPP_OUTBOUND_WEBHOOK_URL", None)
+        r = run_proactive_action(u, push_whatsapp=True)
+        self.assertEqual(r["status"], "acted")
+        self.assertFalse(r["pushed_whatsapp"])
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)

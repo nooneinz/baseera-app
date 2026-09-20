@@ -192,6 +192,31 @@ class ProjectFile(models.Model):
         verbose_name="نوع المستند / Document Type",
     )
 
+    # --- Archiving & document management (integrity + lifecycle) ---
+    # A SHA-256 fingerprint of the uploaded bytes: proves the archived
+    # document has not been altered since it entered the system. Blank for
+    # legacy rows created before archiving existed.
+    ARCHIVE_STATUSES = [
+        ('received', 'مستلمة / Received'),
+        ('needs_review', 'بانتظار مراجعة بشرية / Needs Human Review'),
+        ('verified', 'موثّقة بشرياً / Human-Verified'),
+        ('archived', 'مؤرشفة / Archived'),
+    ]
+    content_hash = models.CharField(
+        max_length=64, blank=True, default="",
+        verbose_name="بصمة السلامة (SHA-256) / Integrity Hash",
+    )
+    archive_status = models.CharField(
+        max_length=20, choices=ARCHIVE_STATUSES, default='received',
+        verbose_name="حالة الأرشفة / Archive Status",
+    )
+    verified_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='verified_documents', verbose_name="روجع بواسطة / Verified By",
+    )
+    verified_at = models.DateTimeField(null=True, blank=True, verbose_name="وقت المراجعة / Verified At")
+    archived_at = models.DateTimeField(null=True, blank=True, verbose_name="وقت الأرشفة / Archived At")
+
     def __str__(self):
         return f"{self.user.username} - {self.excel_file.name}"
 
@@ -560,3 +585,76 @@ class ApprovedPlan(models.Model):
 
     def __str__(self):
         return f"{self.file_name} - {self.user.username}"
+
+
+class DocumentAuditEntry(models.Model):
+    """
+    Append-only audit trail for the archiving system: one immutable row per
+    lifecycle event on a document (received, hashed, validated, human-verified,
+    archived) or on a report issued from it. This is the "who did what, when,
+    to which document" record auditors and regulators expect -- rows are only
+    ever created, never updated or deleted.
+    """
+    ACTIONS = [
+        ('received', 'استلام / Received'),
+        ('validated', 'تحقّق آلي / Validated'),
+        ('needs_review', 'إحالة لمراجعة بشرية / Flagged for Review'),
+        ('human_verified', 'مراجعة بشرية / Human-Verified'),
+        ('archived', 'أرشفة / Archived'),
+        ('integrity_ok', 'تأكيد سلامة / Integrity Confirmed'),
+        ('integrity_failed', 'فشل تأكيد السلامة / Integrity Failed'),
+        ('report_issued', 'إصدار تقرير / Report Issued'),
+    ]
+    user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="المستخدم / User"
+    )
+    project_file = models.ForeignKey(
+        ProjectFile, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='audit_entries', verbose_name="المستند / Document",
+    )
+    action = models.CharField(max_length=30, choices=ACTIONS, verbose_name="الإجراء / Action")
+    detail = models.TextField(blank=True, default="", verbose_name="التفاصيل / Detail")
+    content_hash = models.CharField(
+        max_length=64, blank=True, default="", verbose_name="البصمة وقت الإجراء / Hash at Event",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="وقت الإجراء / At")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Document Audit Entry"
+
+    def __str__(self):
+        return f"{self.get_action_display()} · file#{self.project_file_id} · {self.created_at:%Y-%m-%d %H:%M}"
+
+
+class FinancialReport(models.Model):
+    """
+    A report issued inside the system, stamped for integrity and linked back
+    to the source documents it was computed from (traceability). As long as it
+    is retained and unaltered inside the system, its stored SHA-256 lets anyone
+    prove it has not been tampered with -- the basis for treating an in-system
+    report as a trusted electronic document.
+    """
+    STATUSES = [
+        ('issued', 'صادر / Issued'),
+        ('archived', 'مؤرشف / Archived'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="المستخدم / User")
+    title = models.CharField(max_length=255, verbose_name="عنوان التقرير / Title")
+    body = models.TextField(verbose_name="نص التقرير / Body")
+    content_hash = models.CharField(
+        max_length=64, blank=True, default="", verbose_name="بصمة السلامة / Integrity Hash",
+    )
+    status = models.CharField(max_length=20, choices=STATUSES, default='issued')
+    source_files = models.ManyToManyField(
+        ProjectFile, blank=True, related_name='reports',
+        verbose_name="المستندات المصدر / Source Documents",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإصدار / Issued At")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Financial Report"
+
+    def __str__(self):
+        return f"{self.title} - {self.user.username}"

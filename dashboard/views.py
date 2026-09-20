@@ -1657,6 +1657,13 @@ def datasets(request):
         except Exception as idx_err:
             print(f"Retrieval indexing error: {idx_err}")
 
+        # Archive the upload: fingerprint for integrity + open its lifecycle.
+        try:
+            from dashboard.services.archiving import stamp_document
+            stamp_document(project_file, user=request.user)
+        except Exception as arch_err:
+            print(f"Archiving stamp error: {arch_err}")
+
         request.session['active_file_id'] = project_file.id
 
         import threading

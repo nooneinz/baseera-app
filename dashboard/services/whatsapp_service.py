@@ -5,8 +5,10 @@ Flow (see docs/whatsapp/): Meta WhatsApp Cloud API -> n8n workflow ->
 POST /api/integrations/whatsapp/inbound/ (this handler) -> n8n sends the
 returned `reply` text back to the user via Meta.
 
-n8n owns the transport (webhook verification, media download, sending
-replies). Baseera owns the intelligence: it resolves the sender by phone,
+n8n owns the transport (webhook verification, sending replies). Media can
+arrive either already base64-encoded, or as a WhatsApp media id that Baseera
+downloads itself (download_whatsapp_media) so the n8n workflow stays trivial.
+Baseera owns the intelligence: it resolves the sender by phone,
 runs whatever they sent (a photo of a ledger/receipt, a bank-statement
 CSV, an Excel sheet) through the SAME validation + processing + insight
 engines the web app uses, and returns one short, WhatsApp-ready reply --
@@ -15,6 +17,7 @@ rows, never invented.
 """
 import os
 import re
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -64,6 +67,32 @@ def normalize_phone(phone):
     return re.sub(r"\D", "", str(phone or ""))
 
 
+def push_whatsapp_message(phone, message):
+    """
+    Best-effort OUTBOUND WhatsApp message via the configured n8n outbound
+    webhook -- the same channel the weekly pulse uses -- so the agent can
+    reach the user on WhatsApp without being asked (proactive alerts).
+    Returns True on success, False otherwise. Never raises; a missing webhook
+    or phone is just a no-op.
+    """
+    import urllib.request
+
+    url = os.environ.get("WHATSAPP_OUTBOUND_WEBHOOK_URL", "").strip()
+    ph = normalize_phone(phone)
+    if not url or not ph or not (message or "").strip():
+        return False
+    try:
+        data = json.dumps({"phone": ph, "message": message}).encode("utf-8")
+        req = urllib.request.Request(
+            url, data=data, headers={"Content-Type": "application/json"}, method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return 200 <= getattr(resp, "status", 200) < 300
+    except Exception as e:
+        logger.info("WhatsApp outbound push failed for %s: %s", phone, e)
+        return False
+
+
 def resolve_user_by_phone(phone):
     """
     Match a WhatsApp sender to a Baseera user by the phone on their Profile.
@@ -85,6 +114,51 @@ def resolve_user_by_phone(phone):
 
 def _ext_from_mime(media_mime):
     return _MIME_EXT.get((media_mime or "").split(";")[0].strip().lower(), ".jpg")
+
+
+def download_whatsapp_media(media_id):
+    """
+    Fetch the actual bytes of a WhatsApp media object by its id, so a photo
+    of a receipt/ledger sent over WhatsApp reaches the SAME processing engines
+    the web upload uses -- instead of n8n having to download + base64 it.
+
+    Two-step Meta Cloud API dance: GET /{media_id} returns a short-lived,
+    authenticated URL + mime type; a second GET on that URL (same Bearer
+    token) returns the binary. Requires WHATSAPP_GRAPH_TOKEN in the env (the
+    same permanent token n8n uses to send replies); WHATSAPP_GRAPH_VERSION is
+    optional (defaults to a current Graph version).
+
+    Returns (bytes, mime_type) on success, or (None, None) on any failure --
+    never raises, so a missing token or a Meta hiccup just means "no media"
+    and the caller falls back to asking the user to resend.
+    """
+    import urllib.request
+
+    token = os.environ.get("WHATSAPP_GRAPH_TOKEN", "").strip()
+    if not token or not media_id:
+        return None, None
+    version = os.environ.get("WHATSAPP_GRAPH_VERSION", "v20.0").strip() or "v20.0"
+    auth = {"Authorization": "Bearer " + token}
+    try:
+        meta_req = urllib.request.Request(
+            f"https://graph.facebook.com/{version}/{media_id}", headers=auth, method="GET",
+        )
+        with urllib.request.urlopen(meta_req, timeout=15) as resp:
+            meta = json.loads(resp.read().decode("utf-8") or "{}")
+        url = meta.get("url")
+        mime = meta.get("mime_type")
+        if not url:
+            return None, None
+        # Meta requires the Bearer token on the media URL fetch too.
+        bin_req = urllib.request.Request(url, headers=auth, method="GET")
+        with urllib.request.urlopen(bin_req, timeout=30) as resp:
+            data = resp.read()
+        if not data or len(data) > 20 * 1024 * 1024:
+            return None, None
+        return data, mime
+    except Exception as e:
+        logger.info("WhatsApp media download failed for %s: %s", media_id, e)
+        return None, None
 
 
 def build_reply_from_rows(rows, currency="ر.ع"):
@@ -209,6 +283,23 @@ def generate_agent_reply(user, message, lang="ar"):
         tail = f"\n\nUser data (JSON sample):\n{file_context or 'No data uploaded yet.'}\n\nUser question: {safe_msg}\n\nYour short reply:"
 
     prompt = persona + wa_rules + tail
+
+    # Agent parity with the web "اسأل بصيرة" chat: when the question plausibly
+    # needs a real tool (compute runway/cashflow, count rows, save a memory,
+    # raise a reminder...), run the SAME bounded ReAct pre-loop the website
+    # uses -- so a WhatsApp answer is grounded in the same agents/tools and
+    # gives an identical result to the dashboard, not a lighter separate
+    # reply path. Gated by should_attempt_react() and never raises, so an
+    # ordinary chat/greeting skips it with zero added latency or cost.
+    try:
+        from dashboard.services.agent_tools import should_attempt_react, run_react_preloop
+        if should_attempt_react(message or ""):
+            prompt = run_react_preloop(
+                ai, prompt, getattr(user, "id", None), GEMINI_MODEL, lang=lang,
+            )
+    except Exception as e:
+        logger.info("WhatsApp ReAct pre-loop skipped: %s", e)
+
     try:
         resp = ai.client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
         text = (getattr(resp, "text", "") or "").strip()
@@ -311,6 +402,15 @@ def _handle_media(user, phone, media_bytes, media_mime):
         index_accepted_sheets(project_file, validation.get("accepted_sheets"))
     except Exception as idx_err:
         logger.info("WhatsApp retrieval indexing skipped: %s", idx_err)
+
+    # Archive the incoming document: fingerprint it for integrity and open its
+    # lifecycle (a photographed invoice/receipt is AI-read, so it lands in
+    # needs_review pending a human confirm; a structured file is 'received').
+    try:
+        from dashboard.services.archiving import stamp_document
+        stamp_document(project_file, raw_bytes=media_bytes, user=user)
+    except Exception as arch_err:
+        logger.info("WhatsApp archiving stamp skipped: %s", arch_err)
 
     rows = list(
         DynamicRecord.objects.filter(user=user, project_file=project_file)
