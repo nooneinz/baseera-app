@@ -127,6 +127,72 @@ def send_whatsapp_reply(phone, message):
         return False
 
 
+def send_whatsapp_image(phone, image_bytes, caption=""):
+    """
+    Send an image to a user over the Meta WhatsApp Cloud API: first upload the
+    bytes to the /media endpoint (multipart), then send an image message by the
+    returned media id. Needs WHATSAPP_GRAPH_TOKEN + WHATSAPP_PHONE_NUMBER_ID.
+    Returns True on success. Never raises.
+    """
+    import urllib.request
+    import uuid
+
+    token = os.environ.get("WHATSAPP_GRAPH_TOKEN", "").strip()
+    phone_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "").strip()
+    ph = normalize_phone(phone)
+    if not token or not phone_id or not ph or not image_bytes:
+        return False
+    version = os.environ.get("WHATSAPP_GRAPH_VERSION", "v20.0").strip() or "v20.0"
+    try:
+        # 1) upload media (multipart/form-data)
+        boundary = "----baseera" + uuid.uuid4().hex
+        parts = []
+        for k, v in (("messaging_product", "whatsapp"), ("type", "image/png")):
+            parts.append(("--" + boundary).encode())
+            parts.append(('Content-Disposition: form-data; name="%s"' % k).encode())
+            parts.append(b"")
+            parts.append(str(v).encode())
+        parts.append(("--" + boundary).encode())
+        parts.append(b'Content-Disposition: form-data; name="file"; filename="summary.png"')
+        parts.append(b"Content-Type: image/png")
+        parts.append(b"")
+        parts.append(image_bytes)
+        parts.append(("--" + boundary + "--").encode())
+        parts.append(b"")
+        body = b"\r\n".join(parts)
+        up = urllib.request.Request(
+            f"https://graph.facebook.com/{version}/{phone_id}/media",
+            data=body, method="POST",
+            headers={
+                "Authorization": "Bearer " + token,
+                "Content-Type": "multipart/form-data; boundary=" + boundary,
+            },
+        )
+        with urllib.request.urlopen(up, timeout=30) as resp:
+            media = json.loads(resp.read().decode("utf-8") or "{}")
+        media_id = media.get("id")
+        if not media_id:
+            return False
+
+        # 2) send the image message
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": ph,
+            "type": "image",
+            "image": {"id": media_id, "caption": (caption or "")[:1024]},
+        }
+        send = urllib.request.Request(
+            f"https://graph.facebook.com/{version}/{phone_id}/messages",
+            data=json.dumps(payload).encode("utf-8"), method="POST",
+            headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(send, timeout=20) as resp:
+            return 200 <= getattr(resp, "status", 200) < 300
+    except Exception as e:
+        logger.info("WhatsApp send image failed for %s: %s", phone, e)
+        return False
+
+
 def parse_meta_messages(payload):
     """
     Pull the user messages out of a raw Meta WhatsApp Cloud API webhook body.
@@ -171,6 +237,27 @@ def process_and_reply(phone, text=None, media_id=None):
         reply = (result or {}).get("reply")
         if reply:
             send_whatsapp_reply(phone, reply)
+
+        # Generative visual: if the user asked for a chart/report/image and has
+        # data, render a real summary card from their own numbers and send it
+        # as an image -- the same figures the dashboard shows, not a fabricated
+        # picture. Best-effort; never blocks the text reply.
+        try:
+            from dashboard.services.whatsapp_visual import wants_visual, render_summary_image
+            if text and wants_visual(text):
+                user = resolve_user_by_phone(phone)
+                if user:
+                    from dashboard.models import DynamicRecord
+                    rows = list(
+                        DynamicRecord.objects.filter(user=user)
+                        .values_list("row_data", flat=True)[:10000]
+                    )
+                    png = render_summary_image(rows)
+                    if png:
+                        send_whatsapp_image(phone, png, caption="ملخّصك المالي 📊 (بيانات حقيقية من ملفاتك)")
+        except Exception as viz_err:
+            logger.info("WhatsApp visual generation skipped: %s", viz_err)
+
         return result
     except Exception as e:
         logger.exception("process_and_reply failed: %s", e)
