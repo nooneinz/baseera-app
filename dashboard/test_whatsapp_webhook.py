@@ -14,11 +14,14 @@ from dashboard.models import Profile
 from dashboard.services import whatsapp_service
 
 
-def _meta_payload(from_phone="96891234567", text=None, image_id=None):
+def _meta_payload(from_phone="96891234567", text=None, image_id=None, audio_id=None):
     msg = {"from": from_phone, "id": "wamid.X"}
     if image_id:
         msg["type"] = "image"
         msg["image"] = {"id": image_id, "mime_type": "image/jpeg"}
+    elif audio_id:
+        msg["type"] = "audio"
+        msg["audio"] = {"id": audio_id, "mime_type": "audio/ogg"}
     else:
         msg["type"] = "text"
         msg["text"] = {"body": text or "مرحبا"}
@@ -28,10 +31,19 @@ def _meta_payload(from_phone="96891234567", text=None, image_id=None):
 class ParseMetaMessagesTests(TestCase):
     def test_extracts_text_and_image(self):
         text = whatsapp_service.parse_meta_messages(_meta_payload(text="كم ربحي؟"))
-        self.assertEqual(text, [{"phone": "96891234567", "text": "كم ربحي؟", "media_id": None}])
+        self.assertEqual(text[0]["phone"], "96891234567")
+        self.assertEqual(text[0]["text"], "كم ربحي؟")
+        self.assertIsNone(text[0]["media_id"])
+        self.assertEqual(text[0]["mtype"], "text")
         img = whatsapp_service.parse_meta_messages(_meta_payload(image_id="MID.42"))
         self.assertEqual(img[0]["media_id"], "MID.42")
+        self.assertEqual(img[0]["mtype"], "image")
         self.assertIsNone(img[0]["text"])
+
+    def test_extracts_voice_note(self):
+        aud = whatsapp_service.parse_meta_messages(_meta_payload(audio_id="AID.7"))
+        self.assertEqual(aud[0]["media_id"], "AID.7")
+        self.assertEqual(aud[0]["mtype"], "audio")
 
     def test_status_callbacks_yield_no_messages(self):
         # Delivery/read receipts carry `statuses`, not `messages`.
@@ -55,6 +67,21 @@ class ProcessAndReplyTests(TestCase):
         dl.assert_called_once()
         hi.assert_called_once()
         send.assert_called_once_with("96891234567", "تم التحليل ✅")
+
+    def test_voice_note_is_transcribed_then_answered_as_text(self):
+        with patch("dashboard.services.whatsapp_service.download_whatsapp_media",
+                   return_value=(b"oggbytes", "audio/ogg")), \
+             patch("dashboard.services.whatsapp_service.transcribe_audio",
+                   return_value="كم صافي ربحي؟") as tr, \
+             patch("dashboard.services.whatsapp_service.handle_inbound",
+                   return_value={"status": "agent", "reply": "صافي ربحك 1200"}) as hi, \
+             patch("dashboard.services.whatsapp_service.send_whatsapp_reply", return_value=True) as send:
+            whatsapp_service.process_and_reply("96891234567", media_id="AID.1", media_type="audio")
+        tr.assert_called_once()
+        # The transcript is passed to the engine as text; audio is NOT run as a file.
+        self.assertEqual(hi.call_args.kwargs.get("text"), "كم صافي ربحي؟")
+        self.assertIsNone(hi.call_args.kwargs.get("media_bytes"))
+        send.assert_called_once()
 
     def test_text_message_skips_download(self):
         with patch("dashboard.services.whatsapp_service.download_whatsapp_media") as dl, \

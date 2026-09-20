@@ -193,12 +193,44 @@ def send_whatsapp_image(phone, image_bytes, caption=""):
         return False
 
 
+def transcribe_audio(audio_bytes, mime="audio/ogg"):
+    """
+    Transcribe a WhatsApp voice note to Arabic text with Gemini, so a spoken
+    question is handled exactly like a typed one. Returns the transcript, or
+    None. Never raises.
+    """
+    if not audio_bytes:
+        return None
+    try:
+        from dashboard.services.ai_service import GeminiAIService, GEMINI_MODEL
+        from google.genai import types
+    except Exception:
+        return None
+    ai = GeminiAIService()
+    if not getattr(ai, "client", None):
+        return None
+    try:
+        clean_mime = (mime or "audio/ogg").split(";")[0].strip() or "audio/ogg"
+        part = types.Part.from_bytes(data=audio_bytes, mime_type=clean_mime)
+        prompt = (
+            "حوّل هذه الرسالة الصوتية إلى نص عربي حرفي فقط، بدون أي مقدمة أو تعليق "
+            "أو علامات اقتباس. إن لم يكن فيها كلام واضح، أعد نصاً فارغاً."
+        )
+        resp = ai.client.models.generate_content(model=GEMINI_MODEL, contents=[prompt, part])
+        text = (getattr(resp, "text", "") or "").strip()
+        return text or None
+    except Exception as e:
+        logger.info("audio transcription failed: %s", e)
+        return None
+
+
 def parse_meta_messages(payload):
     """
     Pull the user messages out of a raw Meta WhatsApp Cloud API webhook body.
-    Returns a list of {phone, text, media_id} -- media_id is set for a photo/
-    document/audio/video, text for a text message. Ignores delivery/read
-    status callbacks (which carry no `messages`). Never raises.
+    Returns a list of {phone, text, media_id, mtype} -- media_id is set for a
+    photo/document/audio/video, text for a text message, and mtype carries the
+    original message type so audio can be routed to transcription. Ignores
+    delivery/read status callbacks (which carry no `messages`). Never raises.
     """
     out = []
     try:
@@ -214,25 +246,34 @@ def parse_meta_messages(payload):
                     media_id = None
                     if mtype == "text":
                         text = ((msg.get("text") or {}).get("body")) or None
-                    elif mtype in ("image", "document", "audio", "video"):
+                    elif mtype in ("image", "document", "audio", "voice", "video"):
                         media_id = ((msg.get(mtype) or {}).get("id")) or None
-                    out.append({"phone": phone, "text": text, "media_id": media_id})
+                    out.append({"phone": phone, "text": text, "media_id": media_id, "mtype": mtype})
     except Exception as e:
         logger.info("parse_meta_messages failed: %s", e)
     return out
 
 
-def process_and_reply(phone, text=None, media_id=None):
+def process_and_reply(phone, text=None, media_id=None, media_type=None):
     """
     The full inbound pipeline for one message arriving straight from Meta (no
     n8n): download the media if a media_id was given, run the shared
-    handle_inbound engine, then send the reply back to the user. Never raises.
+    handle_inbound engine, then send the reply back to the user. A voice note
+    is transcribed first and handled as a spoken question. Never raises.
     """
     try:
         media_bytes = None
         media_mime = None
         if media_id:
             media_bytes, media_mime = download_whatsapp_media(media_id)
+            if media_type in ("audio", "voice") and media_bytes:
+                # Spoken question -> transcribe, then treat as text (don't run
+                # audio through the file/financial pipeline).
+                transcript = transcribe_audio(media_bytes, media_mime)
+                if transcript:
+                    text = (text + "\n" + transcript) if text else transcript
+                media_bytes = None
+                media_mime = None
         result = handle_inbound(phone, text=text, media_bytes=media_bytes, media_mime=media_mime)
         reply = (result or {}).get("reply")
         if reply:
@@ -440,6 +481,9 @@ def generate_agent_reply(user, message, lang="ar"):
             "- خلّ ردك قصير (سطر إلى ٣ أسطر)، بلا جداول ولا رموز Markdown ولا أكواد ولا لغة رسمية جافة.\n"
             "- إذا سلّم عليك أو سولف كلام عام (سلام، كيف الحال، شكراً)، ردّ عليه بترحيب طبيعي وسولف معه بلطف — ولا تقحم أرقاماً مالية إلا إذا سأل عن ماليته أو رفع ملفاً.\n"
             "- لا تختلق أي رقم أبداً؛ استخدم بيانات المستخدم أدناه فقط، وفقط لو كان سؤاله متعلقاً بماليته.\n"
+            "- ⚠️ ممنوع منعاً باتاً أن تذكر اسم أي صنف أو منتج أو مثال غير موجود حرفياً في بيانات المستخدم أدناه. لا تخترع أمثلة عامة إطلاقاً (مثل حليب أطفال، واقي شمس، أجهزة ضغط، أو أي منتج لم يرد في بياناته). إذا احتجت ذكر صنف، انسخ اسمه كما ورد في بياناته فقط.\n"
+            "- إذا سألك عن الهدر أو الربح لكل صنف ولا تملك في بياناته أعمدة (سعر البيع/التكلفة/الكمية)، قل له بصدق إن الملف الحالي لا يكفي لحساب الهدر واطلب ملف مبيعات فيه سعر البيع والتكلفة — بدون ما تخمّن أو تعطي أمثلة.\n"
+            "- إذا طلب صورة أو رسم أو تقرير مرئي، لا تعتذر ولا تقل أبداً إنك لا تقدر ترسل صوراً — قل له بلطف إنك جهّزت له صورة/تقريراً وسيصله الآن.\n"
             "- إذا ذكر أنه أرسل صورة أو ملفاً ولا توجد بيانات جديدة عندك، لا تدّعِ أبداً أنك حلّلته أو تعطيه أرقاماً — قل له بصدق ولطف إن الملف ما وصلك واطلب منه يعيد إرساله.\n"
             "- إذا ما كفت البيانات، اطلب منه بلطف يرفع ملف أو صورة، بدون ما تفبرك.\n"
         )
@@ -449,6 +493,9 @@ def generate_agent_reply(user, message, lang="ar"):
             "\n\nYou are replying over WhatsApp. Mandatory rules:\n"
             "- Keep it very short (max 2-4 lines), no tables, no Markdown headings, no code.\n"
             "- Rely ONLY on the user's data below; never invent a number.\n"
+            "- NEVER name any item/product/example that is not literally present in the user's data below. Do not invent generic examples. If you must name an item, copy it verbatim from their data.\n"
+            "- If asked about waste/per-item profit but the data lacks price/cost/quantity columns, say honestly the current file isn't enough and ask for a sales file with selling price and cost -- do not guess.\n"
+            "- If they ask for an image/chart/report, never say you cannot send images -- tell them you've prepared an image and it's on its way.\n"
             "- If the data is insufficient, briefly ask them to upload a file/photo.\n"
         )
         tail = f"\n\nUser data (JSON sample):\n{file_context or 'No data uploaded yet.'}\n\nUser question: {safe_msg}\n\nYour short reply:"

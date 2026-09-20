@@ -1209,7 +1209,10 @@ def api_whatsapp_webhook(request):
     for m in messages:
         threading.Thread(
             target=process_and_reply,
-            kwargs={"phone": m["phone"], "text": m.get("text"), "media_id": m.get("media_id")},
+            kwargs={
+                "phone": m["phone"], "text": m.get("text"),
+                "media_id": m.get("media_id"), "media_type": m.get("mtype"),
+            },
             daemon=True,
         ).start()
     # Always 200 so Meta marks it delivered and doesn't retry.
