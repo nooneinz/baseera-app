@@ -1046,6 +1046,7 @@ def api_whatsapp_inbound(request):
         return JsonResponse({"status": "error", "message": "phone required"}, status=400)
 
     media_bytes = None
+    media_mime = data.get("media_mime")
     media_b64 = data.get("media_base64")
     if media_b64:
         try:
@@ -1054,10 +1055,18 @@ def api_whatsapp_inbound(request):
             return JsonResponse({"status": "error", "message": "invalid media_base64"}, status=400)
         if len(media_bytes) > 20 * 1024 * 1024:
             return JsonResponse({"status": "error", "message": "media too large"}, status=400)
+    elif data.get("media_id"):
+        # Preferred path: n8n forwards only the WhatsApp media id and Baseera
+        # downloads the bytes itself (keeps the workflow trivial and the logic
+        # here, testable). Falls through to a normal text turn if it can't be
+        # fetched, so the user just gets asked to resend rather than an error.
+        from dashboard.services.whatsapp_service import download_whatsapp_media
+        media_bytes, fetched_mime = download_whatsapp_media(str(data.get("media_id")))
+        media_mime = media_mime or fetched_mime
 
     from dashboard.services.whatsapp_service import handle_inbound
     result = handle_inbound(
-        phone, text=data.get("text"), media_bytes=media_bytes, media_mime=data.get("media_mime"),
+        phone, text=data.get("text"), media_bytes=media_bytes, media_mime=media_mime,
     )
     return JsonResponse(result, json_dumps_params={"ensure_ascii": False})
 

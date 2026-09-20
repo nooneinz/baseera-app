@@ -5,8 +5,10 @@ Flow (see docs/whatsapp/): Meta WhatsApp Cloud API -> n8n workflow ->
 POST /api/integrations/whatsapp/inbound/ (this handler) -> n8n sends the
 returned `reply` text back to the user via Meta.
 
-n8n owns the transport (webhook verification, media download, sending
-replies). Baseera owns the intelligence: it resolves the sender by phone,
+n8n owns the transport (webhook verification, sending replies). Media can
+arrive either already base64-encoded, or as a WhatsApp media id that Baseera
+downloads itself (download_whatsapp_media) so the n8n workflow stays trivial.
+Baseera owns the intelligence: it resolves the sender by phone,
 runs whatever they sent (a photo of a ledger/receipt, a bank-statement
 CSV, an Excel sheet) through the SAME validation + processing + insight
 engines the web app uses, and returns one short, WhatsApp-ready reply --
@@ -15,6 +17,7 @@ rows, never invented.
 """
 import os
 import re
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -85,6 +88,51 @@ def resolve_user_by_phone(phone):
 
 def _ext_from_mime(media_mime):
     return _MIME_EXT.get((media_mime or "").split(";")[0].strip().lower(), ".jpg")
+
+
+def download_whatsapp_media(media_id):
+    """
+    Fetch the actual bytes of a WhatsApp media object by its id, so a photo
+    of a receipt/ledger sent over WhatsApp reaches the SAME processing engines
+    the web upload uses -- instead of n8n having to download + base64 it.
+
+    Two-step Meta Cloud API dance: GET /{media_id} returns a short-lived,
+    authenticated URL + mime type; a second GET on that URL (same Bearer
+    token) returns the binary. Requires WHATSAPP_GRAPH_TOKEN in the env (the
+    same permanent token n8n uses to send replies); WHATSAPP_GRAPH_VERSION is
+    optional (defaults to a current Graph version).
+
+    Returns (bytes, mime_type) on success, or (None, None) on any failure --
+    never raises, so a missing token or a Meta hiccup just means "no media"
+    and the caller falls back to asking the user to resend.
+    """
+    import urllib.request
+
+    token = os.environ.get("WHATSAPP_GRAPH_TOKEN", "").strip()
+    if not token or not media_id:
+        return None, None
+    version = os.environ.get("WHATSAPP_GRAPH_VERSION", "v20.0").strip() or "v20.0"
+    auth = {"Authorization": "Bearer " + token}
+    try:
+        meta_req = urllib.request.Request(
+            f"https://graph.facebook.com/{version}/{media_id}", headers=auth, method="GET",
+        )
+        with urllib.request.urlopen(meta_req, timeout=15) as resp:
+            meta = json.loads(resp.read().decode("utf-8") or "{}")
+        url = meta.get("url")
+        mime = meta.get("mime_type")
+        if not url:
+            return None, None
+        # Meta requires the Bearer token on the media URL fetch too.
+        bin_req = urllib.request.Request(url, headers=auth, method="GET")
+        with urllib.request.urlopen(bin_req, timeout=30) as resp:
+            data = resp.read()
+        if not data or len(data) > 20 * 1024 * 1024:
+            return None, None
+        return data, mime
+    except Exception as e:
+        logger.info("WhatsApp media download failed for %s: %s", media_id, e)
+        return None, None
 
 
 def build_reply_from_rows(rows, currency="ر.ع"):
