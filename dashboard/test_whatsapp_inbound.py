@@ -133,3 +133,31 @@ class WhatsAppServiceUnitTests(TestCase):
             {"البيان": "مبيعات", "المبلغ": 700, "النوع": "دخل"},
         ]
         self.assertIn("تدفّق", whatsapp_service.build_reply_from_rows(cash_rows))
+
+    def test_whatsapp_text_runs_the_same_react_agent_for_tool_questions(self):
+        # A tool-worthy question (e.g. "compute my monthly profit") must go
+        # through the SAME bounded ReAct + tools pre-loop the website uses --
+        # so WhatsApp is fully agentic and gives identical results, not a
+        # lighter reply path.
+        u = User.objects.create_user(username="wa_react", password="pw123456")
+        Profile.objects.create(user=u, phone_number="91112223")
+        fake_ai = MagicMock()
+        fake_ai.client.models.generate_content.return_value = MagicMock(text="ربحك 600 ر.ع")
+        with patch("dashboard.services.ai_service.GeminiAIService", return_value=fake_ai), \
+             patch("dashboard.services.agent_tools.run_react_preloop",
+                   return_value="ENRICHED PROMPT") as rp:
+            out = whatsapp_service.generate_agent_reply(u, "احسبلي الربح الشهري")
+        self.assertTrue(rp.called)  # the real agent loop ran
+        self.assertEqual(out, "ربحك 600 ر.ع")
+
+    def test_whatsapp_greeting_skips_the_react_agent(self):
+        # An ordinary greeting must NOT pay for the extra tool round trip.
+        u = User.objects.create_user(username="wa_hi", password="pw123456")
+        Profile.objects.create(user=u, phone_number="93334445")
+        fake_ai = MagicMock()
+        fake_ai.client.models.generate_content.return_value = MagicMock(text="هلا والله 👋")
+        with patch("dashboard.services.ai_service.GeminiAIService", return_value=fake_ai), \
+             patch("dashboard.services.agent_tools.run_react_preloop") as rp:
+            out = whatsapp_service.generate_agent_reply(u, "مرحبا كيف حالك")
+        self.assertFalse(rp.called)  # gate skipped the loop
+        self.assertEqual(out, "هلا والله 👋")

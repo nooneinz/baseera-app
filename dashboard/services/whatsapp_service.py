@@ -209,6 +209,23 @@ def generate_agent_reply(user, message, lang="ar"):
         tail = f"\n\nUser data (JSON sample):\n{file_context or 'No data uploaded yet.'}\n\nUser question: {safe_msg}\n\nYour short reply:"
 
     prompt = persona + wa_rules + tail
+
+    # Agent parity with the web "اسأل بصيرة" chat: when the question plausibly
+    # needs a real tool (compute runway/cashflow, count rows, save a memory,
+    # raise a reminder...), run the SAME bounded ReAct pre-loop the website
+    # uses -- so a WhatsApp answer is grounded in the same agents/tools and
+    # gives an identical result to the dashboard, not a lighter separate
+    # reply path. Gated by should_attempt_react() and never raises, so an
+    # ordinary chat/greeting skips it with zero added latency or cost.
+    try:
+        from dashboard.services.agent_tools import should_attempt_react, run_react_preloop
+        if should_attempt_react(message or ""):
+            prompt = run_react_preloop(
+                ai, prompt, getattr(user, "id", None), GEMINI_MODEL, lang=lang,
+            )
+    except Exception as e:
+        logger.info("WhatsApp ReAct pre-loop skipped: %s", e)
+
     try:
         resp = ai.client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
         text = (getattr(resp, "text", "") or "").strip()
