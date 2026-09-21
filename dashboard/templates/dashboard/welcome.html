@@ -17,10 +17,6 @@
             <!-- Hero text -->
             <div>
                 <div class="inline-flex items-center gap-2 rounded-full border border-indigo-200/80 dark:border-indigo-800/60 bg-white/80 dark:bg-slate-900/80 px-4 py-1.5 text-xs font-black text-[var(--glow)] shadow-sm backdrop-blur mb-4">
-                    <span class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                    </span>
                     <span>{% if trans.lang_code == 'ar' %}منصة الذكاء المالي للمنشآت العُمانية{% else %}Financial intelligence for Omani businesses{% endif %}</span>
                 </div>
 
@@ -102,6 +98,44 @@
         </div>
     </section>
 
+    <!-- HOW IT WORKS -->
+    <section class="mt-24 animate-fade-up">
+        <div class="mx-auto max-w-2xl text-center">
+            <h2 class="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight text-slate-900 dark:text-white">
+                {% if trans.lang_code == 'ar' %}من ملفك إلى قرار — خلال دقائق{% else %}From your file to a decision — in minutes{% endif %}
+            </h2>
+            <p class="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed">
+                {% if trans.lang_code == 'ar' %}ثلاث خطوات، بدون محاسب وبدون تعقيد.{% else %}Three steps — no accountant, no complexity.{% endif %}
+            </p>
+        </div>
+        <div class="mt-10 grid gap-5 md:grid-cols-3">
+            <div class="relative rounded-3xl p-6 glass">
+                <div class="flex items-center gap-3">
+                    <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="upload-cloud" class="h-5 w-5"></i></div>
+                    <span class="text-sm font-black text-[var(--nile)] dark:text-[var(--lavender)]">{% if trans.lang_code == 'ar' %}الخطوة الأولى{% else %}Step one{% endif %}</span>
+                </div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}ارفع بياناتك{% else %}Upload your data{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}كشف حساب، ملف مبيعات أو مصروفات، حتى صورة دفترك — Excel أو CSV أو PDF أو صورة.{% else %}A statement, a sales or expense file, even a photo of your ledger — Excel, CSV, PDF or image.{% endif %}</p>
+            </div>
+            <div class="relative rounded-3xl p-6 glass">
+                <div class="flex items-center gap-3">
+                    <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="cpu" class="h-5 w-5"></i></div>
+                    <span class="text-sm font-black text-[var(--nile)] dark:text-[var(--lavender)]">{% if trans.lang_code == 'ar' %}الخطوة الثانية{% else %}Step two{% endif %}</span>
+                </div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}بصيرة تحسب — لا تخمّن{% else %}Baseera computes — never guesses{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}تُحسب الأرقام حتمياً بايثون: الدخل، المصروف، أكبر بند متكرر، الهدر، وكفاية السيولة — بالدليل.{% else %}Numbers are computed deterministically in Python: income, expense, biggest recurring cost, waste and runway — with the evidence.{% endif %}</p>
+            </div>
+            <div class="relative rounded-3xl p-6 glass">
+                <div class="flex items-center gap-3">
+                    <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="target" class="h-5 w-5"></i></div>
+                    <span class="text-sm font-black text-[var(--nile)] dark:text-[var(--lavender)]">{% if trans.lang_code == 'ar' %}الخطوة الثالثة{% else %}Step three{% endif %}</span>
+                </div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}قرار واضح وخطوة تنفيذية{% else %}A clear decision & next step{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}تعرف أكبر تسريب مالي في مشروعك وخطوة واحدة لإيقافه — على الموقع وعلى واتساب.{% else %}You see the biggest leak in your business and one step to stop it — on the web and on WhatsApp.{% endif %}</p>
+            </div>
+        </div>
+    </section>
+
     <!-- CIRCULAR CAROUSEL AGENTS SECTION -->
     <section id="carousel-section" class="mt-24 mb-16 relative scroll-mt-24">
         <!-- Ambient Glowing Background Accents -->
@@ -129,7 +163,7 @@
                                 <i data-lucide="bot" class="h-7 w-7 stroke-[2.2]"></i>
                             </div>
                             <div class="flex flex-col text-start min-w-0 flex-1">
-                                <span class="text-[10px] font-extrabold uppercase tracking-wider truncate mb-0.5 text-indigo-600 dark:text-indigo-400">{% if trans.lang_code == 'ar' %}المنسق العام{% else %}General Coordinator{% endif %}</span>
+                                <span class="text-[10px] font-extrabold uppercase tracking-wider truncate mb-0.5 text-indigo-600 dark:text-indigo-400">{% if trans.lang_code == 'ar' %}رَصْد{% else %}Rasd{% endif %}</span>
                                 <h3 class="font-black leading-tight transition-colors duration-300 truncate text-slate-900 dark:text-white text-sm sm:text-base">{% if trans.lang_code == 'ar' %}المساعد العام{% else %}General Assistant{% endif %}</h3>
                             </div>
                         </div>
@@ -302,7 +336,7 @@
                         <div id="orchestratorOrb" class="marble-orb orb-indigo animate-pulse" style="width: 44px; height: 44px;"></div>
                         <div>
                             <h3 id="orchestratorTitle" class="text-lg font-black text-slate-900 dark:text-white leading-tight">
-                                {% if trans.lang_code == 'ar' %}المساعد العام – بصيرة الذكية{% else %}Baseera Master Orchestrator{% endif %}
+                                {% if trans.lang_code == 'ar' %}رَصْد — منسّق الوكلاء{% else %}Rasd — Agent Orchestrator{% endif %}
                             </h3>
                         </div>
                     </div>
@@ -439,6 +473,66 @@
         </div>
     </section>
 
+    <!-- ===================== WHY BASEERA (strengths) ===================== -->
+    <section id="why" class="mt-24 scroll-mt-28 animate-fade-up">
+        <div class="mx-auto max-w-2xl text-center">
+            <h2 class="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight text-slate-900 dark:text-white">
+                {% if trans.lang_code == 'ar' %}لماذا بصيرة تحديداً{% else %}Why Baseera, specifically{% endif %}
+            </h2>
+            <p class="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed">
+                {% if trans.lang_code == 'ar' %}ما يميّزنا ليس شعارات — بل قرارات هندسية مبنية في المنتج.{% else %}Our edge isn't slogans — it's engineering decisions built into the product.{% endif %}
+            </p>
+        </div>
+        <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="rounded-3xl p-6 glass transition hover:-translate-y-1">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="calculator" class="h-5 w-5"></i></div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}الحساب حتمي أولاً{% else %}Deterministic-first{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}الأرقام تُحسب بايثون عندنا، والذكاء الخارجي للقراءة فقط — فالتحليل يعمل بثبات حتى لو تعطّل أي مزوّد.{% else %}Numbers are computed in Python on our side; external AI only reads — analysis stays stable even if a provider goes down.{% endif %}</p>
+            </div>
+            <div class="rounded-3xl p-6 glass transition hover:-translate-y-1">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="shield-check" class="h-5 w-5"></i></div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}خصوصية مبدأ لا ميزة{% else %}Privacy by principle{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}بياناتك لا تُستخدم للتدريب ولا تُشارك، ومعزولة لكل مستخدم على حدة — تبقى ملكك أنت.{% else %}Your data is never used for training or shared, and is isolated per user — it stays yours.{% endif %}</p>
+            </div>
+            <div class="rounded-3xl p-6 glass transition hover:-translate-y-1">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="file-check-2" class="h-5 w-5"></i></div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}أثر موثّق من اليوم الأول{% else %}Auditable from day one{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}كل تقرير مبصوم بـ SHA-256 وسجل تدقيق كامل يربطه بمصادره — قابل للتتبّع والاعتماد.{% else %}Every report is SHA-256 stamped with a full audit trail linking it to its sources — traceable and dependable.{% endif %}</p>
+            </div>
+            <div class="rounded-3xl p-6 glass transition hover:-translate-y-1">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="map-pin" class="h-5 w-5"></i></div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}متجذّرون محلياً{% else %}Rooted locally{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}عربي أولاً، لهجة عُمانية، وفهم لواقع منشآت السلطنة — ما لا يقلّده منتج عالمي عام.{% else %}Arabic-first, Omani dialect, and a real grasp of local businesses — hard for a generic global tool to match.{% endif %}</p>
+            </div>
+            <div class="rounded-3xl p-6 glass transition hover:-translate-y-1">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="message-circle" class="h-5 w-5"></i></div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}بسيط عبر واتساب{% else %}Simple, over WhatsApp{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}لا تطبيقات معقّدة ولا منحنى تعلّم — يرفع ملفه ويسمع النتيجة بلغته مباشرة على واتساب.{% else %}No complex apps, no learning curve — upload a file and get the answer in your language, right on WhatsApp.{% endif %}</p>
+            </div>
+            <div class="rounded-3xl p-6 glass transition hover:-translate-y-1">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="layers" class="h-5 w-5"></i></div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}مرجع قطاعي يكبر معك{% else %}A benchmark that grows{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}نبني أكبر مرجع أداء للمنشآت العُمانية — كل ملف يرفع دقة مقارناتك ومقارنات غيرك.{% else %}We're building the largest performance benchmark for Omani businesses — every file sharpens everyone's comparisons.{% endif %}</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== SECURITY BAND ===================== -->
+    <section id="security" class="mt-16 scroll-mt-28 animate-fade-up">
+        <div class="rounded-3xl glass p-7 md:p-9 flex flex-col md:flex-row md:items-center gap-6">
+            <div class="shrink-0 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/25"><i data-lucide="lock" class="h-7 w-7"></i></div>
+            <div class="flex-1">
+                <h3 class="text-lg md:text-xl font-black text-ink dark:text-white">{% if trans.lang_code == 'ar' %}أمانك ليس إضافة — هو التصميم{% else %}Security isn't an add-on — it's the design{% endif %}</h3>
+                <p class="mt-1.5 text-sm text-muted-foreground leading-relaxed max-w-2xl">{% if trans.lang_code == 'ar' %}عزل كامل لبيانات كل مستخدم، حماية CSRF على كل إجراء، فحص للملفات المرفوعة، وبصمة سلامة لكل تقرير. لا تدريب على بياناتك، ولا مشاركة مع طرف ثالث.{% else %}Full per-user data isolation, CSRF protection on every action, uploaded-file scanning, and an integrity hash on every report. No training on your data, no third-party sharing.{% endif %}</p>
+            </div>
+            <div class="shrink-0 flex flex-wrap gap-2">
+                <span class="rounded-full bg-white/70 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700 px-3 py-1 text-xs font-bold text-[var(--nile)] dark:text-[var(--lavender)]">{% if trans.lang_code == 'ar' %}عزل لكل مستخدم{% else %}Per-user isolation{% endif %}</span>
+                <span class="rounded-full bg-white/70 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700 px-3 py-1 text-xs font-bold text-[var(--nile)] dark:text-[var(--lavender)]">{% if trans.lang_code == 'ar' %}بصمة SHA-256{% else %}SHA-256 hash{% endif %}</span>
+                <span class="rounded-full bg-white/70 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700 px-3 py-1 text-xs font-bold text-[var(--nile)] dark:text-[var(--lavender)]">{% if trans.lang_code == 'ar' %}بلا تدريب على بياناتك{% else %}No training on your data{% endif %}</span>
+            </div>
+        </div>
+    </section>
+
     <!-- ===================== SOCIAL PROOF / TESTIMONIALS ===================== -->
     <section id="testimonials" class="mt-24 scroll-mt-28 animate-fade-up">
         <div class="mx-auto max-w-2xl text-center">
@@ -502,6 +596,57 @@
                 {% if trans.lang_code == 'ar' %}تجربة موثّقة من صاحب الورشة{% else %}Verified experience from the workshop owner{% endif %}
             </figcaption>
         </figure>
+    </section>
+
+    <!-- ===================== FAQ ===================== -->
+    <section id="faq" class="mt-24 scroll-mt-28 animate-fade-up">
+        <div class="mx-auto max-w-2xl text-center">
+            <h2 class="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight text-slate-900 dark:text-white">
+                {% if trans.lang_code == 'ar' %}أسئلة يسألها كل صاحب مشروع{% else %}Questions every owner asks{% endif %}
+            </h2>
+        </div>
+        <div class="mt-10 mx-auto max-w-3xl flex flex-col gap-3">
+            <details class="group rounded-2xl glass p-5">
+                <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-ink dark:text-white text-sm md:text-base">
+                    <span>{% if trans.lang_code == 'ar' %}هل بياناتي آمنة؟{% else %}Is my data safe?{% endif %}</span>
+                    <i data-lucide="plus" class="h-4 w-4 text-[var(--glow)] group-open:hidden"></i>
+                    <i data-lucide="minus" class="h-4 w-4 text-[var(--glow)] hidden group-open:block"></i>
+                </summary>
+                <p class="mt-3 text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}نعم. بيانات كل مستخدم معزولة تماماً، لا تُستخدم للتدريب ولا تُشارك مع أي طرف، وكل تقرير مبصوم ببصمة سلامة. أمانك جزء من التصميم لا إضافة.{% else %}Yes. Each user's data is fully isolated, never used for training or shared, and every report carries an integrity hash. Security is part of the design, not an add-on.{% endif %}</p>
+            </details>
+            <details class="group rounded-2xl glass p-5">
+                <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-ink dark:text-white text-sm md:text-base">
+                    <span>{% if trans.lang_code == 'ar' %}أحتاج محاسب أو خبرة مالية؟{% else %}Do I need an accountant or finance skills?{% endif %}</span>
+                    <i data-lucide="plus" class="h-4 w-4 text-[var(--glow)] group-open:hidden"></i>
+                    <i data-lucide="minus" class="h-4 w-4 text-[var(--glow)] hidden group-open:block"></i>
+                </summary>
+                <p class="mt-3 text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}لا. ترفع ملفك وتقرأ النتيجة بلغتك، بدون مصطلحات معقّدة. بصيرة تشرح لك وين يروح فلوسك وخطوة واحدة لإيقاف التسريب.{% else %}No. Upload a file and read the result in plain language. Baseera shows you where your money goes and one step to stop the leak.{% endif %}</p>
+            </details>
+            <details class="group rounded-2xl glass p-5">
+                <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-ink dark:text-white text-sm md:text-base">
+                    <span>{% if trans.lang_code == 'ar' %}أي ملفات أقدر أرفعها؟{% else %}What files can I upload?{% endif %}</span>
+                    <i data-lucide="plus" class="h-4 w-4 text-[var(--glow)] group-open:hidden"></i>
+                    <i data-lucide="minus" class="h-4 w-4 text-[var(--glow)] hidden group-open:block"></i>
+                </summary>
+                <p class="mt-3 text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}كشف حساب بنكي، ملف مبيعات أو مصروفات، أو حتى صورة دفترك — بصيغة Excel أو CSV أو PDF أو صورة.{% else %}A bank statement, a sales or expense file, or even a photo of your ledger — as Excel, CSV, PDF or an image.{% endif %}</p>
+            </details>
+            <details class="group rounded-2xl glass p-5">
+                <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-ink dark:text-white text-sm md:text-base">
+                    <span>{% if trans.lang_code == 'ar' %}الأرقام دقيقة ولا تخمين ذكاء اصطناعي؟{% else %}Are the numbers accurate, or AI guesses?{% endif %}</span>
+                    <i data-lucide="plus" class="h-4 w-4 text-[var(--glow)] group-open:hidden"></i>
+                    <i data-lucide="minus" class="h-4 w-4 text-[var(--glow)] hidden group-open:block"></i>
+                </summary>
+                <p class="mt-3 text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}كل رقم محسوب حتمياً بايثون من بياناتك أنت، بالمعادلة والدليل. الذكاء الاصطناعي يُستخدم للقراءة والصياغة فقط، لا لاختراع الأرقام.{% else %}Every number is computed deterministically in Python from your own data, with the formula and the evidence. AI is used only to read and phrase — never to invent figures.{% endif %}</p>
+            </details>
+            <details class="group rounded-2xl glass p-5">
+                <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-ink dark:text-white text-sm md:text-base">
+                    <span>{% if trans.lang_code == 'ar' %}كم يكلّف، وكيف أبدأ؟{% else %}What does it cost, and how do I start?{% endif %}</span>
+                    <i data-lucide="plus" class="h-4 w-4 text-[var(--glow)] group-open:hidden"></i>
+                    <i data-lucide="minus" class="h-4 w-4 text-[var(--glow)] hidden group-open:block"></i>
+                </summary>
+                <p class="mt-3 text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}تبدأ مجاناً بدون بطاقة ائتمان — ترفع ملفك الأول وتشوف أول تسريب مالي فوراً.{% else %}Start free, no credit card — upload your first file and see your first financial leak right away.{% endif %}</p>
+            </details>
+        </div>
     </section>
 
     <!-- ===================== FINAL CTA ===================== -->
@@ -1253,7 +1398,7 @@ const carouselItems = [
     id: "1",
     title: "{% if trans.lang_code == 'ar' %}المساعد العام{% else %}General Assistant{% endif %}",
     description: "{% if trans.lang_code == 'ar' %}إدارة وتوزيع الجلسة التنسيقية وتجميع التحليلات من كافة الوكلاء.{% else %}Coordinates and manages overall sessions, synthesizing insights across all agents.{% endif %}",
-    tag: "{% if trans.lang_code == 'ar' %}المنسق العام{% else %}General Coordinator{% endif %}",
+    tag: "{% if trans.lang_code == 'ar' %}رَصْد{% else %}Rasd{% endif %}",
     icon: "bot",
     badgeColorClass: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
   },
