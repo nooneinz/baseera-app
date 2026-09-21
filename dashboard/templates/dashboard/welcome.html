@@ -1,4 +1,5 @@
 {% extends 'dashboard/base.html' %}
+{% load static %}
 
 {% block title %}{{ trans.brand }}{% endblock %}
 
@@ -454,6 +455,101 @@
                 </div>
                 <h3 class="mt-4 text-base font-bold text-ink">{{ trans.feat_3_title }}</h3>
                 <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{{ trans.feat_3_desc }}</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== SOCIAL PROOF / TESTIMONIALS ===================== -->
+    <section id="testimonials" class="mt-24 scroll-mt-28 animate-fade-up">
+        <div class="mx-auto max-w-2xl text-center">
+            <div class="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/40 px-3 py-1 text-xs font-medium text-[var(--nile)] dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+                {% if trans.lang_code == 'ar' %}قصص نجاح حقيقية{% else %}Real success stories{% endif %}
+            </div>
+            <h2 class="mt-3.5 text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight text-slate-900 dark:text-white">
+                {% if trans.lang_code == 'ar' %}منشآت عُمانية شافت الفرق بعينها{% else %}Omani businesses that saw the difference{% endif %}
+            </h2>
+            <p class="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed">
+                {% if trans.lang_code == 'ar' %}أرقام حقيقية وقرارات أوضح — هذي تجربة عميل فعلي مع بصيرة، بكلماته هو.{% else %}Real numbers, clearer decisions — a real customer's experience with Baseera, in their own words.{% endif %}
+            </p>
+        </div>
+
+        <figure class="mt-10 mx-auto max-w-3xl relative rounded-3xl glass p-7 md:p-10 shadow-[0_20px_60px_-20px_rgba(43,36,112,0.35)] overflow-hidden">
+            <!-- soft brand glow -->
+            <div class="pointer-events-none absolute -top-16 -{% if trans.lang_code == 'ar' %}left{% else %}right{% endif %}-16 h-48 w-48 rounded-full bg-[var(--glow)]/20 blur-3xl"></div>
+            <svg class="absolute top-6 {% if trans.lang_code == 'ar' %}left{% else %}right{% endif %}-7 h-12 w-12 text-[var(--glow)]/25" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.5 6C5 6 3 8 3 10.5S5 15 7.5 15c.3 0 .6 0 .9-.1C7.9 16.6 6.6 18 4.8 18.6a.75.75 0 0 0 .5 1.4C8.9 18.8 11 15.6 11 11.5 11 8.5 9.5 6 7.5 6Zm11 0C16 6 14 8 14 10.5s2 4.5 4.5 4.5c.3 0 .6 0 .9-.1-.5 1.7-1.8 3.1-3.6 3.7a.75.75 0 0 0 .5 1.4c3.6-1.2 5.7-4.4 5.7-8.5C22 8.5 20.5 6 18.5 6Z"/></svg>
+
+            <div class="relative flex items-center gap-4">
+                <div class="h-16 w-[104px] shrink-0 rounded-2xl bg-white ring-1 ring-slate-200/70 dark:ring-slate-700 shadow-md overflow-hidden grid place-items-center">
+                    <img src="{% static 'dashboard/img/center-motor.png' %}" alt="Center Motor" class="h-full w-full object-contain p-1">
+                </div>
+                <div class="min-w-0">
+                    <div class="text-base md:text-lg font-black text-ink dark:text-white leading-tight">{% if trans.lang_code == 'ar' %}سنتر موتر{% else %}Center Motor{% endif %}</div>
+                    <div class="mt-0.5 text-xs md:text-sm text-muted-foreground flex items-center gap-1.5">
+                        <i data-lucide="wrench" class="h-3.5 w-3.5"></i>
+                        <span>{% if trans.lang_code == 'ar' %}ورشة سيارات · سلطنة عُمان{% else %}Auto workshop · Oman{% endif %}</span>
+                    </div>
+                </div>
+                <div class="ms-auto flex items-center gap-0.5 text-amber-400 shrink-0">
+                    <i data-lucide="star" class="h-4 w-4 fill-current"></i>
+                    <i data-lucide="star" class="h-4 w-4 fill-current"></i>
+                    <i data-lucide="star" class="h-4 w-4 fill-current"></i>
+                    <i data-lucide="star" class="h-4 w-4 fill-current"></i>
+                    <i data-lucide="star" class="h-4 w-4 fill-current"></i>
+                </div>
+            </div>
+
+            <blockquote class="relative mt-6 text-[15px] md:text-[17px] leading-loose text-slate-700 dark:text-slate-200">
+                {% if trans.lang_code == 'ar' %}
+                «أول ما فتحت الورشة كنت ضائع ومشتّت بالكامل، وما كنت فاهم السالفة لأنها أول مرة. كنت أُفرط في الخصومات وأقول ليش ما في إقبال ولا أرباح. بس من يوم بدأت أرتّب وأشوف تقارير بياناتي قدّامي، صدق عرفت وين كان يروح الهدر ووين تضيع الفلوس. الترتيب فتح عيني على أشياء وحدة وحدة — صرت أعرف كل بيسة وين دخلت ووين طلعت، وكيف أضبط إيراداتي ومصاريفي وأوزّع الأرباح صح، وكيف أجيب زباين فعليين للورشة. كان له أثر كبير في مشروعي.»
+                {% else %}
+                “When I first opened the workshop I was completely lost — it was my first time and I didn't understand the picture. I kept over-discounting and wondering why there were no sales or profit. But the moment I started organizing and seeing my own data reports in front of me, I truly saw where the waste was going and where money was slipping away. Organizing opened my eyes, one thing at a time — I now know where every baisa comes in and goes out, how to control my income and expenses, split profit correctly, and bring in real customers. It made a huge difference for my business.”
+                {% endif %}
+            </blockquote>
+
+            <div class="mt-6 flex flex-wrap gap-2">
+                {% if trans.lang_code == 'ar' %}
+                <span class="rounded-full bg-[var(--glow)]/10 text-[var(--nile)] dark:text-[var(--lavender)] px-3 py-1 text-xs font-bold">عرف وين يروح الهدر</span>
+                <span class="rounded-full bg-[var(--glow)]/10 text-[var(--nile)] dark:text-[var(--lavender)] px-3 py-1 text-xs font-bold">ضبط الإيرادات والمصاريف</span>
+                <span class="rounded-full bg-[var(--glow)]/10 text-[var(--nile)] dark:text-[var(--lavender)] px-3 py-1 text-xs font-bold">وزّع الأرباح بشكل صحيح</span>
+                <span class="rounded-full bg-[var(--glow)]/10 text-[var(--nile)] dark:text-[var(--lavender)] px-3 py-1 text-xs font-bold">جذب زبائن فعليين</span>
+                {% else %}
+                <span class="rounded-full bg-[var(--glow)]/10 text-[var(--nile)] dark:text-[var(--lavender)] px-3 py-1 text-xs font-bold">Found where waste was going</span>
+                <span class="rounded-full bg-[var(--glow)]/10 text-[var(--nile)] dark:text-[var(--lavender)] px-3 py-1 text-xs font-bold">Controlled income & expenses</span>
+                <span class="rounded-full bg-[var(--glow)]/10 text-[var(--nile)] dark:text-[var(--lavender)] px-3 py-1 text-xs font-bold">Split profit correctly</span>
+                <span class="rounded-full bg-[var(--glow)]/10 text-[var(--nile)] dark:text-[var(--lavender)] px-3 py-1 text-xs font-bold">Attracted real customers</span>
+                {% endif %}
+            </div>
+
+            <figcaption class="mt-6 pt-5 border-t border-slate-200/70 dark:border-slate-700/60 flex items-center gap-2 text-xs text-muted-foreground">
+                <i data-lucide="badge-check" class="h-4 w-4 text-emerald-500"></i>
+                {% if trans.lang_code == 'ar' %}تجربة موثّقة من صاحب الورشة{% else %}Verified experience from the workshop owner{% endif %}
+            </figcaption>
+        </figure>
+    </section>
+
+    <!-- ===================== FINAL CTA ===================== -->
+    <section class="mt-24 animate-fade-up">
+        <div class="relative overflow-hidden rounded-3xl px-6 py-12 md:px-14 md:py-16 text-center text-white shadow-[0_24px_70px_-24px_rgba(43,36,112,0.55)]" style="background: linear-gradient(135deg, #2b2470 0%, #7c6cf0 100%);">
+            <div class="pointer-events-none absolute -top-20 -right-20 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
+            <div class="pointer-events-none absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-[var(--lavender)]/20 blur-3xl"></div>
+            <h2 class="relative text-2xl md:text-4xl font-black tracking-tight leading-tight">
+                {% if trans.lang_code == 'ar' %}وين تروح فلوسك؟ اكتشفها خلال دقائق{% else %}Where is your money going? Find out in minutes{% endif %}
+            </h2>
+            <p class="relative mx-auto mt-3 max-w-xl text-sm md:text-base text-white/85 leading-relaxed">
+                {% if trans.lang_code == 'ar' %}ارفع ملفك الأول وشوف أكبر تسريب مالي في مشروعك — بالرقم والدليل، وخطوة واحدة لإيقافه.{% else %}Upload your first file and see the biggest financial leak in your business — with the number and the evidence, and one step to stop it.{% endif %}
+            </p>
+            <div class="relative mt-7 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a href="{% url 'register' %}" class="w-full sm:w-auto rounded-full bg-white px-7 py-3 text-sm font-black text-[var(--nile)] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl">
+                    {% if trans.lang_code == 'ar' %}ابدأ مجاناً واكتشف أول تسريب{% else %}Start free & find your first leak{% endif %}
+                </a>
+                <a href="{% url 'about' %}" class="w-full sm:w-auto rounded-full border border-white/40 bg-white/10 px-7 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20">
+                    {% if trans.lang_code == 'ar' %}تعرّف على قصة المنصة{% else %}Learn the platform's story{% endif %}
+                </a>
+            </div>
+            <div class="relative mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-white/75">
+                <span class="inline-flex items-center gap-1.5"><i data-lucide="credit-card" class="h-3.5 w-3.5"></i>{% if trans.lang_code == 'ar' %}بدون بطاقة ائتمان{% else %}No credit card{% endif %}</span>
+                <span class="inline-flex items-center gap-1.5"><i data-lucide="shield-check" class="h-3.5 w-3.5"></i>{% if trans.lang_code == 'ar' %}بياناتك تبقى لك{% else %}Your data stays yours{% endif %}</span>
+                <span class="inline-flex items-center gap-1.5"><i data-lucide="calculator" class="h-3.5 w-3.5"></i>{% if trans.lang_code == 'ar' %}أرقام محسوبة لا تخمين{% else %}Computed numbers, not guesses{% endif %}</span>
             </div>
         </div>
     </section>
