@@ -52,7 +52,7 @@ def build_analysis_steps(rows):
     cols = _columns(rows)
     steps.append({
         "phase": "read",
-        "icon": "📂",
+        "icon": "",
         "title": "أقرأ ملفك",
         "lines": [
             f"عدد العمليات: {_fmt(len(rows))}",
@@ -63,7 +63,7 @@ def build_analysis_steps(rows):
 
     if not rows:
         steps.append({
-            "phase": "verdict", "icon": "🟡", "title": "بانتظار بياناتك",
+            "phase": "verdict", "icon": "", "title": "بانتظار بياناتك",
             "lines": ["ارفع كشف حساب أو ملف مبيعات وأبدأ التحليل فوراً."],
             "tone": "muted",
         })
@@ -83,7 +83,7 @@ def build_analysis_steps(rows):
         net = sig.get("net") or 0
         steps.append({
             "phase": "split",
-            "icon": "⚖️",
+            "icon": "",
             "title": "أفصل الدخل عن المصروف",
             "lines": [
                 f"إجمالي الدخل: {_fmt(inc)} ر.ع",
@@ -101,7 +101,7 @@ def build_analysis_steps(rows):
         if finding:
             steps.append({
                 "phase": "recurring",
-                "icon": "🔁",
+                "icon": "",
                 "title": "أبحث عن أكبر بند متكرر",
                 "lines": [
                     f"البند: «{finding['name']}»",
@@ -121,11 +121,11 @@ def build_analysis_steps(rows):
         st = rw.get("status")
         if st in ("surplus", "burning", "critical"):
             if st == "surplus":
-                lines = ["تدفقك النقدي موجب — وضعك المستقر 👍"]
+                lines = ["تدفقك النقدي موجب — وضعك مستقر"]
                 result = f"متوسط صافي شهري ≈ +{_fmt(rw.get('avg_monthly_net'))} ر.ع"
                 tone = "good"
             elif st == "critical":
-                lines = ["نقدك التقديري صفر أو أقل — تحذير حرج ⚠️"]
+                lines = ["نقدك التقديري صفر أو أقل — تحذير حرج"]
                 result = "السيولة تحتاج مراجعة فورية"
                 tone = "bad"
             else:  # burning
@@ -136,7 +136,7 @@ def build_analysis_steps(rows):
                 tone = "warn"
             steps.append({
                 "phase": "runway",
-                "icon": "🛟",
+                "icon": "",
                 "title": "أحسب كفاية السيولة (Runway)",
                 "lines": lines,
                 "formula": "الأشهر المتبقية = النقد الحالي ÷ الحرق الشهري",
@@ -156,7 +156,7 @@ def build_analysis_steps(rows):
                 name = (w["signals"][0].get("title") or "").strip()
                 steps.append({
                     "phase": "waste",
-                    "icon": "🩸",
+                    "icon": "",
                     "title": "أفتّش عن الهدر والتسريب",
                     "lines": [f"المصدر: {name}" if name else "أصناف تُباع بأقل من تكلفتها"],
                     "formula": "الهدر = مجموع (التكلفة − السعر) × الكمية",
@@ -166,7 +166,7 @@ def build_analysis_steps(rows):
             else:
                 steps.append({
                     "phase": "waste",
-                    "icon": "✅",
+                    "icon": "",
                     "title": "أفتّش عن الهدر والتسريب",
                     "lines": ["لا يوجد بيع بأقل من التكلفة في هذا الملف"],
                     "tone": "good",
@@ -184,7 +184,7 @@ def _verdict(sig):
     """A short grounded closing line built only from the computed signal."""
     if not sig:
         return {
-            "phase": "verdict", "icon": "🔎", "title": "الخلاصة",
+            "phase": "verdict", "icon": "", "title": "الخلاصة",
             "lines": ["حلّلت ما أمكن من ملفك. أضف عمود النوع (دخل/مصروف) لتحليل أعمق."],
             "tone": "muted",
         }
@@ -197,5 +197,5 @@ def _verdict(sig):
         lines = [f"مشروعك يخسر {_fmt(abs(net))} ر.ع في هذه الفترة.",
                  "التالي: راجع أكبر بند متكرر والسيولة فوراً."]
         tone = "bad"
-    return {"phase": "verdict", "icon": "🧾", "title": "الخلاصة",
+    return {"phase": "verdict", "icon": "", "title": "الخلاصة",
             "lines": lines, "tone": tone}

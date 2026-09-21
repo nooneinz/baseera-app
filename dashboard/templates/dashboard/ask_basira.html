@@ -1561,7 +1561,8 @@
             '.la-step{animation:laFadeUp .4s cubic-bezier(.2,.8,.2,1) both}' +
             '.la-typing span{display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:var(--glow,#7c6cf0);animation:laPulse 1.2s infinite ease-in-out both}' +
             '.la-typing span:nth-child(2){animation-delay:.2s}.la-typing span:nth-child(3){animation-delay:.4s}' +
-            '.la-shim{background:linear-gradient(90deg,rgba(124,108,240,.12),rgba(124,108,240,.3),rgba(124,108,240,.12));background-size:400px 100%;animation:laShim 1s linear infinite}';
+            '.la-shim{background:linear-gradient(90deg,rgba(124,108,240,.12),rgba(124,108,240,.3),rgba(124,108,240,.12));background-size:400px 100%;animation:laShim 1s linear infinite}' +
+            '.la-log-line{animation:laFadeUp .3s ease both}';
         document.head.appendChild(s);
     }
 
@@ -1590,6 +1591,11 @@
     };
 
     var _laBusy = false;
+    // When a live-analysis card exists for the current reply, the agent
+    // activity log streams into the SAME card (these point at that card's
+    // agent-activity section). Reset each send; set by streamAnalysisCard.
+    var _laLastLogSection = null;
+    var _laLastLogContainer = null;
     async function streamAnalysisCard() {
         if (_laBusy) return;               // never stack two at once
         _laBusy = true;
@@ -1612,9 +1618,21 @@
             '  </div>' +
             '  <div class="h-1 w-full rounded bg-slate-200/60 dark:bg-slate-700/60 mb-2 overflow-hidden"><div id="la-prog-' + id + '" class="h-full rounded transition-all duration-500" style="width:0%;background:linear-gradient(90deg,var(--nile,#153e75),var(--glow,#7c6cf0))"></div></div>' +
             '  <div id="la-steps-' + id + '" class="flex flex-col gap-1.5"></div>' +
+            // Agent activity & reasoning lives in the SAME card (revealed when
+            // the agents start reporting on this reply).
+            '  <div id="la-agentsec-' + id + '" class="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-700/60" style="display:none">' +
+            '    <div class="flex items-center gap-2 mb-2">' +
+            '      <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>' +
+            '      <span class="text-xs font-black text-[var(--glow)]">' + (isAr ? 'نشاط وتفكير الوكلاء' : 'Agents activity & reasoning') + '</span>' +
+            '    </div>' +
+            '    <div id="la-agentlog-' + id + '" class="flex flex-col gap-1.5"></div>' +
+            '  </div>' +
             '</div>';
         messages.appendChild(wrap);
         messages.scrollTop = messages.scrollHeight;
+        // Point the reply's agent-activity log at this card's section.
+        _laLastLogSection = document.getElementById('la-agentsec-' + id);
+        _laLastLogContainer = document.getElementById('la-agentlog-' + id);
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
         var data;
@@ -1636,45 +1654,39 @@
     }
 
     async function _laPlayStep(step, idx, total, container, prog, messages) {
-        var tone = _LA_TONE[step.tone] || _LA_TONE.info;
+        // Simple line style (matches the agent-activity log): a dot + the step
+        // title, then its details/result as plain sub-lines -- no coloured
+        // boxes, no emojis.
         var row = document.createElement('div');
-        row.className = 'la-step rounded-lg border px-3 py-2';
-        row.style.borderColor = tone.bd; row.style.background = tone.bg;
+        row.className = 'la-step';
         row.innerHTML =
-            '<div class="flex items-center gap-2">' +
-            '<span class="text-base leading-none">' + laEsc(step.icon || '•') + '</span>' +
-            '<span class="text-[12.5px] font-bold text-slate-700 dark:text-slate-100 flex-1">' + laEsc(step.title || '') + '</span>' +
+            '<div class="la-log-line text-[12.5px] font-bold text-slate-700 dark:text-slate-100 font-mono flex items-center gap-2">' +
+            '<span style="width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:var(--glow,#7c6cf0)"></span>' +
+            '<span class="flex-1">' + laEsc(step.title || '') + '</span>' +
             '<span class="la-typing" data-role="t"><span></span><span></span><span></span></span>' +
-            '</div><div data-role="b" class="mt-1.5 space-y-1" style="display:none"></div>';
+            '</div>' +
+            '<div data-role="b" class="mt-0.5 mb-1 space-y-0.5" style="display:none;padding-inline-start:14px"></div>';
         container.appendChild(row);
         if (messages) messages.scrollTop = messages.scrollHeight;
         if (prog) prog.style.width = Math.round((idx / total) * 100) + '%';
 
-        await laSleep(430 + Math.random() * 260);
+        await laSleep(380 + Math.random() * 240);
         var t = row.querySelector('[data-role="t"]'); if (t) t.remove();
         var b = row.querySelector('[data-role="b"]'); b.style.display = 'block';
         var html = '';
         (step.lines || []).forEach(function (ln) {
-            html += '<div class="text-[12px] text-slate-600 dark:text-slate-300 leading-relaxed">' + laEsc(ln) + '</div>';
+            html += '<div class="text-[11.5px] text-slate-500 dark:text-slate-400 font-mono leading-relaxed">' + laEsc(ln) + '</div>';
         });
         if (step.formula) {
-            html += '<div class="mt-1 text-[10.5px] text-slate-400 font-mono" dir="ltr" style="text-align:' + ("{{ trans.align }}" === 'right' ? 'right' : 'left') + '">' + laEsc(step.formula) + '</div>';
+            html += '<div class="text-[10.5px] text-slate-400 font-mono" dir="ltr" style="text-align:' + ("{{ trans.align }}" === 'right' ? 'right' : 'left') + '">' + laEsc(step.formula) + '</div>';
+        }
+        if (step.result) {
+            html += '<div class="text-[12px] font-bold text-slate-700 dark:text-slate-200 font-mono">' + laEsc(step.result) + '</div>';
         }
         b.innerHTML = html;
-        if (step.result) {
-            var res = document.createElement('div');
-            res.className = 'mt-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-black la-shim';
-            res.textContent = '…';
-            b.appendChild(res);
-            await laSleep(480);
-            res.classList.remove('la-shim');
-            res.style.background = 'rgba(0,0,0,.03)';
-            res.style.color = tone.tx;
-            res.textContent = step.result;
-        }
         if (messages) messages.scrollTop = messages.scrollHeight;
         if (prog) prog.style.width = Math.round(((idx + 1) / total) * 100) + '%';
-        await laSleep(240);
+        await laSleep(200);
     }
 
 
@@ -1707,7 +1719,9 @@
 
             // Live analysis: when the user asks for analysis and has data,
             // Baseera "thinks out loud" with the real math inline, streaming
-            // in parallel with the conversational answer below it.
+            // in parallel with the conversational answer below it. The agent
+            // activity log then streams into this SAME card (one unified card).
+            _laLastLogSection = null; _laLastLogContainer = null;
             if (wantsLiveAnalysis(text)) { streamAnalysisCard(); }
 
             // Create a loading bubble
@@ -1803,13 +1817,13 @@
                 <i data-lucide="${isMultiAgent ? 'users' : 'sparkles'}" class="h-3.5 w-3.5"></i>
             </div>
             <div class="flex flex-col gap-2 max-w-2xl w-full text-{{ trans.align }}" id="response-container-${loadingId}">
-                <details id="logs-accordion-${loadingId}" class="bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden w-fit group hidden">
-                    <summary class="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition list-none">
-                        <i data-lucide="cpu" class="h-4 w-4 text-[var(--glow)] animate-pulse"></i>
-                        <span>${isAr ? 'نشاط وتفكير الوكلاء' : 'Agents Activity & Reasoning'}</span>
-                        <i data-lucide="chevron-down" class="h-4 w-4 ml-2 group-open:rotate-180 transition"></i>
+                <details id="logs-accordion-${loadingId}" class="la-step rounded-2xl rounded-tl-sm chat-bubble-bot px-3.5 py-3 shadow-sm w-full max-w-xl group hidden">
+                    <summary class="cursor-pointer flex items-center gap-2 list-none">
+                        <span class="relative flex h-2 w-2 shrink-0"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
+                        <span class="text-xs font-black text-[var(--glow)] flex-1">${isAr ? 'نشاط وتفكير الوكلاء' : 'Agents activity & reasoning'}</span>
+                        <i data-lucide="chevron-down" class="h-4 w-4 text-slate-400 group-open:rotate-180 transition shrink-0"></i>
                     </summary>
-                    <div class="px-4 py-3 border-t border-slate-200 dark:border-slate-700 flex flex-col gap-1.5" id="logs-container-${loadingId}" dir="auto">
+                    <div class="mt-2 flex flex-col gap-1.5" id="logs-container-${loadingId}" dir="auto">
                     </div>
                 </details>
                 
@@ -1830,28 +1844,23 @@
             const contentContainer = document.getElementById(`stream-${loadingId}`);
             const logsContainer = document.getElementById(`logs-container-${loadingId}`);
             const accordion = document.getElementById(`logs-accordion-${loadingId}`);
+            _laInjectCss();  // shared styles for the unified analysis / agent-activity look
+
+            // If a live-analysis card exists for this reply, the agent activity
+            // log streams into that SAME card (one unified card). Otherwise it
+            // uses the standalone agent-activity accordion below.
+            var laUnifiedLog = _laLastLogContainer;
+            var laUnifiedSection = _laLastLogSection;
+            var logTarget = laUnifiedLog || logsContainer;
+            function laRevealLogs() {
+                if (laUnifiedLog) { if (laUnifiedSection) laUnifiedSection.style.display = 'block'; }
+                else { accordion.classList.remove('hidden'); if (!accordion.hasAttribute('open')) accordion.setAttribute('open', ''); }
+            }
 
             let fullReply = "";
             let renderedAgents = {}; // aid -> { cardId, contentEl }
             let currentStreamAgentId = null;
             let aiDegradedShown = false;
-
-            // Live Agent Activity dock: appears only when the agents actually
-            // start working/reporting on this reply (never on an idle page).
-            var aaBase = 'chat-' + loadingId;
-            var aaStarted = {};
-            var aaCleared = false;
-            function aaSingleLabel(){ return "{% if trans.lang_code == 'en' %}Baseera assistant{% else %}مساعد بصيرة{% endif %}"; }
-            function aaKeyFor(){ return aaBase + ':' + (currentStreamAgentId || 'main'); }
-            function aaLabelFor(){ return currentStreamAgentId ? (((renderedAgents[currentStreamAgentId]||{}).name) || (isMultiAgent ? 'وكيل' : aaSingleLabel())) : aaSingleLabel(); }
-            function aaEnsureFresh(){ if (!aaCleared) { if (window.BaseeraAgentActivity && window.BaseeraAgentActivity.clearDone) window.BaseeraAgentActivity.clearDone(); aaCleared = true; } }
-            function aaPush(msg){
-                if (!window.BaseeraAgentActivity || !msg) return;
-                aaEnsureFresh();
-                var k = aaKeyFor();
-                if (!aaStarted[k]) { window.BaseeraAgentActivity.localStart(k, aaLabelFor()); aaStarted[k] = 1; }
-                window.BaseeraAgentActivity.localStep(k, msg);
-            }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder("utf-8");
@@ -1888,19 +1897,20 @@
                                     let streamLogMatch;
                                     while ((streamLogMatch = oldLogRegex.exec(fullReply)) !== null) {
                                         const tag = streamLogMatch[1];
-                                        const msg = streamLogMatch[2].trim();
-                                        if (tag === 'AGENT_LOG:' && msg && !logsContainer.innerHTML.includes(msg)) {
-                                            logsContainer.innerHTML += `<div class="text-xs font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0"></span>${msg}</div>`;
+                                        // Strip internal markers (e.g. [[COMMITTEE_DONE]]) so they never leak
+                                        // into the visible activity log.
+                                        let msg = streamLogMatch[2].trim().replace(/\[\[[^\]]*\]\]/g, '').trim();
+                                        if (/^DONE$/i.test(msg)) msg = '';
+                                        if (tag === 'AGENT_LOG:' && msg && !logTarget.innerHTML.includes(msg)) {
+                                            logTarget.innerHTML += `<div class="la-log-line text-[12px] font-semibold text-slate-700 dark:text-slate-200 font-mono flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full shrink-0" style="background:var(--glow,#7c6cf0)"></span><span>${msg}</span></div>`;
                                             addedLogs = true;
-                                            aaPush(msg);
-                                        } else if ((tag === 'STATUS___:' || tag === 'STATUS:') && msg && msg !== 'DONE' && !logsContainer.innerHTML.includes(msg)) {
-                                            logsContainer.innerHTML += `<div class="text-[10px] text-slate-500 font-medium italic flex items-center gap-2"><i data-lucide="loader-2" class="h-3 w-3 animate-spin"></i>${msg}</div>`;
+                                        } else if ((tag === 'STATUS___:' || tag === 'STATUS:') && msg && msg !== 'DONE' && !logTarget.innerHTML.includes(msg)) {
+                                            logTarget.innerHTML += `<div class="la-log-line text-[11px] text-slate-500 dark:text-slate-400 font-mono flex items-center gap-2"><span class="h-1 w-1 rounded-full shrink-0 bg-slate-400"></span><span>${msg}</span></div>`;
                                             addedLogs = true;
-                                            aaPush(msg);
                                         } else if (tag === 'AI_DEGRADED:' && !aiDegradedShown) {
                                             aiDegradedShown = true;
                                             showAiDegradedBanner();
-                                            logsContainer.innerHTML += `<div class="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2"><i data-lucide="alert-triangle" class="h-3.5 w-3.5"></i>{% if trans.lang_code == 'ar' %}الرد التالي تحليل احتياطي وليس تحليلاً حياً{% else %}The following reply is a rule-based fallback, not a live AI generation{% endif %}</div>`;
+                                            logTarget.innerHTML += `<div class="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2"><i data-lucide="alert-triangle" class="h-3.5 w-3.5"></i>{% if trans.lang_code == 'ar' %}الرد التالي تحليل احتياطي وليس تحليلاً حياً{% else %}The following reply is a rule-based fallback, not a live AI generation{% endif %}</div>`;
                                             addedLogs = true;
                                         }
                                     }
@@ -1925,7 +1935,7 @@
                                             thinkingDiv.id = `thinking-${loadingId}`;
                                             thinkingDiv.className = "text-[11px] text-slate-500 italic bg-slate-100 dark:bg-slate-700/50 p-2 rounded-md border border-slate-200 dark:border-slate-600 font-mono mt-1 mb-1";
                                             thinkingDiv.setAttribute("dir", "auto");
-                                            logsContainer.appendChild(thinkingDiv);
+                                            logTarget.appendChild(thinkingDiv);
                                         }
                                         if (latestState && thinkingDiv.innerHTML !== latestState.replace(/\n/g, '<br>')) {
                                             thinkingDiv.innerHTML = latestState.replace(/\n/g, '<br>');
@@ -1934,8 +1944,7 @@
                                     }
 
                                     if (addedLogs) {
-                                        accordion.classList.remove('hidden');
-                                        if (!accordion.hasAttribute('open')) accordion.setAttribute('open', '');
+                                        laRevealLogs();
                                         if (typeof lucide !== 'undefined') lucide.createIcons();
                                     }
 
@@ -1964,13 +1973,6 @@
                                             cardsFlow.appendChild(cardWrapper.firstElementChild);
                                             renderedAgents[aid] = { cardId: cardId, name: aname };
                                             currentStreamAgentId = aid;
-                                            // Give this agent its own live card in the Agent Activity dock.
-                                            if (window.BaseeraAgentActivity) {
-                                                aaEnsureFresh();
-                                                window.BaseeraAgentActivity.localStart(aaBase + ':' + aid, aname);
-                                                aaStarted[aaBase + ':' + aid] = 1;
-                                                window.BaseeraAgentActivity.localStep(aaBase + ':' + aid, "{% if trans.lang_code == 'en' %}Started working{% else %}بدأ العمل{% endif %}");
-                                            }
                                             if (typeof lucide !== 'undefined') lucide.createIcons();
                                         }
                                     }
@@ -2030,12 +2032,6 @@
                     if (liveBadge) liveBadge.remove();
                 }
             });
-
-            // Mark every Agent Activity dock card for this reply as completed.
-            if (window.BaseeraAgentActivity) {
-                var aaSummary = "{% if trans.lang_code == 'en' %}Replied to the user{% else %}تم الرد على المستخدم{% endif %}";
-                Object.keys(aaStarted).forEach(function(k){ window.BaseeraAgentActivity.localDone(k, aaSummary); });
-            }
 
             // Stream completed
             // Clean history so the LLM doesn't see old status tags and mimic them
