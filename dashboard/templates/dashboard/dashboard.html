@@ -109,12 +109,6 @@
                 <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
             </span>
         </button>
-        <!-- Agent Activity monitor trigger (professional live agent tracker) -->
-        <button id="agentActivityBtn" type="button" onclick="if(window.BaseeraAgentActivity){window.BaseeraAgentActivity.start();}"
-            class="shrink-0 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-bold hover:border-[var(--glow)] hover:text-[var(--glow)] transition flex items-center gap-2 font-mono">
-            <i data-lucide="activity" class="h-4 w-4"></i>
-            <span>{% if trans.lang_code == 'ar' %}تتبّع عمل الوكلاء{% else %}Agent activity{% endif %}</span>
-        </button>
         {% endif %}
     </header>
 

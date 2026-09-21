@@ -1836,6 +1836,23 @@
             let currentStreamAgentId = null;
             let aiDegradedShown = false;
 
+            // Live Agent Activity dock: appears only when the agents actually
+            // start working/reporting on this reply (never on an idle page).
+            var aaBase = 'chat-' + loadingId;
+            var aaStarted = {};
+            var aaCleared = false;
+            function aaSingleLabel(){ return "{% if trans.lang_code == 'en' %}Baseera assistant{% else %}مساعد بصيرة{% endif %}"; }
+            function aaKeyFor(){ return aaBase + ':' + (currentStreamAgentId || 'main'); }
+            function aaLabelFor(){ return currentStreamAgentId ? (((renderedAgents[currentStreamAgentId]||{}).name) || (isMultiAgent ? 'وكيل' : aaSingleLabel())) : aaSingleLabel(); }
+            function aaEnsureFresh(){ if (!aaCleared) { if (window.BaseeraAgentActivity && window.BaseeraAgentActivity.clearDone) window.BaseeraAgentActivity.clearDone(); aaCleared = true; } }
+            function aaPush(msg){
+                if (!window.BaseeraAgentActivity || !msg) return;
+                aaEnsureFresh();
+                var k = aaKeyFor();
+                if (!aaStarted[k]) { window.BaseeraAgentActivity.localStart(k, aaLabelFor()); aaStarted[k] = 1; }
+                window.BaseeraAgentActivity.localStep(k, msg);
+            }
+
             const reader = response.body.getReader();
             const decoder = new TextDecoder("utf-8");
             let buffer = "";
@@ -1875,9 +1892,11 @@
                                         if (tag === 'AGENT_LOG:' && msg && !logsContainer.innerHTML.includes(msg)) {
                                             logsContainer.innerHTML += `<div class="text-xs font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0"></span>${msg}</div>`;
                                             addedLogs = true;
+                                            aaPush(msg);
                                         } else if ((tag === 'STATUS___:' || tag === 'STATUS:') && msg && msg !== 'DONE' && !logsContainer.innerHTML.includes(msg)) {
                                             logsContainer.innerHTML += `<div class="text-[10px] text-slate-500 font-medium italic flex items-center gap-2"><i data-lucide="loader-2" class="h-3 w-3 animate-spin"></i>${msg}</div>`;
                                             addedLogs = true;
+                                            aaPush(msg);
                                         } else if (tag === 'AI_DEGRADED:' && !aiDegradedShown) {
                                             aiDegradedShown = true;
                                             showAiDegradedBanner();
@@ -1943,8 +1962,15 @@
                                             const cardWrapper = document.createElement('div');
                                             cardWrapper.innerHTML = createAgentCardHtml(aid, aname, aicon, acolor, '', true, cardId);
                                             cardsFlow.appendChild(cardWrapper.firstElementChild);
-                                            renderedAgents[aid] = { cardId: cardId };
+                                            renderedAgents[aid] = { cardId: cardId, name: aname };
                                             currentStreamAgentId = aid;
+                                            // Give this agent its own live card in the Agent Activity dock.
+                                            if (window.BaseeraAgentActivity) {
+                                                aaEnsureFresh();
+                                                window.BaseeraAgentActivity.localStart(aaBase + ':' + aid, aname);
+                                                aaStarted[aaBase + ':' + aid] = 1;
+                                                window.BaseeraAgentActivity.localStep(aaBase + ':' + aid, "{% if trans.lang_code == 'en' %}Started working{% else %}بدأ العمل{% endif %}");
+                                            }
                                             if (typeof lucide !== 'undefined') lucide.createIcons();
                                         }
                                     }
@@ -2004,6 +2030,12 @@
                     if (liveBadge) liveBadge.remove();
                 }
             });
+
+            // Mark every Agent Activity dock card for this reply as completed.
+            if (window.BaseeraAgentActivity) {
+                var aaSummary = "{% if trans.lang_code == 'en' %}Replied to the user{% else %}تم الرد على المستخدم{% endif %}";
+                Object.keys(aaStarted).forEach(function(k){ window.BaseeraAgentActivity.localDone(k, aaSummary); });
+            }
 
             // Stream completed
             // Clean history so the LLM doesn't see old status tags and mimic them

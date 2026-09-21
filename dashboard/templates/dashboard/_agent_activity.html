@@ -283,9 +283,68 @@ each), cancel, and a final result summary. Live updates via short polling.
       .catch(function(){});
   }
 
+  // --- client-driven cards -------------------------------------------------
+  // For live work that streams in the browser (e.g. the agent team replying in
+  // chat) rather than a backend-polled run. The caller pushes steps directly.
+  function localStart(key, label){
+    open();
+    var rec = ensureCard(key);
+    rec.local = true; rec.status = 'running';
+    var el = rec.el;
+    el.querySelector('[data-r="agent"]').textContent = label || key;
+    var pill = el.querySelector('[data-r="pill"]');
+    pill.textContent = T.running; pill.className = 'aa-pill aa-running';
+    el.querySelector('[data-r="foot"]').style.display = 'none';   // no backend cancel for local
+    refreshEmpty();
+    return key;
+  }
+  function localStep(key, message){
+    if (!cards[key]) localStart(key, key);
+    var rec = cards[key]; if (!rec || !message) return;
+    var el = rec.el;
+    var log = el.querySelector('[data-r="log"]');
+    var line = document.createElement('div');
+    line.className = 'aa-line';
+    line.innerHTML = '<span class="aa-time">'+esc(fmtTime())+'</span><span class="aa-msg">'+esc(message)+'</span>';
+    log.appendChild(line); log.scrollTop = log.scrollHeight;
+    var current = el.querySelector('[data-r="current"]');
+    current.style.display = 'block';
+    current.innerHTML = esc(message) + '<span class="aa-cursor"></span>';
+  }
+  function localDone(key, summary){
+    var rec = cards[key]; if (!rec) return;
+    rec.status = 'done';
+    var el = rec.el;
+    var pill = el.querySelector('[data-r="pill"]'); pill.textContent = T.done; pill.className = 'aa-pill';
+    el.querySelector('[data-r="current"]').style.display = 'none';
+    el.querySelector('[data-r="bar"]').className = 'aa-bar aa-done';
+    el.querySelector('[data-r="foot"]').style.display = 'none';
+    if (summary){
+      var s = el.querySelector('[data-r="summary"]');
+      s.style.display = 'block';
+      s.innerHTML = '<div class="aa-summary-label">'+T.result+'</div>'+esc(summary);
+    }
+    refreshEmpty();
+  }
+
+  // Remove finished cards (keeps the dock focused on the current work).
+  function clearDone(){
+    Object.keys(cards).forEach(function(id){
+      if (TERMINAL[cards[id].status]){
+        stop(id);
+        if (cards[id].el && cards[id].el.parentNode) cards[id].el.parentNode.removeChild(cards[id].el);
+        delete cards[id];
+      }
+    });
+    refreshEmpty();
+  }
+
   document.getElementById('aaCloseBtn').addEventListener('click', close);
   document.getElementById('aaMinBtn').addEventListener('click', function(){ dock.classList.remove('aa-open'); });
 
-  window.BaseeraAgentActivity = { watch:watch, start:start, open:open, close:close };
+  window.BaseeraAgentActivity = {
+    watch:watch, start:start, open:open, close:close,
+    localStart:localStart, localStep:localStep, localDone:localDone, clearDone:clearDone
+  };
 })();
 </script>
