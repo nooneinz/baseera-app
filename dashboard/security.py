@@ -343,6 +343,57 @@ def token_required(view_func):
     return _wrapped
 
 
+class _RejectingCsrfMiddleware:
+    """Lazily-built CsrfViewMiddleware whose _reject returns the reason string
+    (instead of an HttpResponseForbidden) so a caller can decide how to respond.
+    Built lazily to avoid importing Django's middleware at module import time."""
+    _cls = None
+
+    @classmethod
+    def check(cls, request):
+        """Run Django's real CSRF check for `request`. Returns None if it
+        passes, or a truthy rejection reason if it fails."""
+        if cls._cls is None:
+            from django.middleware.csrf import CsrfViewMiddleware
+
+            class _M(CsrfViewMiddleware):
+                def _reject(self, request, reason):
+                    return reason
+
+            cls._cls = _M
+        middleware = cls._cls(lambda r: None)
+        return middleware.process_view(request, None, (), {})
+
+
+def session_csrf_protect(view_func):
+    """
+    For DUAL-MODE views (Bearer token OR web session, i.e. those also wrapped
+    in @token_required and @csrf_exempt): enforce Django's real CSRF token
+    check, but ONLY on the session-cookie path.
+
+    A Bearer-token caller (the mobile app) is still anonymous when this runs
+    -- token_required resolves the token further in -- so it skips the check;
+    it carries no ambient cookies and is not a CSRF vector. A request already
+    authenticated by session cookie is a browser request, so we require a valid
+    CSRF token on state-changing methods. This is stricter than the Origin/
+    Referer defense in token_required and is applied to the two LLM endpoints
+    (chat, boardroom) whose web callers already send the token.
+    """
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        if (getattr(request, "user", None) is not None
+                and request.user.is_authenticated
+                and request.method not in _CSRF_SAFE_METHODS):
+            reason = _RejectingCsrfMiddleware.check(request)
+            if reason:
+                return JsonResponse(
+                    {"status": "error", "message": "CSRF verification failed"},
+                    status=403,
+                )
+        return view_func(request, *args, **kwargs)
+    return _wrapped
+
+
 def require_owner_or_admin(model_name=None, field_name="user"):
     def decorator(view_func):
         @wraps(view_func)

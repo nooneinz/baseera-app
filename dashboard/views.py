@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-from .security import build_safe_filename, validate_uploaded_file, rate_limit, safe_error_message, validate_ssrf_url, sanitize_cell_for_prompt, token_required, fetch_url_ssrf_safe
+from .security import build_safe_filename, validate_uploaded_file, rate_limit, safe_error_message, validate_ssrf_url, sanitize_cell_for_prompt, token_required, session_csrf_protect, fetch_url_ssrf_safe
 from .models import Profile, ProjectFile, SystemLog, Invoice, Announcement, AIUsageLog, SalesGoal, AnomalyAlert, WeeklyDigest, CustomAgent, BoardroomSession
 
 
@@ -1494,6 +1494,7 @@ def boardroom_view(request):
 # that would silently run the debate as (and save it against) an arbitrary
 # unrelated account for an unauthenticated caller.
 @csrf_exempt
+@session_csrf_protect
 @token_required
 @rate_limit(requests_per_minute=10, key_prefix="boardroom_llm", per_user=True)
 def api_boardroom_debate(request):
@@ -2642,6 +2643,7 @@ def _direct_reply_event_stream(text, suggested_actions=None):
 # anonymous access (401), preserving the protection @login_required gave,
 # and web session users continue to pass through unchanged.
 @csrf_exempt
+@session_csrf_protect
 @token_required
 @rate_limit(requests_per_minute=20, key_prefix="chat_llm", per_user=True)
 def chat_api(request):
