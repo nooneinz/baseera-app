@@ -1,8 +1,9 @@
 name: Daily Engagement (radar + nudges)
 
 # Baseera reaches out on its own: once a day this hits the engagement endpoint,
-# which runs the financial radar (grounded proactive alerts) and the
-# re-engagement nudges for quiet users. Free and reliable — no extra infra.
+# which runs the financial radar (grounded proactive alerts), the
+# re-engagement nudges for quiet users, and — on the 1st of each month — the
+# month-end summary report. Free and reliable — no extra infra.
 #
 # Setup: add a repository secret CRON_SECRET, and set the same value as the
 # CRON_SECRET env var on the Render service.

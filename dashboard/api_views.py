@@ -1117,13 +1117,22 @@ def api_cron_engagement(request):
     if not secret or not hmac.compare_digest(str(secret), str(provided)):
         return JsonResponse({"status": "error", "message": "unauthorized"}, status=401)
 
-    from dashboard.services.engagement import run_daily_radar, run_reengagement
+    from dashboard.services.engagement import (
+        run_daily_radar, run_reengagement, run_month_end_report,
+    )
     try:
         radar = run_daily_radar(push=True)
         nudges = run_reengagement(push=True)
+        # Fires only on the 1st of the month (self-gated); a no-op otherwise.
+        monthly = run_month_end_report(push=True)
     except Exception as e:
         return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=500)
-    return JsonResponse({"status": "success", "radar": radar, "reengagement": nudges})
+    return JsonResponse({
+        "status": "success",
+        "radar": radar,
+        "reengagement": nudges,
+        "month_end": monthly,
+    })
 
 
 @login_required

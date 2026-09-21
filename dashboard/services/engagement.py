@@ -69,14 +69,55 @@ def _log(user, action_type, detail=""):
         pass
 
 
+def _radar_alert(rows):
+    """
+    The single highest-priority grounded signal for these rows, as
+    (kind, message_core), or None. Priority: liquidity (runway) > waste >
+    big recurring expense. Every message is built only from the user's own
+    numbers/items. Never raises.
+    """
+    # 1) Liquidity / runway -- the most urgent.
+    try:
+        from dashboard.services.runway import compute_runway
+        rw = compute_runway(rows)
+        st = rw.get("status")
+        if st == "critical":
+            return ("runway", "⚠️ تنبيه سيولة حرج: مشروعك يحرق نقداً ورصيدك التقديري صفر أو أقل — راجع مصاريفك فوراً.")
+        if st == "burning" and rw.get("runway_months") is not None and rw["runway_months"] <= 2:
+            return ("runway", f"⚠️ تنبيه سيولة: بالوتيرة الحالية سيولتك تكفي تقريباً {rw['runway_months']} شهر فقط — وقت المراجعة الآن.")
+    except Exception:
+        pass
+    # 2) Waste (items sold below cost).
+    try:
+        from dashboard.services.waste_analyzer import compute_waste_signals
+        w = compute_waste_signals(rows)
+        if w and w.get("total_waste", 0) > 0 and w.get("signals"):
+            total = f"{round(w['total_waste']):,} ر.ع"
+            name = (w["signals"][0].get("title") or "").strip()
+            extra = f" — {name}" if name else ""
+            return ("waste", f"👀 رادار بصيرة: عندك هدر تقريباً {total} من أصناف تُباع بأقل من تكلفتها{extra}. راجعها.")
+    except Exception:
+        pass
+    # 3) Big recurring expense (a savings / negotiation opportunity).
+    try:
+        from dashboard.services.agent_actions import _detect_finding
+        f = _detect_finding(rows)
+        if f:
+            total = f'{f["total"]:,.0f} ر.ع'
+            return ("recurring", f"👀 رادار بصيرة: بند «{f['name']}» بلغ {total} عبر {f['count']} عمليات — فرصة تفاوض وتوفير.")
+    except Exception:
+        pass
+    return None
+
+
 def run_daily_radar(push=True, limit=None, throttle_hours=20):
     """
-    Scan every active user's data once; push a grounded alert when a real
-    recurring-expense signal is found. Returns a summary dict; never raises.
+    Scan every active user's data once and push the single highest-priority
+    grounded alert (liquidity > waste > recurring expense). Throttled to at
+    most once/day per user. Returns a summary dict; never raises.
     """
     from django.contrib.auth.models import User
     from dashboard.models import ProjectFile, DynamicRecord, Profile
-    from dashboard.services.agent_actions import _detect_finding
     from dashboard.services.whatsapp_service import normalize_phone, DASHBOARD_URL
 
     processed = flagged = pushed = 0
@@ -93,17 +134,13 @@ def run_daily_radar(push=True, limit=None, throttle_hours=20):
         rows = list(
             DynamicRecord.objects.filter(user=user).values_list("row_data", flat=True)[:10000]
         )
-        finding = _detect_finding(rows)
-        if not finding:
+        alert = _radar_alert(rows)
+        if not alert:
             continue
+        kind, core = alert
         flagged += 1
-        total = f'{finding["total"]:,.0f} ر.ع'
-        msg = (
-            "👀 رادار بصيرة رصد شي في أرقامك:\n"
-            f"بند «{finding['name']}» بلغ {total} عبر {finding['count']} عمليات — يستاهل مراجعة.\n\n"
-            "تبي أجهّز لك رسالة تفاوض؟ افتح لوحتك 👇\n" + DASHBOARD_URL
-        )
-        _log(user, RADAR_ACTION, f"radar: {finding['name']} = {total}")
+        msg = core + "\n\nافتح لوحتك 👇\n" + DASHBOARD_URL
+        _log(user, RADAR_ACTION, f"radar[{kind}]")
         if push:
             profile = Profile.objects.filter(user=user).exclude(phone_number="").first()
             if profile:
@@ -113,6 +150,62 @@ def run_daily_radar(push=True, limit=None, throttle_hours=20):
 
     result = {"processed": processed, "flagged": flagged, "pushed": pushed}
     logger.info("Daily radar run: %s", result)
+    return result
+
+
+MONTH_ACTION = "بصيرة / تقرير شهري"
+
+
+def run_month_end_report(push=True, limit=None, force=False):
+    """
+    Once a month (on the 1st, unless force=True), push each active user a short
+    grounded month summary (income / expense / net) from their own data.
+    Throttled so nobody gets more than one per calendar month. Never raises.
+    """
+    from django.utils import timezone
+    if not force and timezone.now().day != 1:
+        return {"skipped": True, "reason": "not first of month", "pushed": 0}
+
+    from django.contrib.auth.models import User
+    from dashboard.models import ProjectFile, DynamicRecord, Profile
+    from dashboard.services.first_win_insights import compute_transaction_signal
+    from dashboard.services.whatsapp_service import normalize_phone, DASHBOARD_URL
+
+    processed = pushed = 0
+    users = User.objects.filter(is_active=True).order_by("id")
+    if limit:
+        users = users[:limit]
+
+    for user in users.iterator():
+        if not ProjectFile.objects.filter(user=user).exists():
+            continue
+        if _logged_since(user, MONTH_ACTION, 24 * 25):  # already sent this month
+            continue
+        rows = list(
+            DynamicRecord.objects.filter(user=user).values_list("row_data", flat=True)[:10000]
+        )
+        sig = compute_transaction_signal(rows)
+        if not sig:
+            continue
+        processed += 1
+        inc = f"{round(sig.get('total_income') or 0):,}"
+        exp = f"{round(sig.get('total_expense') or 0):,}"
+        net = f"{round(sig.get('net') or 0):,}"
+        msg = (
+            "📅 تقريرك الشهري من بصيرة:\n"
+            f"الدخل: {inc} ر.ع\nالمصروف: {exp} ر.ع\nالصافي: {net} ر.ع\n\n"
+            "التفاصيل الكاملة في لوحتك 👇\n" + DASHBOARD_URL
+        )
+        _log(user, MONTH_ACTION, "monthly report")
+        if push:
+            profile = Profile.objects.filter(user=user).exclude(phone_number="").first()
+            if profile:
+                phone = normalize_phone(profile.phone_number)
+                if phone and _outbound(phone, msg):
+                    pushed += 1
+
+    result = {"processed": processed, "pushed": pushed}
+    logger.info("Month-end report run: %s", result)
     return result
 
 
