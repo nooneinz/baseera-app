@@ -1159,6 +1159,94 @@ def api_live_analysis(request):
 
 
 @login_required
+def api_live_report(request):
+    """
+    Build the grounded executive report for the user's own data as structured
+    sections, and persist it (hashed, traceable) as a FinancialReport. The
+    frontend then "writes" it on screen section by section. Owner-scoped;
+    never 500s.
+    """
+    from .models import DynamicRecord, ProjectFile, Profile
+    from dashboard.services.report_live import build_live_report
+    try:
+        qs = DynamicRecord.objects.filter(user=request.user)
+        file_id = request.GET.get("file_id")
+        if file_id and str(file_id) != "all":
+            qs = qs.filter(project_file_id=file_id)
+        rows = list(qs.values_list("row_data", flat=True)[:10000])
+
+        profile = Profile.objects.filter(user=request.user).first()
+        company = (profile.company_name if profile else "") or ""
+        lang = request.GET.get("lang") or "ar"
+        report = build_live_report(request.user, rows, company_name=company, lang=lang)
+
+        # Persist (hashed + traceable) so the "generated report" is real and
+        # downloadable, not just an on-screen animation. Fail-soft.
+        try:
+            from dashboard.services.archiving import issue_report
+            src = list(ProjectFile.objects.filter(user=request.user).order_by("-uploaded_at")[:5])
+            saved = issue_report(request.user, report["title"], report["plain"], source_files=src)
+            report["report_id"] = getattr(saved, "id", None)
+        except Exception:
+            report["report_id"] = None
+
+        return JsonResponse({"status": "success", "report": report})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=500)
+
+
+@login_required
+def api_agent_activity_start(request):
+    """
+    Start a tracked agent run and kick off its background worker, returning the
+    run id the frontend Agent Activity screen watches. Currently launches the
+    grounded analysis agent (deterministic, cancellable). Owner-scoped.
+    """
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "POST required"}, status=405)
+    import threading
+    from dashboard.services.agent_activity import start_run, run_analysis_agent
+
+    label = "المحلل المالي"
+    title = "تحليل بياناتك المالية"
+    run = start_run(request.user, label, title)
+    if not run:
+        return JsonResponse({"status": "error", "message": "could not start run"}, status=500)
+
+    t = threading.Thread(target=run_analysis_agent, args=(request.user.id, run.id), daemon=True)
+    t.start()
+    return JsonResponse({"status": "success", "run_id": run.id, "label": label, "title": title})
+
+
+@login_required
+def api_agent_activity(request, run_id):
+    """Live state of one agent run (status, current step, full step log, and the
+    result summary once done). Polled by the Agent Activity screen. Owner-scoped;
+    never 500s."""
+    from dashboard.models import AgentRun
+    from dashboard.services.agent_activity import serialize
+    run = AgentRun.objects.filter(id=run_id, user=request.user).prefetch_related("steps").first()
+    if not run:
+        return JsonResponse({"status": "error", "message": "not found"}, status=404)
+    return JsonResponse({"status": "success", "run": serialize(run)})
+
+
+@login_required
+def api_agent_activity_cancel(request, run_id):
+    """Request cancellation of a running agent. The background worker checks this
+    flag between steps and stops. Owner-scoped."""
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "POST required"}, status=405)
+    from dashboard.models import AgentRun
+    updated = AgentRun.objects.filter(
+        id=run_id, user=request.user, status__in=["queued", "running"]
+    ).update(cancel_requested=True)
+    if not updated:
+        return JsonResponse({"status": "error", "message": "not cancellable"}, status=404)
+    return JsonResponse({"status": "success"})
+
+
+@login_required
 def api_document_verify(request):
     """
     Human-in-the-loop confirmation of a document the AI read (OCR is ~85-95%

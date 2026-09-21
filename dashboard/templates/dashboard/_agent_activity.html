@@ -1,0 +1,291 @@
+{% comment %}
+Agent Activity — a reusable, professional live-monitor component.
+
+Include this partial once (it is included from base.html so it is available on
+every page). It exposes a small global API:
+
+    BaseeraAgentActivity.watch(runId)   // watch an existing run by id
+    BaseeraAgentActivity.start()        // start the analysis agent + watch it
+    BaseeraAgentActivity.open()/.close()
+
+Design: terminal / technical dashboard, NOT a chat. No emojis anywhere.
+Monospace live log, neutral palette + a single accent for the active state,
+light + dark, responsive, indeterminate progress, parallel agents (one card
+each), cancel, and a final result summary. Live updates via short polling.
+{% endcomment %}
+<style>
+  :root{
+    --aa-accent:#3b6cf0;
+    --aa-bg:#ffffff; --aa-bg-2:#f5f6f8; --aa-border:#e3e6ec;
+    --aa-text:#1f2530; --aa-muted:#6b7280; --aa-pill:#eef0f4;
+    --aa-log-bg:#f7f8fa; --aa-log-text:#2b3140; --aa-log-time:#9aa2b1;
+    --aa-danger:#c0433b;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --aa-accent:#5b8bff;
+      --aa-bg:#12151c; --aa-bg-2:#171b23; --aa-border:#252b36;
+      --aa-text:#e6e9ef; --aa-muted:#9aa2b1; --aa-pill:#1e232d;
+      --aa-log-bg:#0c0e13; --aa-log-text:#c7ccd6; --aa-log-time:#5b6472;
+      --aa-danger:#e0655d;
+    }
+  }
+  :root[data-theme="dark"]{
+    --aa-accent:#5b8bff;
+    --aa-bg:#12151c; --aa-bg-2:#171b23; --aa-border:#252b36;
+    --aa-text:#e6e9ef; --aa-muted:#9aa2b1; --aa-pill:#1e232d;
+    --aa-log-bg:#0c0e13; --aa-log-text:#c7ccd6; --aa-log-time:#5b6472;
+    --aa-danger:#e0655d;
+  }
+
+  #aaDock{ position:fixed; bottom:16px; inset-inline-end:16px; z-index:12000;
+    width:380px; max-width:calc(100vw - 24px); display:none;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif; }
+  #aaDock.aa-open{ display:block; }
+  .aa-panel{ background:var(--aa-bg); border:1px solid var(--aa-border);
+    border-radius:12px; overflow:hidden; box-shadow:0 12px 34px rgba(2,6,23,.28);
+    display:flex; flex-direction:column; max-height:min(74vh,560px); }
+  .aa-head{ display:flex; align-items:center; justify-content:space-between;
+    padding:10px 12px; border-bottom:1px solid var(--aa-border); background:var(--aa-bg-2); }
+  .aa-head-l{ display:flex; align-items:center; gap:8px; }
+  .aa-dot{ width:8px; height:8px; border-radius:50%; background:var(--aa-muted); }
+  .aa-dot.aa-live{ background:var(--aa-accent); box-shadow:0 0 0 0 var(--aa-accent);
+    animation:aaPulse 1.6s infinite; }
+  @keyframes aaPulse{ 0%{box-shadow:0 0 0 0 rgba(59,108,240,.5);} 70%{box-shadow:0 0 0 7px rgba(59,108,240,0);} 100%{box-shadow:0 0 0 0 rgba(59,108,240,0);} }
+  .aa-title{ font-size:12px; font-weight:700; letter-spacing:.02em; color:var(--aa-text);
+    font-family:ui-monospace,'SF Mono','Cascadia Code',Menlo,Consolas,monospace; }
+  .aa-head-btns{ display:flex; gap:2px; }
+  .aa-iconbtn{ border:0; background:transparent; color:var(--aa-muted); cursor:pointer;
+    width:26px; height:26px; border-radius:6px; font-size:15px; line-height:1;
+    display:grid; place-items:center; }
+  .aa-iconbtn:hover{ background:var(--aa-pill); color:var(--aa-text); }
+  .aa-body{ overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:10px; }
+  .aa-body::-webkit-scrollbar{ width:6px; } .aa-body::-webkit-scrollbar-thumb{ background:var(--aa-border); border-radius:6px; }
+  .aa-empty{ color:var(--aa-muted); font-size:12px; text-align:center; padding:18px 8px; }
+
+  .aa-card{ border:1px solid var(--aa-border); border-radius:10px; background:var(--aa-bg);
+    overflow:hidden; animation:aaIn .28s ease both; }
+  @keyframes aaIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  .aa-card-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 11px; }
+  .aa-agent{ font-size:12.5px; font-weight:700; color:var(--aa-text);
+    font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .aa-pill{ font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:999px;
+    background:var(--aa-pill); color:var(--aa-muted); white-space:nowrap;
+    font-family:ui-monospace,Menlo,Consolas,monospace; letter-spacing:.03em; }
+  .aa-pill.aa-running{ color:var(--aa-accent); background:color-mix(in srgb, var(--aa-accent) 14%, transparent); }
+  .aa-pill.aa-error{ color:var(--aa-danger); }
+
+  .aa-current{ padding:0 11px 8px; font-size:11.5px; color:var(--aa-muted);
+    font-family:ui-monospace,Menlo,Consolas,monospace; min-height:16px; }
+  .aa-cursor{ display:inline-block; width:7px; height:13px; vertical-align:-2px;
+    background:var(--aa-accent); margin-inline-start:3px; animation:aaBlink 1s steps(1) infinite; }
+  @keyframes aaBlink{ 50%{opacity:0;} }
+
+  .aa-bar{ height:3px; background:var(--aa-border); position:relative; overflow:hidden; }
+  .aa-bar-fill{ position:absolute; inset:0; width:100%; transform-origin:inline-start;
+    background:var(--aa-accent); }
+  .aa-bar.aa-indet .aa-bar-fill{ width:40%; animation:aaIndet 1.15s ease-in-out infinite; }
+  @keyframes aaIndet{ 0%{transform:translateX(-120%);} 100%{transform:translateX(320%);} }
+  .aa-bar.aa-done .aa-bar-fill{ width:100%; background:var(--aa-muted); }
+
+  .aa-log{ background:var(--aa-log-bg); border-top:1px solid var(--aa-border);
+    padding:8px 10px; max-height:170px; overflow-y:auto;
+    font-family:ui-monospace,'SF Mono','Cascadia Code',Menlo,Consolas,monospace; font-size:11px; line-height:1.7; }
+  .aa-log::-webkit-scrollbar{ width:6px; } .aa-log::-webkit-scrollbar-thumb{ background:var(--aa-border); border-radius:6px; }
+  .aa-line{ display:flex; gap:8px; color:var(--aa-log-text); animation:aaLineIn .22s ease both; }
+  @keyframes aaLineIn{ from{opacity:0; transform:translateY(3px);} to{opacity:1; transform:translateY(0);} }
+  .aa-time{ color:var(--aa-log-time); flex:0 0 auto; }
+  .aa-msg{ white-space:pre-wrap; word-break:break-word; }
+
+  .aa-summary{ padding:9px 11px; border-top:1px solid var(--aa-border); background:var(--aa-bg-2);
+    font-size:12px; color:var(--aa-text); line-height:1.6; }
+  .aa-summary-label{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--aa-muted); font-family:ui-monospace,Menlo,monospace; margin-bottom:3px; }
+  .aa-foot{ display:flex; justify-content:flex-end; padding:8px 11px; border-top:1px solid var(--aa-border); }
+  .aa-cancel{ border:1px solid var(--aa-border); background:transparent; color:var(--aa-muted);
+    font-size:11px; font-weight:700; padding:5px 12px; border-radius:7px; cursor:pointer;
+    font-family:ui-monospace,Menlo,monospace; }
+  .aa-cancel:hover{ color:var(--aa-danger); border-color:var(--aa-danger); }
+  .aa-cancel[disabled]{ opacity:.5; cursor:not-allowed; }
+
+  @media (max-width:480px){
+    #aaDock{ inset-inline:8px; bottom:8px; width:auto; }
+    .aa-panel{ max-height:70vh; }
+  }
+</style>
+
+<div id="aaDock" role="region" aria-label="Agent activity monitor" dir="{{ trans.align|default:'rtl'|yesno:'rtl,rtl,rtl' }}">
+  <div class="aa-panel">
+    <div class="aa-head">
+      <div class="aa-head-l">
+        <span id="aaHeadDot" class="aa-dot"></span>
+        <span class="aa-title">{% if trans.lang_code == 'en' %}AGENT ACTIVITY{% else %}نشاط الوكلاء{% endif %}</span>
+      </div>
+      <div class="aa-head-btns">
+        <button class="aa-iconbtn" id="aaMinBtn" title="{% if trans.lang_code == 'en' %}Minimize{% else %}تصغير{% endif %}" aria-label="minimize">&#8211;</button>
+        <button class="aa-iconbtn" id="aaCloseBtn" title="{% if trans.lang_code == 'en' %}Close{% else %}إغلاق{% endif %}" aria-label="close">&#10005;</button>
+      </div>
+    </div>
+    <div class="aa-body" id="aaBody">
+      <div class="aa-empty" id="aaEmpty">{% if trans.lang_code == 'en' %}No active agents.{% else %}لا يوجد وكلاء نشطون حالياً.{% endif %}</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  if (window.BaseeraAgentActivity) return;   // include-once guard
+
+  var LANG = "{{ trans.lang_code|default:'ar' }}";
+  var T = {
+    queued:   LANG==='en' ? 'QUEUED'   : 'في الانتظار',
+    running:  LANG==='en' ? 'RUNNING'  : 'قيد المعالجة',
+    done:     LANG==='en' ? 'COMPLETED': 'اكتمل',
+    cancelled:LANG==='en' ? 'CANCELLED': 'أُلغي',
+    error:    LANG==='en' ? 'ERROR'    : 'خطأ',
+    cancel:   LANG==='en' ? 'Cancel'   : 'إيقاف',
+    result:   LANG==='en' ? 'Result'   : 'النتيجة',
+    waiting:  LANG==='en' ? 'Waiting to start' : 'بانتظار البدء'
+  };
+  var TERMINAL = { done:1, cancelled:1, error:1 };
+
+  var dock = document.getElementById('aaDock');
+  var body = document.getElementById('aaBody');
+  var empty = document.getElementById('aaEmpty');
+  var headDot = document.getElementById('aaHeadDot');
+  var cards = {};   // runId -> { el, timer, lastSeq, status }
+
+  function csrf(){ var m=document.cookie.match(/csrftoken=([^;]+)/); return m?m[1]:''; }
+  function esc(s){ var d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+  function fmtTime(iso){
+    try{ var d = iso ? new Date(iso) : new Date();
+      return d.toLocaleTimeString(LANG==='en'?'en-GB':'ar-EG',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}); }
+    catch(e){ return ''; }
+  }
+
+  function open(){ dock.classList.add('aa-open'); }
+  function close(){
+    dock.classList.remove('aa-open');
+    Object.keys(cards).forEach(function(id){ stop(id); });
+    cards = {}; body.querySelectorAll('.aa-card').forEach(function(n){ n.remove(); });
+    refreshEmpty();
+  }
+  function refreshEmpty(){
+    var any = Object.keys(cards).length > 0;
+    empty.style.display = any ? 'none' : 'block';
+    var live = Object.keys(cards).some(function(id){ return !TERMINAL[cards[id].status]; });
+    headDot.className = 'aa-dot' + (live ? ' aa-live' : '');
+  }
+
+  function ensureCard(runId){
+    if (cards[runId]) return cards[runId];
+    var el = document.createElement('div');
+    el.className = 'aa-card';
+    el.innerHTML =
+      '<div class="aa-card-head"><span class="aa-agent" data-r="agent">'+T.waiting+'</span>'
+      + '<span class="aa-pill" data-r="pill">'+T.queued+'</span></div>'
+      + '<div class="aa-current" data-r="current"></div>'
+      + '<div class="aa-bar aa-indet" data-r="bar"><div class="aa-bar-fill"></div></div>'
+      + '<div class="aa-log" data-r="log"></div>'
+      + '<div class="aa-summary" data-r="summary" style="display:none"></div>'
+      + '<div class="aa-foot" data-r="foot"><button class="aa-cancel" data-r="cancel">'+T.cancel+'</button></div>';
+    body.appendChild(el);
+    var rec = { el:el, timer:null, lastSeq:0, status:'queued' };
+    cards[runId] = rec;
+    el.querySelector('[data-r="cancel"]').addEventListener('click', function(){ cancel(runId); });
+    refreshEmpty();
+    return rec;
+  }
+
+  function render(runId, run){
+    var rec = cards[runId]; if (!rec) return;
+    var el = rec.el;
+    rec.status = run.status;
+    el.querySelector('[data-r="agent"]').textContent = run.label || run.title || ('#'+runId);
+    var pill = el.querySelector('[data-r="pill"]');
+    pill.textContent = T[run.status] || run.status;
+    pill.className = 'aa-pill' + (run.status==='running'||run.status==='queued' ? ' aa-running' : (run.status==='error' ? ' aa-error' : ''));
+
+    // append only new log lines
+    var log = el.querySelector('[data-r="log"]');
+    var steps = run.steps || [];
+    for (var i=0; i<steps.length; i++){
+      if (steps[i].seq > rec.lastSeq){
+        var line = document.createElement('div');
+        line.className = 'aa-line';
+        line.innerHTML = '<span class="aa-time">'+esc(fmtTime(steps[i].at))+'</span><span class="aa-msg">'+esc(steps[i].message)+'</span>';
+        log.appendChild(line);
+        rec.lastSeq = steps[i].seq;
+      }
+    }
+    log.scrollTop = log.scrollHeight;
+
+    var current = el.querySelector('[data-r="current"]');
+    var bar = el.querySelector('[data-r="bar"]');
+    var foot = el.querySelector('[data-r="foot"]');
+    var summary = el.querySelector('[data-r="summary"]');
+
+    if (TERMINAL[run.status]){
+      current.style.display = 'none';
+      bar.className = 'aa-bar aa-done';
+      foot.style.display = 'none';
+      if (run.result_summary){
+        summary.style.display = 'block';
+        summary.innerHTML = '<div class="aa-summary-label">'+T.result+'</div>'+esc(run.result_summary);
+      }
+    } else {
+      current.style.display = 'block';
+      current.innerHTML = esc(run.progress_state || T.waiting) + '<span class="aa-cursor"></span>';
+      bar.className = 'aa-bar aa-indet';
+      foot.style.display = 'flex';
+    }
+    refreshEmpty();
+  }
+
+  function poll(runId){
+    fetch('/api/agents/activity/'+runId+'/', {headers:{'X-CSRFToken':csrf()}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (!d || d.status!=='success' || !d.run) return;
+        render(runId, d.run);
+        if (TERMINAL[d.run.status]) stop(runId);
+      })
+      .catch(function(){ /* transient network error: keep polling */ });
+  }
+
+  function watch(runId){
+    if (!runId) return;
+    open();
+    ensureCard(runId);
+    poll(runId);
+    if (!cards[runId].timer){
+      cards[runId].timer = setInterval(function(){ poll(runId); }, 1200);
+    }
+  }
+
+  function stop(runId){
+    if (cards[runId] && cards[runId].timer){ clearInterval(cards[runId].timer); cards[runId].timer=null; }
+  }
+
+  function cancel(runId){
+    var rec = cards[runId]; if (!rec) return;
+    var btn = rec.el.querySelector('[data-r="cancel"]');
+    if (btn){ btn.disabled = true; btn.textContent = T.cancelled + '...'; }
+    fetch('/api/agents/activity/'+runId+'/cancel/', {method:'POST', headers:{'X-CSRFToken':csrf(),'Content-Type':'application/json'}, body:'{}'})
+      .then(function(r){ return r.json(); }).catch(function(){});
+  }
+
+  function start(){
+    open();
+    return fetch('/api/agents/activity/start/', {method:'POST', headers:{'X-CSRFToken':csrf(),'Content-Type':'application/json'}, body:'{}'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){ if (d && d.status==='success' && d.run_id){ watch(d.run_id); return d.run_id; } })
+      .catch(function(){});
+  }
+
+  document.getElementById('aaCloseBtn').addEventListener('click', close);
+  document.getElementById('aaMinBtn').addEventListener('click', function(){ dock.classList.remove('aa-open'); });
+
+  window.BaseeraAgentActivity = { watch:watch, start:start, open:open, close:close };
+})();
+</script>
