@@ -1468,6 +1468,11 @@
             .then(r => r.json())
             .then(data => {
                 renderChatUploadResult(statusId, !!data.success, data.message, data.recordCount);
+                // Auto-run the live analysis right after a real upload lands,
+                // so the user immediately watches Baseera analyze their file.
+                if (data.success && (data.recordCount || 0) > 0) {
+                    setTimeout(streamAnalysisCard, 500);
+                }
             })
             .catch(() => {
                 const isAr = "{% if trans.lang_code == 'ar' %}yes{% endif %}" === "yes";
@@ -1539,6 +1544,139 @@
     });
 
 
+    /* =====================================================================
+       LIVE ANALYSIS IN CHAT — Baseera "thinks out loud", showing the real
+       deterministic math step by step, inline in the conversation, whenever
+       the user asks for analysis or right after they upload a file. Grounded
+       only in the user's own data (served by /api/agent/live-analysis/).
+       ===================================================================== */
+    var _LA_CSS_DONE = false;
+    function _laInjectCss() {
+        if (_LA_CSS_DONE) return; _LA_CSS_DONE = true;
+        var s = document.createElement('style');
+        s.textContent =
+            '@keyframes laFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}' +
+            '@keyframes laPulse{0%,80%,100%{transform:scale(0);opacity:.4}40%{transform:scale(1);opacity:1}}' +
+            '@keyframes laShim{0%{background-position:-200px 0}100%{background-position:200px 0}}' +
+            '.la-step{animation:laFadeUp .4s cubic-bezier(.2,.8,.2,1) both}' +
+            '.la-typing span{display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:var(--glow,#7c6cf0);animation:laPulse 1.2s infinite ease-in-out both}' +
+            '.la-typing span:nth-child(2){animation-delay:.2s}.la-typing span:nth-child(3){animation-delay:.4s}' +
+            '.la-shim{background:linear-gradient(90deg,rgba(124,108,240,.12),rgba(124,108,240,.3),rgba(124,108,240,.12));background-size:400px 100%;animation:laShim 1s linear infinite}';
+        document.head.appendChild(s);
+    }
+
+    function laSleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+    function laEsc(x) { var d = document.createElement('div'); d.textContent = (x == null ? '' : String(x)); return d.innerHTML; }
+
+    // Should this message trigger the live analysis? (analysis intent, AR + EN)
+    function wantsLiveAnalysis(text) {
+        if (!text) return false;
+        var t = text.toLowerCase();
+        var kw = ['حلل', 'حللي', 'تحليل', 'التحليل', 'وين تروح', 'وين راحت', 'كم صرف', 'كم هدر',
+            'هدر', 'ربح', 'خسار', 'سيول', 'مصاريف', 'مصروف', 'الوضع المالي', 'وضعي المالي',
+            'ايش وضع', 'وش وضع', 'تقرير', 'اكبر بند', 'بند متكرر', 'دخل', 'صافي',
+            'analy', 'how much', 'where did', 'spend', 'waste', 'profit', 'loss',
+            'runway', 'cash', 'report', 'biggest', 'income', 'expense', 'net'];
+        for (var i = 0; i < kw.length; i++) { if (t.indexOf(kw[i]) !== -1) return true; }
+        return false;
+    }
+
+    var _LA_TONE = {
+        good: { bd: 'rgba(16,185,129,.4)', bg: 'rgba(16,185,129,.07)', tx: '#059669' },
+        bad: { bd: 'rgba(244,63,94,.4)', bg: 'rgba(244,63,94,.07)', tx: '#e11d48' },
+        warn: { bd: 'rgba(217,119,6,.4)', bg: 'rgba(245,158,11,.08)', tx: '#b45309' },
+        info: { bd: 'rgba(124,108,240,.4)', bg: 'rgba(124,108,240,.07)', tx: '#6d5ae0' },
+        muted: { bd: 'rgba(148,163,184,.35)', bg: 'rgba(148,163,184,.06)', tx: '#64748b' }
+    };
+
+    var _laBusy = false;
+    async function streamAnalysisCard() {
+        if (_laBusy) return;               // never stack two at once
+        _laBusy = true;
+        _laInjectCss();
+        var messages = document.getElementById('chatMessages');
+        if (!messages) { _laBusy = false; return; }
+        var isAr = "{% if trans.lang_code == 'ar' %}yes{% endif %}" === "yes";
+        var logo = "{% static 'dashboard/img/logo.png' %}";
+        var id = 'la-' + Date.now();
+
+        var wrap = document.createElement('div');
+        wrap.className = 'flex gap-3 mb-4 la-step';
+        wrap.innerHTML =
+            '<div class="h-8 w-8 shrink-0 rounded-full bg-white border border-slate-200 dark:border-slate-700 p-0.5 shadow-sm flex items-center justify-center overflow-hidden">' +
+            '<img src="' + logo + '" class="h-full w-full object-contain" alt="Baseera"></div>' +
+            '<div class="rounded-2xl rounded-tl-sm chat-bubble-bot px-3.5 py-3 shadow-sm w-full max-w-xl text-' + '{{ trans.align }}">' +
+            '  <div class="flex items-center gap-2 mb-2">' +
+            '    <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>' +
+            '    <span class="text-xs font-black text-[var(--glow)]">' + (isAr ? 'التحليل المباشر — أحسب من بياناتك' : 'Live analysis — computing from your data') + '</span>' +
+            '  </div>' +
+            '  <div class="h-1 w-full rounded bg-slate-200/60 dark:bg-slate-700/60 mb-2 overflow-hidden"><div id="la-prog-' + id + '" class="h-full rounded transition-all duration-500" style="width:0%;background:linear-gradient(90deg,var(--nile,#153e75),var(--glow,#7c6cf0))"></div></div>' +
+            '  <div id="la-steps-' + id + '" class="flex flex-col gap-1.5"></div>' +
+            '</div>';
+        messages.appendChild(wrap);
+        messages.scrollTop = messages.scrollHeight;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        var data;
+        try {
+            var r = await fetch('/api/agent/live-analysis/', { headers: { 'X-CSRFToken': '{{ csrf_token }}' } });
+            data = await r.json();
+        } catch (e) { data = null; }
+
+        var stepsEl = document.getElementById('la-steps-' + id);
+        var prog = document.getElementById('la-prog-' + id);
+        if (!data || data.status !== 'success' || !(data.steps || []).length) {
+            if (stepsEl) stepsEl.innerHTML = '<div class="text-xs text-slate-400">' +
+                (isAr ? 'ارفع ملفك وسأحلّله لك مباشرة هنا.' : "Upload your file and I'll analyze it live here.") + '</div>';
+            _laBusy = false; return;
+        }
+        var steps = data.steps, total = steps.length;
+        for (var i = 0; i < total; i++) { await _laPlayStep(steps[i], i, total, stepsEl, prog, messages); }
+        _laBusy = false;
+    }
+
+    async function _laPlayStep(step, idx, total, container, prog, messages) {
+        var tone = _LA_TONE[step.tone] || _LA_TONE.info;
+        var row = document.createElement('div');
+        row.className = 'la-step rounded-lg border px-3 py-2';
+        row.style.borderColor = tone.bd; row.style.background = tone.bg;
+        row.innerHTML =
+            '<div class="flex items-center gap-2">' +
+            '<span class="text-base leading-none">' + laEsc(step.icon || '•') + '</span>' +
+            '<span class="text-[12.5px] font-bold text-slate-700 dark:text-slate-100 flex-1">' + laEsc(step.title || '') + '</span>' +
+            '<span class="la-typing" data-role="t"><span></span><span></span><span></span></span>' +
+            '</div><div data-role="b" class="mt-1.5 space-y-1" style="display:none"></div>';
+        container.appendChild(row);
+        if (messages) messages.scrollTop = messages.scrollHeight;
+        if (prog) prog.style.width = Math.round((idx / total) * 100) + '%';
+
+        await laSleep(430 + Math.random() * 260);
+        var t = row.querySelector('[data-role="t"]'); if (t) t.remove();
+        var b = row.querySelector('[data-role="b"]'); b.style.display = 'block';
+        var html = '';
+        (step.lines || []).forEach(function (ln) {
+            html += '<div class="text-[12px] text-slate-600 dark:text-slate-300 leading-relaxed">' + laEsc(ln) + '</div>';
+        });
+        if (step.formula) {
+            html += '<div class="mt-1 text-[10.5px] text-slate-400 font-mono" dir="ltr" style="text-align:' + ("{{ trans.align }}" === 'right' ? 'right' : 'left') + '">' + laEsc(step.formula) + '</div>';
+        }
+        b.innerHTML = html;
+        if (step.result) {
+            var res = document.createElement('div');
+            res.className = 'mt-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-black la-shim';
+            res.textContent = '…';
+            b.appendChild(res);
+            await laSleep(480);
+            res.classList.remove('la-shim');
+            res.style.background = 'rgba(0,0,0,.03)';
+            res.style.color = tone.tx;
+            res.textContent = step.result;
+        }
+        if (messages) messages.scrollTop = messages.scrollHeight;
+        if (prog) prog.style.width = Math.round(((idx + 1) / total) * 100) + '%';
+        await laSleep(240);
+    }
+
 
     async function sendMessage() {
         const messages = document.getElementById('chatMessages');
@@ -1566,6 +1704,11 @@
             // Clear input
             input.value = '';
             messages.scrollTop = messages.scrollHeight;
+
+            // Live analysis: when the user asks for analysis and has data,
+            // Baseera "thinks out loud" with the real math inline, streaming
+            // in parallel with the conversational answer below it.
+            if (wantsLiveAnalysis(text)) { streamAnalysisCard(); }
 
             // Create a loading bubble
             const baseeraLogoUrl = "{% static 'dashboard/img/logo.png' %}";
