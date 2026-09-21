@@ -90,6 +90,7 @@ urlpatterns = [
     path("api/integrations/whatsapp/inbound/", api_views.api_whatsapp_inbound, name="api_whatsapp_inbound"),
     path("api/integrations/whatsapp/webhook/", api_views.api_whatsapp_webhook, name="api_whatsapp_webhook"),
     path("api/agent/live-analysis/", api_views.api_live_analysis, name="api_live_analysis"),
+    path("api/report/live/", api_views.api_live_report, name="api_live_report"),
     path("api/agents/activity/start/", api_views.api_agent_activity_start, name="api_agent_activity_start"),
     path("api/agents/activity/<int:run_id>/", api_views.api_agent_activity, name="api_agent_activity"),
     path("api/agents/activity/<int:run_id>/cancel/", api_views.api_agent_activity_cancel, name="api_agent_activity_cancel"),

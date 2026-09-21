@@ -1159,6 +1159,43 @@ def api_live_analysis(request):
 
 
 @login_required
+def api_live_report(request):
+    """
+    Build the grounded executive report for the user's own data as structured
+    sections, and persist it (hashed, traceable) as a FinancialReport. The
+    frontend then "writes" it on screen section by section. Owner-scoped;
+    never 500s.
+    """
+    from .models import DynamicRecord, ProjectFile, Profile
+    from dashboard.services.report_live import build_live_report
+    try:
+        qs = DynamicRecord.objects.filter(user=request.user)
+        file_id = request.GET.get("file_id")
+        if file_id and str(file_id) != "all":
+            qs = qs.filter(project_file_id=file_id)
+        rows = list(qs.values_list("row_data", flat=True)[:10000])
+
+        profile = Profile.objects.filter(user=request.user).first()
+        company = (profile.company_name if profile else "") or ""
+        lang = request.GET.get("lang") or "ar"
+        report = build_live_report(request.user, rows, company_name=company, lang=lang)
+
+        # Persist (hashed + traceable) so the "generated report" is real and
+        # downloadable, not just an on-screen animation. Fail-soft.
+        try:
+            from dashboard.services.archiving import issue_report
+            src = list(ProjectFile.objects.filter(user=request.user).order_by("-uploaded_at")[:5])
+            saved = issue_report(request.user, report["title"], report["plain"], source_files=src)
+            report["report_id"] = getattr(saved, "id", None)
+        except Exception:
+            report["report_id"] = None
+
+        return JsonResponse({"status": "success", "report": report})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=500)
+
+
+@login_required
 def api_agent_activity_start(request):
     """
     Start a tracked agent run and kick off its background worker, returning the

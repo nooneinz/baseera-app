@@ -23,9 +23,16 @@
                     <p class="text-sm text-gray-500">{% if trans.lang_code == 'ar' %}تقارير وتحليلات منشأة تلقائياً بصيغة إكسل (.xlsx) أو ملفات نصية (.txt).{% else %}Auto-generated insights available in Excel (.xlsx) and Text Note (.txt) formats.{% endif %}</p>
                 </div>
             </div>
-            <button onclick="openExportAllModal()" class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[var(--nile)] to-[var(--glow)] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:opacity-90 transition">
-                <i data-lucide="download" class="h-4 w-4"></i> {% if trans.lang_code == 'ar' %}تصدير التقرير الشامل{% else %}Export All Reports{% endif %}
-            </button>
+            <div class="flex items-center gap-2">
+                {% if files %}
+                <button onclick="openLiveReport()" class="inline-flex items-center gap-2 rounded-full border-2 border-[var(--glow)]/40 text-[var(--glow)] px-5 py-2.5 text-sm font-bold hover:bg-[var(--glow)]/5 transition">
+                    <i data-lucide="sparkles" class="h-4 w-4"></i> {% if trans.lang_code == 'ar' %}توليد تقرير مباشر{% else %}Generate report live{% endif %}
+                </button>
+                {% endif %}
+                <button onclick="openExportAllModal()" class="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[var(--nile)] to-[var(--glow)] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:opacity-90 transition">
+                    <i data-lucide="download" class="h-4 w-4"></i> {% if trans.lang_code == 'ar' %}تصدير التقرير الشامل{% else %}Export All Reports{% endif %}
+                </button>
+            </div>
         </section>
 
         <!-- Reports Grid -->
@@ -162,5 +169,196 @@ function downloadNoteReport(fileName, fileId) {
     }
     window.location.href = url;
 }
+</script>
+
+<!-- ============================================================= -->
+<!-- LIVE REPORT — watch Baseera write your report in front of you  -->
+<!-- ============================================================= -->
+<style>
+  #lrModal{ display:none; position:fixed; inset:0; z-index:11000; padding:16px;
+    background:rgba(8,11,22,.6); backdrop-filter:blur(5px); }
+  #lrModal.open{ display:flex; align-items:center; justify-content:center; }
+  .lr-doc{ width:100%; max-width:760px; max-height:92vh; display:flex; flex-direction:column;
+    background:var(--card,#fff); border-radius:16px; overflow:hidden; box-shadow:0 24px 60px rgba(2,6,23,.4); }
+  .lr-bar{ display:flex; align-items:center; justify-content:space-between; padding:12px 18px;
+    background:linear-gradient(90deg,var(--nile,#153e75),var(--glow,#7c6cf0)); color:#fff; }
+  .lr-bar-l{ display:flex; align-items:center; gap:9px; }
+  .lr-live{ position:relative; display:flex; height:9px; width:9px; }
+  .lr-live span{ position:absolute; inset:0; border-radius:50%; background:#6ee7b7; }
+  .lr-live .ping{ animation:lrPing 1.5s cubic-bezier(0,0,.2,1) infinite; }
+  @keyframes lrPing{ 75%,100%{ transform:scale(2.2); opacity:0; } }
+  .lr-status{ font-weight:800; font-size:13px; }
+  .lr-x{ background:transparent; border:0; color:#fff; opacity:.85; cursor:pointer; font-size:18px; line-height:1; }
+  .lr-page{ overflow-y:auto; padding:34px 40px; background:#fff; color:#0f172a; line-height:1.9; }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .lr-page{ background:#0f1420; color:#e6e9ef; } }
+  :root[data-theme="dark"] .lr-page{ background:#0f1420; color:#e6e9ef; }
+  .lr-page::-webkit-scrollbar{ width:7px; } .lr-page::-webkit-scrollbar-thumb{ background:rgba(124,108,240,.35); border-radius:7px; }
+  .lr-title{ font-size:22px; font-weight:900; letter-spacing:-.01em; margin:0 0 4px; }
+  .lr-meta{ font-size:12.5px; color:#64748b; border-bottom:1px solid rgba(100,116,139,.25); padding-bottom:14px; margin-bottom:18px; }
+  .lr-sec{ margin:18px 0; animation:lrFade .4s ease both; }
+  @keyframes lrFade{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+  .lr-h{ font-size:15.5px; font-weight:800; color:var(--glow,#7c6cf0); margin:0 0 8px; padding-inline-start:10px;
+    border-inline-start:3px solid var(--glow,#7c6cf0); }
+  .lr-p{ font-size:14px; margin:0 0 8px; }
+  .lr-stats{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .lr-stat{ border:1px solid rgba(100,116,139,.25); border-radius:10px; padding:7px 12px; font-size:12.5px; }
+  .lr-stat b{ display:block; font-size:14px; margin-top:2px; }
+  .lr-cursor{ display:inline-block; width:8px; height:15px; vertical-align:-2px; background:var(--glow,#7c6cf0);
+    margin-inline-start:2px; animation:lrBlink 1s steps(1) infinite; }
+  @keyframes lrBlink{ 50%{opacity:0;} }
+  .lr-foot{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 18px;
+    border-top:1px solid rgba(100,116,139,.2); background:var(--card,#fff); }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .lr-foot{ background:#0f1420; } }
+  :root[data-theme="dark"] .lr-foot{ background:#0f1420; }
+  .lr-saved{ font-size:12px; color:#64748b; }
+  .lr-actions{ display:flex; gap:8px; }
+  .lr-btn{ display:inline-flex; align-items:center; gap:6px; border-radius:10px; padding:8px 14px; font-size:12.5px; font-weight:800; cursor:pointer; border:1px solid transparent; }
+  .lr-btn.p{ background:linear-gradient(90deg,var(--nile,#153e75),var(--glow,#7c6cf0)); color:#fff; }
+  .lr-btn.s{ background:transparent; border-color:rgba(100,116,139,.35); color:inherit; }
+  @media (max-width:520px){ .lr-page{ padding:22px 18px; } }
+</style>
+
+<div id="lrModal" dir="{{ trans.align|default:'rtl'|yesno:'rtl,rtl,rtl' }}">
+  <div class="lr-doc">
+    <div class="lr-bar">
+      <div class="lr-bar-l">
+        <span class="lr-live"><span class="ping"></span><span></span></span>
+        <span class="lr-status" id="lrStatus">{% if trans.lang_code == 'ar' %}بصيرة تكتب تقريرك…{% else %}Baseera is writing your report…{% endif %}</span>
+      </div>
+      <button class="lr-x" id="lrClose" aria-label="close">&#10005;</button>
+    </div>
+    <div class="lr-page" id="lrPage"></div>
+    <div class="lr-foot">
+      <span class="lr-saved" id="lrSaved"></span>
+      <div class="lr-actions" id="lrActions" style="display:none">
+        <button class="lr-btn s" onclick="downloadNoteReport('تقرير_بصيرة')">{% if trans.lang_code == 'ar' %}تنزيل نصي{% else %}Download .txt{% endif %}</button>
+        <button class="lr-btn p" onclick="downloadExcelReport('تقرير_بصيرة')">{% if trans.lang_code == 'ar' %}تنزيل إكسل{% else %}Download .xlsx{% endif %}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var LANG = "{{ trans.lang_code|default:'ar' }}";
+  var modal = document.getElementById('lrModal');
+  var page = document.getElementById('lrPage');
+  var statusEl = document.getElementById('lrStatus');
+  var savedEl = document.getElementById('lrSaved');
+  var actions = document.getElementById('lrActions');
+  var closeBtn = document.getElementById('lrClose');
+  var writing = false, cancelled = false;
+
+  function esc(s){ var d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+
+  function fileIdParam(){
+    try{ return new URLSearchParams(window.location.search).get('file_id') || ''; }catch(e){ return ''; }
+  }
+
+  window.openLiveReport = function(){
+    if (writing) { modal.classList.add('open'); return; }
+    modal.classList.add('open');
+    run();
+  };
+  function close(){ cancelled = true; modal.classList.remove('open'); }
+  closeBtn.addEventListener('click', close);
+  modal.addEventListener('click', function(e){ if (e.target===modal) close(); });
+
+  // Type a string into `el` progressively (cursor lives on the parent).
+  async function typeInto(el, text, speed){
+    var cur = document.createElement('span'); cur.className='lr-cursor';
+    el.appendChild(cur);
+    var buf = '';
+    for (var i=0;i<text.length;i++){
+      if (cancelled) { break; }
+      buf += text[i];
+      el.textContent = buf;               // safe: plain text
+      el.appendChild(cur);
+      // scroll to keep the writing line in view
+      page.scrollTop = page.scrollHeight;
+      // punctuation gets a tiny pause -> natural cadence
+      var ch = text[i];
+      var d = speed + ((ch==='،'||ch==='.'||ch==='؛') ? 90 : 0);
+      await sleep(d);
+    }
+    if (cur.parentNode) cur.parentNode.removeChild(cur);
+    el.textContent = text;
+  }
+
+  async function run(){
+    if (writing) return;
+    writing = true; cancelled = false;
+    page.innerHTML = ''; actions.style.display='none'; savedEl.textContent='';
+    statusEl.textContent = (LANG==='en' ? 'Baseera is writing your report…' : 'بصيرة تكتب تقريرك…');
+
+    var data;
+    try{
+      var fid = fileIdParam();
+      var url = '/api/report/live/' + (fid ? ('?file_id='+encodeURIComponent(fid)) : '');
+      var res = await fetch(url, { headers:{'X-CSRFToken':(document.cookie.match(/csrftoken=([^;]+)/)||[])[1]||''} });
+      data = await res.json();
+    }catch(e){ data=null; }
+
+    if (!data || data.status!=='success' || !data.report){
+      page.innerHTML = '<p class="lr-p">'+(LANG==='en'?'Could not generate the report. Please try again.':'تعذّر توليد التقرير. حاول مرة أخرى.')+'</p>';
+      statusEl.textContent = (LANG==='en'?'Error':'خطأ'); writing=false; return;
+    }
+
+    var rep = data.report;
+    // Title + meta (appear immediately)
+    var h = document.createElement('h1'); h.className='lr-title'; h.textContent = rep.title || 'تقرير بصيرة';
+    page.appendChild(h);
+    var m = rep.meta || {};
+    var meta = document.createElement('div'); meta.className='lr-meta';
+    meta.textContent = [ (m.company? (LANG==='en'?'Company: ':'المنشأة: ')+m.company : ''),
+                         (m.date? (LANG==='en'?'Date: ':'التاريخ: ')+m.date : ''),
+                         (m.records!=null? (LANG==='en'?('Records: '+m.records):('عدد العمليات: '+m.records)) : '') ]
+                       .filter(Boolean).join('   ·   ');
+    page.appendChild(meta);
+
+    var sections = rep.sections || [];
+    for (var i=0;i<sections.length;i++){
+      if (cancelled) break;
+      await writeSection(sections[i]);
+    }
+
+    if (!cancelled){
+      statusEl.textContent = (LANG==='en' ? 'Report complete' : 'اكتمل التقرير');
+      savedEl.textContent = (rep.report_id ? (LANG==='en'?'Saved to your reports · every figure computed from your data':'حُفظ في تقاريرك · كل رقم محسوب من بياناتك') : '');
+      actions.style.display = 'flex';
+    }
+    writing = false;
+  }
+
+  async function writeSection(sec){
+    var wrap = document.createElement('div'); wrap.className='lr-sec';
+    page.appendChild(wrap);
+    var head = document.createElement('div'); head.className='lr-h'; wrap.appendChild(head);
+    await typeInto(head, sec.heading || '', 16);
+    await sleep(120);
+    var paras = sec.paragraphs || [];
+    for (var i=0;i<paras.length;i++){
+      if (cancelled) break;
+      var p = document.createElement('p'); p.className='lr-p'; wrap.appendChild(p);
+      await typeInto(p, paras[i], 12);
+      await sleep(90);
+    }
+    var stats = sec.stats || [];
+    if (stats.length && !cancelled){
+      var row = document.createElement('div'); row.className='lr-stats'; wrap.appendChild(row);
+      for (var j=0;j<stats.length;j++){
+        var st = document.createElement('div'); st.className='lr-stat';
+        st.innerHTML = esc(stats[j].label) + '<b>' + esc(stats[j].value) + '</b>';
+        st.style.opacity = '0';
+        row.appendChild(st);
+        await sleep(120);
+        st.style.transition = 'opacity .3s'; st.style.opacity = '1';
+        page.scrollTop = page.scrollHeight;
+      }
+    }
+    await sleep(150);
+  }
+})();
 </script>
 {% endblock %}
