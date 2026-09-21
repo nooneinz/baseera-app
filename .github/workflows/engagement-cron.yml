@@ -1,0 +1,26 @@
+name: Daily Engagement (radar + nudges)
+
+# Baseera reaches out on its own: once a day this hits the engagement endpoint,
+# which runs the financial radar (grounded proactive alerts) and the
+# re-engagement nudges for quiet users. Free and reliable — no extra infra.
+#
+# Setup: add a repository secret CRON_SECRET, and set the same value as the
+# CRON_SECRET env var on the Render service.
+
+on:
+  schedule:
+    - cron: '0 5 * * *'   # 05:00 UTC = 09:00 Oman time (UTC+4)
+  workflow_dispatch: {}     # allow manual runs from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger engagement job
+        run: |
+          code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" -X POST \
+            "https://baseera.it.com/api/cron/engagement/" \
+            -H "X-Baseera-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            --max-time 150)
+          echo "HTTP $code"; cat /tmp/resp.json || true
+          test "$code" = "200"
