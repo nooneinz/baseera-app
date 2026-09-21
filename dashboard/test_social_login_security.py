@@ -8,9 +8,14 @@ could log into the shared account directly, bypassing this view entirely.
 """
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 
+# The demo social-login stand-in is intentionally gated behind DEBUG (F-04:
+# it is disabled in production, where real OAuth would be required). Django's
+# test runner forces settings.DEBUG=False, so these tests -- which verify the
+# DEMO flow's behavior -- must opt back into DEBUG=True to exercise that path.
+@override_settings(DEBUG=True)
 class SocialLoginDummySecurityTests(TestCase):
     def test_visiting_the_social_login_url_still_logs_the_user_in(self):
         response = self.client.get("/social-login/google/", follow=True)

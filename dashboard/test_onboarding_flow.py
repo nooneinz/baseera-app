@@ -88,9 +88,11 @@ class UseSampleDataTests(TestCase):
         self.assertRedirects(response, reverse("onboarding_upload"))
         self.assertFalse(ProjectFile.objects.filter(user=self.user).exists())
 
-    def test_post_creates_a_real_project_file_and_records_then_redirects_to_dashboard(self):
+    def test_post_creates_a_real_project_file_and_records_then_redirects_to_first_win(self):
         response = self.client.post(reverse("use_sample_data"))
-        self.assertRedirects(response, reverse("dashboard"))
+        # After the first successful upload the user is taken to the "first win"
+        # onboarding page (their first real insight), not straight to the dashboard.
+        self.assertRedirects(response, reverse("first_win"))
         pf = ProjectFile.objects.filter(user=self.user).first()
         self.assertIsNotNone(pf)
         self.assertTrue(DynamicRecord.objects.filter(user=self.user, project_file=pf).exists())

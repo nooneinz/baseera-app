@@ -1136,6 +1136,29 @@ def api_cron_engagement(request):
 
 
 @login_required
+def api_live_analysis(request):
+    """
+    The "live analysis screen": replays Baseera's DETERMINISTIC analysis of the
+    current user's own data as an ordered list of visible steps, each carrying
+    the real formula and the real result. The frontend reveals them one by one
+    so the user watches the math being done in front of them. Grounded only in
+    the user's rows; never invents a figure. Never 500s.
+    """
+    from .models import DynamicRecord
+    from dashboard.services.analysis_theater import build_analysis_steps
+    try:
+        qs = DynamicRecord.objects.filter(user=request.user)
+        file_id = request.GET.get("file_id")
+        if file_id and str(file_id) != "all":
+            qs = qs.filter(project_file_id=file_id)
+        rows = list(qs.values_list("row_data", flat=True)[:10000])
+        steps = build_analysis_steps(rows)
+        return JsonResponse({"status": "success", "count": len(steps), "steps": steps})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=500)
+
+
+@login_required
 def api_document_verify(request):
     """
     Human-in-the-loop confirmation of a document the AI read (OCR is ~85-95%

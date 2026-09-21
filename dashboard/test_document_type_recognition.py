@@ -157,7 +157,8 @@ class DocumentTypePersistedOnUploadTests(TestCase):
         pdf_file = SimpleUploadedFile("invoice.pdf", pdf_bytes, content_type="application/pdf")
         response = self.client.post(reverse("portal"), {"excel_file": pdf_file})
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("dashboard"))
+        # First successful upload routes through the "first win" onboarding page.
+        self.assertEqual(response.url, reverse("first_win"))
 
         pf = ProjectFile.objects.filter(user=self.user).first()
         self.assertIsNotNone(pf)
