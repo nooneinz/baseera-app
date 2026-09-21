@@ -92,6 +92,7 @@ urlpatterns = [
     path("api/documents/verify/", api_views.api_document_verify, name="api_document_verify"),
     path("api/documents/audit/", api_views.api_document_audit, name="api_document_audit"),
     path("api/cron/weekly-pulse/", api_views.api_cron_weekly_pulse, name="api_cron_weekly_pulse"),
+    path("api/cron/engagement/", api_views.api_cron_engagement, name="api_cron_engagement"),
 
     path("api/save_file/", api_views.save_file_api, name="save_file_api"),
     path("api/live-sync/", api_views.live_sync_api, name="live_sync_api"),

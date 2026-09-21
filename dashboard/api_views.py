@@ -1100,6 +1100,41 @@ def api_cron_weekly_pulse(request):
     return JsonResponse({"status": "success", **result})
 
 
+@csrf_exempt
+def api_cron_engagement(request):
+    """
+    Daily engagement job: runs the financial radar (grounded proactive alerts)
+    and the re-engagement nudges for quiet users, pushing to WhatsApp. Meant to
+    be hit once a day by a scheduler (GitHub Actions cron, n8n Schedule, etc.),
+    secret-protected the same way as the other cron endpoints.
+    """
+    import hmac
+
+    if request.method not in ("POST", "GET"):
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+    secret = os.environ.get("CRON_SECRET", "")
+    provided = request.headers.get("X-Baseera-Cron-Secret", "")
+    if not secret or not hmac.compare_digest(str(secret), str(provided)):
+        return JsonResponse({"status": "error", "message": "unauthorized"}, status=401)
+
+    from dashboard.services.engagement import (
+        run_daily_radar, run_reengagement, run_month_end_report,
+    )
+    try:
+        radar = run_daily_radar(push=True)
+        nudges = run_reengagement(push=True)
+        # Fires only on the 1st of the month (self-gated); a no-op otherwise.
+        monthly = run_month_end_report(push=True)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": safe_error_message(str(e))}, status=500)
+    return JsonResponse({
+        "status": "success",
+        "radar": radar,
+        "reengagement": nudges,
+        "month_end": monthly,
+    })
+
+
 @login_required
 def api_document_verify(request):
     """
