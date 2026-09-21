@@ -531,6 +531,10 @@
     {% block content %}
     {% endblock %}
 
+    {# Reusable live Agent Activity monitor — available on every page via
+       window.BaseeraAgentActivity (.watch(runId) / .start()). #}
+    {% if user.is_authenticated %}{% include 'dashboard/_agent_activity.html' %}{% endif %}
+
     <script>
         // Initialize Lucide icons on page load
         if (typeof lucide !== 'undefined') {

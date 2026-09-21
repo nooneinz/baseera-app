@@ -1159,6 +1159,57 @@ def api_live_analysis(request):
 
 
 @login_required
+def api_agent_activity_start(request):
+    """
+    Start a tracked agent run and kick off its background worker, returning the
+    run id the frontend Agent Activity screen watches. Currently launches the
+    grounded analysis agent (deterministic, cancellable). Owner-scoped.
+    """
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "POST required"}, status=405)
+    import threading
+    from dashboard.services.agent_activity import start_run, run_analysis_agent
+
+    label = "المحلل المالي"
+    title = "تحليل بياناتك المالية"
+    run = start_run(request.user, label, title)
+    if not run:
+        return JsonResponse({"status": "error", "message": "could not start run"}, status=500)
+
+    t = threading.Thread(target=run_analysis_agent, args=(request.user.id, run.id), daemon=True)
+    t.start()
+    return JsonResponse({"status": "success", "run_id": run.id, "label": label, "title": title})
+
+
+@login_required
+def api_agent_activity(request, run_id):
+    """Live state of one agent run (status, current step, full step log, and the
+    result summary once done). Polled by the Agent Activity screen. Owner-scoped;
+    never 500s."""
+    from dashboard.models import AgentRun
+    from dashboard.services.agent_activity import serialize
+    run = AgentRun.objects.filter(id=run_id, user=request.user).prefetch_related("steps").first()
+    if not run:
+        return JsonResponse({"status": "error", "message": "not found"}, status=404)
+    return JsonResponse({"status": "success", "run": serialize(run)})
+
+
+@login_required
+def api_agent_activity_cancel(request, run_id):
+    """Request cancellation of a running agent. The background worker checks this
+    flag between steps and stops. Owner-scoped."""
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "POST required"}, status=405)
+    from dashboard.models import AgentRun
+    updated = AgentRun.objects.filter(
+        id=run_id, user=request.user, status__in=["queued", "running"]
+    ).update(cancel_requested=True)
+    if not updated:
+        return JsonResponse({"status": "error", "message": "not cancellable"}, status=404)
+    return JsonResponse({"status": "success"})
+
+
+@login_required
 def api_document_verify(request):
     """
     Human-in-the-loop confirmation of a document the AI read (OCR is ~85-95%

@@ -658,3 +658,56 @@ class FinancialReport(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.user.username}"
+
+
+class AgentRun(models.Model):
+    """
+    One tracked run of an agent working on a task. Powers the live "Agent
+    Activity" screen: the agent writes its progress here (status + steps) from
+    a background worker, and the frontend polls it to show the work unfolding
+    in real time. Scoped to the owning user.
+    """
+    STATUSES = [
+        ("queued", "queued"),
+        ("running", "running"),
+        ("done", "done"),
+        ("cancelled", "cancelled"),
+        ("error", "error"),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="agent_runs")
+    label = models.CharField(max_length=120, default="", verbose_name="اسم الوكيل / Agent")
+    title = models.CharField(max_length=200, default="", verbose_name="المهمة / Task")
+    status = models.CharField(max_length=20, choices=STATUSES, default="queued")
+    progress_state = models.CharField(max_length=160, default="", blank=True)
+    result_summary = models.TextField(default="", blank=True)
+    cancel_requested = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Agent Run"
+
+    def __str__(self):
+        return f"{self.label or 'agent'} / {self.status} ({self.user_id})"
+
+
+class AgentRunStep(models.Model):
+    """A single timestamped step in an AgentRun's live log."""
+    STATUSES = [
+        ("running", "running"),
+        ("done", "done"),
+        ("error", "error"),
+    ]
+    run = models.ForeignKey(AgentRun, on_delete=models.CASCADE, related_name="steps")
+    seq = models.IntegerField(default=0)
+    message = models.CharField(max_length=300, default="")
+    status = models.CharField(max_length=20, choices=STATUSES, default="done")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["seq", "id"]
+        verbose_name = "Agent Run Step"
+
+    def __str__(self):
+        return f"[{self.seq}] {self.message[:40]}"
