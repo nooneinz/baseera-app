@@ -15,11 +15,16 @@ Two automated jobs, both meant to run on a daily schedule (a cron hitting
    ("ما فكّرت تحسب كم هدرت اليوم؟") to pull them back. Rotated and throttled so
    it never becomes spam.
 
+Every alert is ALSO mirrored to the on-site notification bell (the Notification
+model), so it reaches the user on the website even when WhatsApp can't. The
+website notification is created regardless of whether the WhatsApp push
+succeeds.
+
 IMPORTANT (WhatsApp policy): free-form messages only deliver inside the 24h
 customer-service window. Reaching a user who's been silent longer than that
 requires a Meta-APPROVED message template; until templates are set up, those
-sends simply fail-soft (the engine still records who it would nudge). The
-engine never raises.
+sends simply fail-soft (the engine still records who it would nudge, and the
+on-site notification still appears). The engine never raises.
 """
 import os
 import random
@@ -67,6 +72,29 @@ def _log(user, action_type, detail=""):
         SystemLog.objects.create(user=user, action_type=action_type, details=(detail or "")[:500])
     except Exception:
         pass
+
+
+def _notify_site(user, title, message, ntype="info"):
+    """Mirror an engagement alert into the on-site notification bell so it
+    reaches the user even when WhatsApp can't (outside the 24h window).
+    Returns True only if the notification was created. Never raises."""
+    try:
+        from dashboard.models import Notification
+        Notification.objects.create(
+            user=user, title=(title or "")[:200], message=(message or "")[:2000], type=ntype,
+        )
+        return True
+    except Exception as e:
+        logger.info("site notify failed for user %s: %s", getattr(user, "id", "?"), e)
+        return False
+
+
+# On-site notification title + type per radar signal kind.
+_RADAR_SITE = {
+    "runway": ("⚠️ تنبيه سيولة", "warning"),
+    "waste": ("👀 رادار بصيرة — هدر", "warning"),
+    "recurring": ("💡 فرصة توفير", "info"),
+}
 
 
 def _radar_alert(rows):
@@ -120,7 +148,7 @@ def run_daily_radar(push=True, limit=None, throttle_hours=20):
     from dashboard.models import ProjectFile, DynamicRecord, Profile
     from dashboard.services.whatsapp_service import normalize_phone, DASHBOARD_URL
 
-    processed = flagged = pushed = 0
+    processed = flagged = notified = pushed = 0
     users = User.objects.filter(is_active=True).order_by("id")
     if limit:
         users = users[:limit]
@@ -141,6 +169,11 @@ def run_daily_radar(push=True, limit=None, throttle_hours=20):
         flagged += 1
         msg = core + "\n\nافتح لوحتك 👇\n" + DASHBOARD_URL
         _log(user, RADAR_ACTION, f"radar[{kind}]")
+        # Website first: the notification bell always reaches the user, even
+        # outside WhatsApp's 24h window.
+        s_title, s_type = _RADAR_SITE.get(kind, ("👀 رادار بصيرة", "info"))
+        if _notify_site(user, s_title, core, s_type):
+            notified += 1
         if push:
             profile = Profile.objects.filter(user=user).exclude(phone_number="").first()
             if profile:
@@ -148,7 +181,7 @@ def run_daily_radar(push=True, limit=None, throttle_hours=20):
                 if phone and _outbound(phone, msg):
                     pushed += 1
 
-    result = {"processed": processed, "flagged": flagged, "pushed": pushed}
+    result = {"processed": processed, "flagged": flagged, "notified": notified, "pushed": pushed}
     logger.info("Daily radar run: %s", result)
     return result
 
@@ -171,7 +204,7 @@ def run_month_end_report(push=True, limit=None, force=False):
     from dashboard.services.first_win_insights import compute_transaction_signal
     from dashboard.services.whatsapp_service import normalize_phone, DASHBOARD_URL
 
-    processed = pushed = 0
+    processed = notified = pushed = 0
     users = User.objects.filter(is_active=True).order_by("id")
     if limit:
         users = users[:limit]
@@ -191,12 +224,15 @@ def run_month_end_report(push=True, limit=None, force=False):
         inc = f"{round(sig.get('total_income') or 0):,}"
         exp = f"{round(sig.get('total_expense') or 0):,}"
         net = f"{round(sig.get('net') or 0):,}"
-        msg = (
-            "📅 تقريرك الشهري من بصيرة:\n"
-            f"الدخل: {inc} ر.ع\nالمصروف: {exp} ر.ع\nالصافي: {net} ر.ع\n\n"
-            "التفاصيل الكاملة في لوحتك 👇\n" + DASHBOARD_URL
+        core = (
+            "تقريرك الشهري من بصيرة:\n"
+            f"الدخل: {inc} ر.ع\nالمصروف: {exp} ر.ع\nالصافي: {net} ر.ع"
         )
+        msg = "📅 " + core + "\n\nالتفاصيل الكاملة في لوحتك 👇\n" + DASHBOARD_URL
         _log(user, MONTH_ACTION, "monthly report")
+        # Website bell first (always reaches the user).
+        if _notify_site(user, "📅 تقريرك الشهري", core, "info"):
+            notified += 1
         if push:
             profile = Profile.objects.filter(user=user).exclude(phone_number="").first()
             if profile:
@@ -204,7 +240,7 @@ def run_month_end_report(push=True, limit=None, force=False):
                 if phone and _outbound(phone, msg):
                     pushed += 1
 
-    result = {"processed": processed, "pushed": pushed}
+    result = {"processed": processed, "notified": notified, "pushed": pushed}
     logger.info("Month-end report run: %s", result)
     return result
 
@@ -220,7 +256,7 @@ def run_reengagement(push=True, inactive_hours=48, throttle_hours=72, limit=None
     from dashboard.models import Profile, SystemLog
     from dashboard.services.whatsapp_service import normalize_phone
 
-    candidates = nudged = 0
+    candidates = notified = nudged = 0
     cutoff = timezone.now() - timedelta(hours=inactive_hours)
     users = User.objects.filter(is_active=True).order_by("id")
     if limit:
@@ -240,11 +276,14 @@ def run_reengagement(push=True, inactive_hours=48, throttle_hours=72, limit=None
         candidates += 1
         msg = random.choice(_NUDGES)
         _log(user, NUDGE_ACTION, "nudge")
+        # Website bell first (always reaches the user).
+        if _notify_site(user, "💡 تذكير من بصيرة", msg, "info"):
+            notified += 1
         if push:
             phone = normalize_phone(profile.phone_number)
             if phone and _outbound(phone, msg):
                 nudged += 1
 
-    result = {"candidates": candidates, "nudged": nudged}
+    result = {"candidates": candidates, "notified": notified, "nudged": nudged}
     logger.info("Re-engagement run: %s", result)
     return result

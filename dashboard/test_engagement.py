@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.test import TestCase
 from django.contrib.auth.models import User
 
-from dashboard.models import Profile, ProjectFile, DynamicRecord, SystemLog
+from dashboard.models import Profile, ProjectFile, DynamicRecord, SystemLog, Notification
 from dashboard.services import engagement
 
 
@@ -78,6 +78,40 @@ class DailyRadarTests(TestCase):
         with patch("dashboard.services.engagement._outbound", return_value=True):
             res = engagement.run_daily_radar(push=True)
         self.assertEqual(res["processed"], 0)
+
+
+class SiteNotificationMirrorTests(TestCase):
+    """Every engagement alert is mirrored to the on-site notification bell,
+    and that mirror happens even when the WhatsApp push fails (the website is
+    always reachable, WhatsApp is subject to the 24h window)."""
+
+    def test_radar_creates_site_notification_even_when_whatsapp_fails(self):
+        u = _user_with_expense("sitenotif1")
+        # _outbound returns False -> WhatsApp did not go out.
+        with patch("dashboard.services.engagement._outbound", return_value=False):
+            res = engagement.run_daily_radar(push=True)
+        self.assertEqual(res["pushed"], 0)        # WhatsApp failed
+        self.assertEqual(res["notified"], 1)      # website still notified
+        notif = Notification.objects.filter(user=u).first()
+        self.assertIsNotNone(notif)
+        self.assertIn("مورد الأجبان", notif.message)  # grounded, real item
+
+    def test_nudge_creates_site_notification(self):
+        u = User.objects.create_user(username="sitenudge1", password="pw123456")
+        Profile.objects.create(user=u, phone_number="96897778889")
+        with patch("dashboard.services.engagement._outbound", return_value=False):
+            res = engagement.run_reengagement(push=True)
+        self.assertEqual(res["notified"], 1)
+        self.assertTrue(Notification.objects.filter(user=u).exists())
+
+    def test_month_end_creates_site_notification(self):
+        u = _user_with_expense("sitemonth1")
+        with patch("dashboard.services.engagement._outbound", return_value=False):
+            res = engagement.run_month_end_report(push=True, force=True)
+        self.assertEqual(res["notified"], 1)
+        notif = Notification.objects.filter(user=u).first()
+        self.assertIsNotNone(notif)
+        self.assertIn("تقريرك الشهري", notif.title)
 
 
 class RadarPriorityTests(TestCase):
