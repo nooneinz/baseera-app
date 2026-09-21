@@ -531,8 +531,10 @@
     {% block content %}
     {% endblock %}
 
-    {# Reusable live Agent Activity monitor — available on every page via
-       window.BaseeraAgentActivity (.watch(runId) / .start()). #}
+    {% comment %}
+      Reusable live Agent Activity monitor — available on every page via
+      window.BaseeraAgentActivity (.watch(runId) / .start()).
+    {% endcomment %}
     {% if user.is_authenticated %}{% include 'dashboard/_agent_activity.html' %}{% endif %}
 
     <script>
