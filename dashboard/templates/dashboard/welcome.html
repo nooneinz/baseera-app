@@ -6,32 +6,43 @@
 {% block content %}
 {% include 'dashboard/navbar.html' %}
 
+{# Scroll-reveal entrance: hide fade-up elements up front only when JS + IntersectionObserver are available (and motion is allowed); otherwise the normal on-load fade-up plays as a safe fallback. #}
+<script>
+(function(){
+  if ('IntersectionObserver' in window && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+    document.documentElement.classList.add('wl-reveal');
+  }
+})();
+</script>
+<style>
+  html.wl-reveal .animate-fade-up { animation: none !important; opacity: 0; transform: translateY(28px);
+    transition: opacity .7s cubic-bezier(.16,.84,.28,1), transform .7s cubic-bezier(.16,.84,.28,1);
+    transition-delay: var(--rd, 0s); will-change: opacity, transform; }
+  html.wl-reveal .animate-fade-up.in { opacity: 1; transform: none; }
+</style>
+
 <main class="mx-auto w-[min(1200px,calc(100%-2rem))] pb-20 pt-32 text-{{ trans.align }}">
 
     <!-- HERO -->
-    <section class="relative animate-fade-up">
+    <section class="relative">
         <!-- Ambient Glowing Spotlights -->
         <div class="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[580px] w-[880px] -translate-x-1/2 rounded-full bg-gradient-to-tr from-indigo-600/25 via-purple-600/25 to-cyan-500/20 blur-3xl opacity-60"></div>
         
         <div class="grid gap-10 md:grid-cols-2 md:items-center">
             <!-- Hero text -->
             <div>
-                <div class="inline-flex items-center gap-2 rounded-full border border-indigo-200/80 dark:border-indigo-800/60 bg-white/80 dark:bg-slate-900/80 px-4 py-1.5 text-xs font-black text-[var(--glow)] shadow-sm backdrop-blur mb-4">
-                    <span class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                    </span>
+                <div class="animate-fade-up inline-flex items-center gap-2 rounded-full border border-indigo-200/80 dark:border-indigo-800/60 bg-white/80 dark:bg-slate-900/80 px-4 py-1.5 text-xs font-black text-[var(--glow)] shadow-sm backdrop-blur mb-4" style="--rd:.05s">
                     <span>{% if trans.lang_code == 'ar' %}منصة الذكاء المالي للمنشآت العُمانية{% else %}Financial intelligence for Omani businesses{% endif %}</span>
                 </div>
 
-                <h1 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black leading-snug md:leading-[1.35] tracking-tight" style="font-family: 'Tajawal', sans-serif;">
+                <h1 class="animate-fade-up text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black leading-snug md:leading-[1.35] tracking-tight" style="font-family: 'Tajawal', sans-serif; --rd:.12s">
                     {{ trans.hero_title }} <br>
                     <span class="text-gradient inline-block pt-2 md:pt-2.5">{{ trans.hero_title_sub }}</span>
                 </h1>
-                <p class="mt-5 max-w-lg text-base md:text-lg text-muted-foreground leading-relaxed">
+                <p class="animate-fade-up mt-5 max-w-lg text-base md:text-lg text-muted-foreground leading-relaxed" style="--rd:.2s">
                     {{ trans.hero_desc }}
                 </p>
-                <div class="mt-8 flex flex-wrap gap-3.5">
+                <div class="animate-fade-up mt-8 flex flex-wrap gap-3.5" style="--rd:.28s">
                     <a href="{% url 'register' %}" class="group inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all transform hover:-translate-y-0.5 active:translate-y-0">
                         <i data-lucide="upload" class="h-4 w-4"></i> {{ trans.register_today }}
                         {% if trans.lang_code == 'ar' %}
@@ -46,357 +57,293 @@
                 </div>
             </div>
 
-            <!-- Dashboard preview -->
-            <div class="relative">
-                <div class="relative rounded-3xl p-4 sm:p-5 md:p-6 glass-strong shadow-2xl">
-                    <div class="mb-2.5 sm:mb-3 md:mb-4 flex items-center justify-between gap-2">
+            <!-- INTERACTIVE BASEERA EYE (SVG, tracks the cursor, brand colors) -->
+            <div id="baseeraEyeWrap" class="animate-fade-up relative mx-auto w-full max-w-[300px] sm:max-w-[380px] md:max-w-[440px] aspect-square" style="--rd:.34s">
+                <svg id="baseeraEye" viewBox="0 0 400 400" class="w-full h-full overflow-visible" role="img" aria-label="{% if trans.lang_code == 'ar' %}شعار بصيرة يرصد حركتك{% else %}Baseera eye that tracks your cursor{% endif %}">
+                    <defs>
+                        <radialGradient id="eyeDisc" cx="50%" cy="45%" r="60%">
+                            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.92"/>
+                            <stop offset="55%" stop-color="#b9a6f2" stop-opacity="0.28"/>
+                            <stop offset="100%" stop-color="#7c6cf0" stop-opacity="0"/>
+                        </radialGradient>
+                        <radialGradient id="eyeIrisGrad" cx="42%" cy="40%" r="70%">
+                            <stop offset="0%" stop-color="#4a3f8a"/>
+                            <stop offset="70%" stop-color="#2b2470"/>
+                            <stop offset="100%" stop-color="#211b57"/>
+                        </radialGradient>
+                        <filter id="eyeGlow" x="-40%" y="-40%" width="180%" height="180%">
+                            <feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                        </filter>
+                        <clipPath id="eyeIrisClip"><circle cx="200" cy="200" r="98"/></clipPath>
+                    </defs>
+
+                    <g id="eyeParallax">
+                        <!-- ambient light disc -->
+                        <circle cx="200" cy="200" r="168" fill="url(#eyeDisc)"/>
+                        <!-- rotating scan ring -->
+                        <g class="eye-spin"><circle cx="200" cy="200" r="150" fill="none" stroke="#7c6cf0" stroke-width="3" stroke-dasharray="1.5 13" stroke-linecap="round" opacity="0.55"/></g>
+                        <!-- soft pulse ring -->
+                        <circle class="eye-pulse" cx="200" cy="200" r="132" fill="none" stroke="#b9a6f2" stroke-width="1.5" opacity="0.4"/>
+                        <!-- eye outline (draws in on load) -->
+                        <circle id="eyeRing" cx="200" cy="200" r="120" fill="none" stroke="#2b2470" stroke-width="6" stroke-linecap="round"/>
+
+                        <!-- iris group: watches the cursor -->
+                        <g id="eyeIris">
+                            <circle cx="200" cy="200" r="98" fill="url(#eyeIrisGrad)"/>
+                            <g clip-path="url(#eyeIrisClip)">
+                                <!-- circuit traces (data flowing) -->
+                                <g fill="none" stroke="#7c6cf0" stroke-width="2.2" stroke-linecap="round" filter="url(#eyeGlow)">
+                                    <path class="eye-trace" d="M200 200 L252 238"/>
+                                    <path class="eye-trace" d="M206 190 L270 172" style="animation-delay:.3s"/>
+                                    <path class="eye-trace" d="M198 214 L236 274" style="animation-delay:.6s"/>
+                                    <path class="eye-trace" d="M210 205 L278 214" style="animation-delay:.15s"/>
+                                    <path class="eye-trace" d="M193 202 L146 246" style="animation-delay:.45s"/>
+                                    <path class="eye-trace" d="M200 196 L214 150" style="animation-delay:.75s"/>
+                                </g>
+                                <g fill="#b9a6f2">
+                                    <circle class="eye-node" cx="252" cy="238" r="4.5"/>
+                                    <circle class="eye-node" cx="270" cy="172" r="3.6" style="animation-delay:.4s"/>
+                                    <circle class="eye-node" cx="236" cy="274" r="3.6" style="animation-delay:.8s"/>
+                                    <circle class="eye-node" cx="278" cy="214" r="3.2" style="animation-delay:.2s"/>
+                                    <circle class="eye-node" cx="146" cy="246" r="3.6" style="animation-delay:.6s"/>
+                                    <circle class="eye-node" cx="214" cy="150" r="3.2" style="animation-delay:1s"/>
+                                </g>
+                                <!-- pixel pupil (the recognizable Baseera mark) -->
+                                <rect x="150" y="150" width="46" height="46" rx="14" fill="#ffffff"/>
+                                <rect x="206" y="206" width="26" height="26" rx="8" fill="#ffffff"/>
+                            </g>
+                        </g>
+
+                        <!-- floating data particles -->
+                        <g fill="#7c6cf0">
+                            <circle class="eye-dot" cx="70" cy="120" r="3"/>
+                            <circle class="eye-dot" cx="330" cy="150" r="2.5" style="animation-delay:.6s"/>
+                            <circle class="eye-dot" cx="300" cy="330" r="3" style="animation-delay:1.2s"/>
+                            <circle class="eye-dot" cx="90" cy="300" r="2.5" style="animation-delay:.9s"/>
+                            <circle class="eye-dot" cx="200" cy="46" r="2.5" style="animation-delay:.3s"/>
+                        </g>
+                    </g>
+                </svg>
+
+                <!-- Floating cards: revenue chart (restored) + Rasd chip -->
+                <div class="absolute {% if trans.lang_code == 'ar' %}-right-3 sm:-right-10{% else %}-left-3 sm:-left-10{% endif %} -bottom-2 hidden w-60 rounded-2xl p-3.5 glass animate-float md:block border border-white/60 dark:border-slate-700 shadow-xl z-10">
+                    <div class="flex items-center justify-between gap-2 mb-2">
                         <div class="min-w-0">
-                            <div class="text-[11px] sm:text-xs font-semibold text-muted-foreground truncate">{% if trans.lang_code == 'ar' %}نظرة عامة على الإيرادات{% else %}Revenue overview{% endif %}</div>
-                            <div class="text-lg sm:text-xl md:text-2xl font-black num">{% if trans.lang_code == 'ar' %}٤٨,٣٢٠ ر.ع.{% else %}OMR 48,320{% endif %}</div>
+                            <div class="text-[10px] font-semibold text-muted-foreground truncate">{% if trans.lang_code == 'ar' %}نظرة عامة على الإيرادات{% else %}Revenue overview{% endif %}</div>
+                            <div class="text-base font-black num">{% if trans.lang_code == 'ar' %}٤٨,٣٢٠ ر.ع.{% else %}OMR 48,320{% endif %}</div>
                         </div>
-                        <div class="shrink-0 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                            <i data-lucide="trending-up" class="h-3 w-3 sm:h-3.5 sm:w-3.5"></i>
-                            <span>{% if trans.lang_code == 'ar' %}+٢٤.٦٪ شهرياً{% else %}+24.6% MoM{% endif %}</span>
+                        <div class="shrink-0 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <i data-lucide="trending-up" class="h-3 w-3"></i><span>{% if trans.lang_code == 'ar' %}+٢٤.٦٪{% else %}+24.6%{% endif %}</span>
                         </div>
                     </div>
-                    <div class="h-20 sm:h-28 md:h-44 relative">
+                    <div class="h-16 relative">
                         <canvas id="heroChart"></canvas>
                     </div>
-                    <div class="mt-2.5 sm:mt-3 md:mt-4 grid grid-cols-3 gap-1.5 sm:gap-3 text-center">
-                        <div class="rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-2 sm:p-3 shadow-xs">
-                            <div class="text-[8px] sm:text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground truncate">{% if trans.lang_code == 'ar' %}العملاء{% else %}Customers{% endif %}</div>
-                            <div class="mt-0.5 text-sm sm:text-lg font-black text-ink num">{% if trans.lang_code == 'ar' %}١,٢٨٤{% else %}1,284{% endif %}</div>
-                            <div class="text-[10px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400">{% if trans.lang_code == 'ar' %}+١٢٪{% else %}+12%{% endif %}</div>
-                        </div>
-                        <div class="rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-2 sm:p-3 shadow-xs">
-                            <div class="text-[8px] sm:text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground truncate">{% if trans.lang_code == 'ar' %}متوسط الشراء{% else %}AOV{% endif %}</div>
-                            <div class="mt-0.5 text-sm sm:text-lg font-black text-ink num">{% if trans.lang_code == 'ar' %}٣٧ ر.ع.{% else %}OMR 37{% endif %}</div>
-                            <div class="text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400">{% if trans.lang_code == 'ar' %}+٤٪{% else %}+4%{% endif %}</div>
-                        </div>
-                        <div class="rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-2 sm:p-3 shadow-xs">
-                            <div class="text-[8px] sm:text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground truncate">{% if trans.lang_code == 'ar' %}معدل الفقد{% else %}Churn{% endif %}</div>
-                            <div class="mt-0.5 text-sm sm:text-lg font-black text-ink num">{% if trans.lang_code == 'ar' %}٢.١٪{% else %}2.1%{% endif %}</div>
-                            <div class="text-[10px] sm:text-xs font-bold text-rose-500">{% if trans.lang_code == 'ar' %}-٠.٦٪{% else %}-0.6%{% endif %}</div>
-                        </div>
-                    </div>
                 </div>
-
-                <!-- Floating cards -->
-                <div class="absolute {% if trans.lang_code == 'ar' %}-right-6{% else %}-left-6{% endif %} -bottom-8 hidden w-56 rounded-2xl p-4 glass animate-float md:block border border-white/60 dark:border-slate-700 shadow-xl">
-                    <div class="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                        <i data-lucide="brain" class="h-4 w-4"></i> {% if trans.lang_code == 'ar' %}النموذج المحدد{% else %}Model selected{% endif %}
-                    </div>
-                    <div class="mt-1 text-sm font-black text-ink">{% if trans.lang_code == 'ar' %}تحليلات بصيره AI{% else %}Baseera Analytics AI{% endif %}</div>
-                    <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                        <div class="h-full w-4/5 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400"></div>
-                    </div>
-                    <div class="mt-1.5 text-[10px] font-bold text-muted-foreground">{% if trans.lang_code == 'ar' %}نسبة الدقة ٩٢٪{% else %}Confidence 92%{% endif %}</div>
-                </div>
-                <div class="absolute {% if trans.lang_code == 'ar' %}-left-4{% else %}-right-4{% endif %} -top-6 hidden w-60 rounded-2xl p-4 glass animate-float md:block font-medium text-{{ trans.align }} border border-white/60 dark:border-slate-700 shadow-xl" style="animation-delay: 1.5s;">
+                <div class="absolute {% if trans.lang_code == 'ar' %}-left-2 sm:-left-6{% else %}-right-2 sm:-right-6{% endif %} top-2 hidden w-56 rounded-2xl p-4 glass animate-float md:block font-medium text-{{ trans.align }} border border-white/60 dark:border-slate-700 shadow-xl z-10" style="animation-delay: 1.5s;">
                     <div class="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-400">
-                        <i data-lucide="sparkles" class="h-4 w-4"></i> {% if trans.lang_code == 'ar' %}اسأل بصيرة{% else %}Ask Baseera{% endif %}
+                        <i data-lucide="scan-eye" class="h-4 w-4"></i> {% if trans.lang_code == 'ar' %}رَصْد يعمل الآن{% else %}Rasd is watching{% endif %}
                     </div>
-                    <div class="mt-1.5 text-xs text-ink leading-relaxed font-bold">{% if trans.lang_code == 'ar' %}"ما هي توقعات نمو الإيرادات للربع القادم؟"{% else %}"What are the revenue growth forecasts for next quarter?"{% endif %}</div>
+                    <div class="mt-1.5 text-xs text-ink leading-relaxed font-bold">{% if trans.lang_code == 'ar' %}"وين تروح فلوسك؟ ارفع ملفك وأكشفها لك."{% else %}"Where does your money go? Upload and I'll reveal it."{% endif %}</div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- CIRCULAR CAROUSEL AGENTS SECTION -->
-    <section id="carousel-section" class="mt-24 mb-16 relative scroll-mt-24">
-        <!-- Ambient Glowing Background Accents -->
-        <div class="pointer-events-none absolute top-1/2 left-1/2 -z-10 h-[650px] w-[950px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-tr from-[var(--glow)]/15 via-[var(--lavender)]/15 to-emerald-500/10 blur-3xl opacity-60"></div>
+    <style>
+      #baseeraEye #eyeParallax, #baseeraEye #eyeIris { will-change: transform; }
+      #baseeraEye .eye-spin { transform-box: fill-box; transform-origin: center; animation: bEyeSpin 26s linear infinite; }
+      @keyframes bEyeSpin { to { transform: rotate(360deg); } }
+      #baseeraEye .eye-pulse { transform-box: fill-box; transform-origin: center; animation: bEyePulse 4.5s ease-in-out infinite; }
+      @keyframes bEyePulse { 0%,100% { opacity:.25; transform: scale(1); } 50% { opacity:.5; transform: scale(1.05); } }
+      #baseeraEye #eyeRing { stroke-dasharray: 754; stroke-dashoffset: 754; animation: bEyeDraw 1.7s cubic-bezier(.6,.05,.2,1) .2s forwards; }
+      @keyframes bEyeDraw { to { stroke-dashoffset: 0; } }
+      #baseeraEye .eye-trace { stroke-dasharray: 7 9; animation: bEyeFlow 2.4s linear infinite; }
+      @keyframes bEyeFlow { to { stroke-dashoffset: -64; } }
+      #baseeraEye .eye-node { animation: bEyeNode 2.2s ease-in-out infinite; }
+      @keyframes bEyeNode { 0%,100% { opacity:.45; } 50% { opacity:1; } }
+      #baseeraEye .eye-dot { animation: bEyeDot 3.4s ease-in-out infinite; }
+      @keyframes bEyeDot { 0%,100% { opacity:.15; } 50% { opacity:.85; } }
+      @media (prefers-reduced-motion: reduce) {
+        #baseeraEye .eye-spin, #baseeraEye .eye-pulse, #baseeraEye .eye-trace, #baseeraEye .eye-node, #baseeraEye .eye-dot { animation: none !important; }
+      }
+    </style>
+    <script>
+    (function () {
+      var wrap = document.getElementById('baseeraEyeWrap');
+      var eye = document.getElementById('baseeraEye');
+      if (!wrap || !eye) return;
+      var parallax = eye.querySelector('#eyeParallax');
+      var iris = eye.querySelector('#eyeIris');
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var tx = 0, ty = 0, px = 0, py = 0;
+      function onMove(e) {
+        var r = wrap.getBoundingClientRect();
+        if (!r.width) return;
+        var mx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
+        var my = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+        tx = Math.max(-1.4, Math.min(1.4, mx));
+        ty = Math.max(-1.4, Math.min(1.4, my));
+      }
+      window.addEventListener('pointermove', onMove, { passive: true });
+      window.addEventListener('pointerleave', function () { tx = 0; ty = 0; });
+      function frame() {
+        px += (tx - px) * 0.09; py += (ty - py) * 0.09;
+        if (parallax) parallax.style.transform = 'translate(' + (px * 9).toFixed(2) + 'px,' + (py * 9).toFixed(2) + 'px)';
+        if (iris) iris.style.transform = 'translate(' + (px * 15).toFixed(2) + 'px,' + (py * 15).toFixed(2) + 'px)';
+        requestAnimationFrame(frame);
+      }
+      if (!reduce) requestAnimationFrame(frame);
+    })();
+    </script>
 
-        <!-- Section Header -->
-        <div class="mx-auto max-w-3xl text-center mb-10">
+    <!-- HOW IT WORKS -->
+    <section class="mt-24 animate-fade-up">
+        <div class="mx-auto max-w-2xl text-center">
             <h2 class="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight text-slate-900 dark:text-white">
-                {{ trans.agents_title }}
+                {% if trans.lang_code == 'ar' %}من ملفك إلى قرار — خلال دقائق{% else %}From your file to a decision — in minutes{% endif %}
+            </h2>
+            <p class="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed">
+                {% if trans.lang_code == 'ar' %}ثلاث خطوات، بدون محاسب وبدون تعقيد.{% else %}Three steps — no accountant, no complexity.{% endif %}
+            </p>
+        </div>
+        <div class="mt-10 grid gap-5 md:grid-cols-3">
+            <div class="relative rounded-3xl p-6 glass">
+                <div class="flex items-center gap-3">
+                    <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="upload-cloud" class="h-5 w-5"></i></div>
+                    <span class="text-sm font-black text-[var(--nile)] dark:text-[var(--lavender)]">{% if trans.lang_code == 'ar' %}الخطوة الأولى{% else %}Step one{% endif %}</span>
+                </div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}ارفع بياناتك{% else %}Upload your data{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}كشف حساب، ملف مبيعات أو مصروفات، حتى صورة دفترك — Excel أو CSV أو PDF أو صورة.{% else %}A statement, a sales or expense file, even a photo of your ledger — Excel, CSV, PDF or image.{% endif %}</p>
+            </div>
+            <div class="relative rounded-3xl p-6 glass">
+                <div class="flex items-center gap-3">
+                    <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="cpu" class="h-5 w-5"></i></div>
+                    <span class="text-sm font-black text-[var(--nile)] dark:text-[var(--lavender)]">{% if trans.lang_code == 'ar' %}الخطوة الثانية{% else %}Step two{% endif %}</span>
+                </div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}بصيرة تحسب — لا تخمّن{% else %}Baseera computes — never guesses{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}تُحسب الأرقام حتمياً بايثون: الدخل، المصروف، أكبر بند متكرر، الهدر، وكفاية السيولة — بالدليل.{% else %}Numbers are computed deterministically in Python: income, expense, biggest recurring cost, waste and runway — with the evidence.{% endif %}</p>
+            </div>
+            <div class="relative rounded-3xl p-6 glass">
+                <div class="flex items-center gap-3">
+                    <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="target" class="h-5 w-5"></i></div>
+                    <span class="text-sm font-black text-[var(--nile)] dark:text-[var(--lavender)]">{% if trans.lang_code == 'ar' %}الخطوة الثالثة{% else %}Step three{% endif %}</span>
+                </div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}قرار واضح وخطوة تنفيذية{% else %}A clear decision & next step{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}تعرف أكبر تسريب مالي في مشروعك وخطوة واحدة لإيقافه — على الموقع وعلى واتساب.{% else %}You see the biggest leak in your business and one step to stop it — on the web and on WhatsApp.{% endif %}</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- AGENTS ARCHITECTURE — رَصْد nucleus -->
+    <section id="agents" class="mt-24 mb-16 scroll-mt-28 animate-fade-up">
+        <div class="mx-auto max-w-3xl text-center mb-8">
+            <h2 class="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight text-slate-900 dark:text-white">
+                {% if trans.lang_code == 'ar' %}عقلٌ واحد اسمه «رَصْد» — وستة وكلاء ينفّذون{% else %}One mind called “Rasd” — and six agents that act{% endif %}
             </h2>
             <p class="mt-4 max-w-2xl mx-auto text-sm md:text-base text-muted-foreground leading-relaxed">
-                {{ trans.agents_subtitle }}
+                {% if trans.lang_code == 'ar' %}رَصْد يحسب الأرقام بأكوادٍ برمجية دقيقة (بايثون) <b class="text-[var(--nile)] dark:text-[var(--lavender)]">بلا أي هلوسة</b>، ثم يوزّع المهام. وكل وكيلٍ متخصّص يرصد ويقرّر ويتصرّف، ثم <b class="text-[var(--nile)] dark:text-[var(--lavender)]">يغذّي عقل رَصْد</b> بخلاصته لحظةً بلحظة.{% else %}Rasd computes every number in precise Python code <b class="text-[var(--nile)] dark:text-[var(--lavender)]">with no hallucination</b>, then delegates. Each specialized agent observes, decides and acts — then <b class="text-[var(--nile)] dark:text-[var(--lavender)]">feeds its findings back into Rasd</b>, moment by moment.{% endif %}
             </p>
         </div>
 
-        <!-- 1. Circular Carousel Interactive Section (Component Integration - Visible by Default) -->
-        <div id="circularCarouselViewContainer" class="relative w-full max-w-[960px] mx-auto py-4 px-4 animate-fade-up">
-            <div class="relative flex flex-col items-center justify-center gap-8 outline-none min-h-[440px] w-full bg-transparent p-0 overflow-visible">
-                <!-- Circular Track & Cards Container -->
-                <div id="circularTrack" class="relative h-[280px] w-full max-w-lg select-none">
-                    <!-- Carousel Items rendered for instant paint & JS enhanced -->
-                    <button type="button" class="absolute left-1/2 top-1/2 flex h-40 w-60 -translate-x-1/2 -translate-y-1/2 cursor-pointer flex-col justify-between rounded-2xl border bg-white/95 dark:bg-slate-800/95 border-2 border-indigo-500 shadow-xl shadow-indigo-500/25 p-4 backdrop-blur-md transition-all duration-500 overflow-hidden text-start z-10">
-                        <div class="flex items-center gap-3.5 w-full">
-                            <div class="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 border border-slate-200/60 dark:border-slate-700/60 shadow-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                                <i data-lucide="bot" class="h-7 w-7 stroke-[2.2]"></i>
-                            </div>
-                            <div class="flex flex-col text-start min-w-0 flex-1">
-                                <span class="text-[10px] font-extrabold uppercase tracking-wider truncate mb-0.5 text-indigo-600 dark:text-indigo-400">{% if trans.lang_code == 'ar' %}المنسق العام{% else %}General Coordinator{% endif %}</span>
-                                <h3 class="font-black leading-tight transition-colors duration-300 truncate text-slate-900 dark:text-white text-sm sm:text-base">{% if trans.lang_code == 'ar' %}المساعد العام{% else %}General Assistant{% endif %}</h3>
-                            </div>
-                        </div>
-                        <p class="mt-2.5 line-clamp-2 text-xs leading-relaxed transition-colors duration-300 text-start w-full text-slate-600 dark:text-slate-300">{% if trans.lang_code == 'ar' %}إدارة وتوزيع الجلسة التنسيقية وتجميع التحليلات من كافة الوكلاء.{% else %}Coordinates and manages overall sessions, synthesizing insights across all agents.{% endif %}</p>
-                    </button>
-                </div>
+        <div class="rasd-arch mx-auto w-full max-w-[1040px] px-2">
+          <svg class="diagram" viewBox="0 0 1040 620" role="img" aria-label="{% if trans.lang_code == 'ar' %}معمارية وكلاء بصيرة{% else %}Baseera agents architecture{% endif %}">
+            <defs>
+              <radialGradient id="ra-core" cx="40%" cy="34%" r="78%"><stop offset="0%" stop-color="#6455ab"/><stop offset="52%" stop-color="#2b2470"/><stop offset="100%" stop-color="#181146"/></radialGradient>
+              <radialGradient id="ra-crad" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#7c6cf0" stop-opacity=".38"/><stop offset="55%" stop-color="#7c6cf0" stop-opacity=".08"/><stop offset="100%" stop-color="#7c6cf0" stop-opacity="0"/></radialGradient>
+              <linearGradient id="ra-wireR" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#7c6cf0" stop-opacity=".85"/><stop offset="1" stop-color="#b9a6f2" stop-opacity=".16"/></linearGradient>
+              <linearGradient id="ra-wireL" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7c6cf0" stop-opacity=".85"/><stop offset="1" stop-color="#b9a6f2" stop-opacity=".16"/></linearGradient>
+              <filter id="ra-chipsh" x="-30%" y="-40%" width="160%" height="180%"><feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#2b2470" flood-opacity="0.13"/></filter>
+              <filter id="ra-coresh" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="10" stdDeviation="20" flood-color="#2b2470" flood-opacity="0.28"/></filter>
+            </defs>
 
-                <!-- Center Active Index Counter -->
-                <div id="carouselCenterCounter" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
-                    <span id="carouselActiveNum" class="text-5xl font-black tracking-tight text-slate-900 dark:text-white drop-shadow-xs">01</span>
-                    <span id="carouselTotalNum" class="mt-1 text-xs font-bold text-slate-400 dark:text-slate-500">of 06</span>
-                </div>
+            <!-- CONNECTORS -->
+            <g fill="none" stroke-width="2">
+              <path d="M596,310 C660,210 700,150 706,150" stroke="url(#ra-wireR)"/>
+              <path d="M604,320 C660,320 700,320 706,320" stroke="url(#ra-wireR)"/>
+              <path d="M596,330 C660,430 700,490 706,490" stroke="url(#ra-wireR)"/>
+              <path d="M444,310 C384,210 340,150 334,150" stroke="url(#ra-wireL)"/>
+              <path d="M436,320 C380,320 340,320 334,320" stroke="url(#ra-wireL)"/>
+              <path d="M444,330 C384,430 340,490 334,490" stroke="url(#ra-wireL)"/>
+            </g>
+            <!-- outward: Rasd delegates -->
+            <g fill="#2b2470">
+              <circle r="3.4"><animateMotion dur="3.4s" repeatCount="indefinite" path="M596,310 C660,210 700,150 706,150"/></circle>
+              <circle r="3.4"><animateMotion dur="3.4s" begin="-1.1s" repeatCount="indefinite" path="M604,320 C660,320 700,320 706,320"/></circle>
+              <circle r="3.4"><animateMotion dur="3.4s" begin="-2.2s" repeatCount="indefinite" path="M596,330 C660,430 700,490 706,490"/></circle>
+              <circle r="3.4"><animateMotion dur="3.4s" begin="-.6s" repeatCount="indefinite" path="M444,310 C384,210 340,150 334,150"/></circle>
+              <circle r="3.4"><animateMotion dur="3.4s" begin="-1.7s" repeatCount="indefinite" path="M436,320 C380,320 340,320 334,320"/></circle>
+              <circle r="3.4"><animateMotion dur="3.4s" begin="-2.8s" repeatCount="indefinite" path="M444,330 C384,430 340,490 334,490"/></circle>
+            </g>
+            <!-- inward: agents feed Rasd -->
+            <g fill="#b9a6f2">
+              <circle r="3.4"><animateMotion dur="3.8s" begin="-.3s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M596,310 C660,210 700,150 706,150"/></circle>
+              <circle r="3.4"><animateMotion dur="3.8s" begin="-1.4s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M604,320 C660,320 700,320 706,320"/></circle>
+              <circle r="3.4"><animateMotion dur="3.8s" begin="-2.5s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M596,330 C660,430 700,490 706,490"/></circle>
+              <circle r="3.4"><animateMotion dur="3.8s" begin="-.9s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M444,310 C384,210 340,150 334,150"/></circle>
+              <circle r="3.4"><animateMotion dur="3.8s" begin="-2s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M436,320 C380,320 340,320 334,320"/></circle>
+              <circle r="3.4"><animateMotion dur="3.8s" begin="-3.1s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M444,330 C384,430 340,490 334,490"/></circle>
+            </g>
 
-                <!-- Carousel Controls & Navigation Dots -->
-                <div class="flex items-center justify-center gap-4 z-20 w-full mt-2" dir="ltr">
-                    <button type="button" onclick="prevCarouselItem()" aria-label="Previous item" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 shadow-md backdrop-blur-md transition-all hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 hover:scale-105 active:scale-95 cursor-pointer">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="15 18 9 12 15 6"></polyline>
-                        </svg>
-                    </button>
+            <!-- AGENT CHIPS -->
+            <g class="chip">
+              <rect class="chip-box" x="706" y="120" width="214" height="60" rx="18" filter="url(#ra-chipsh)"/>
+              <circle class="port" cx="706" cy="150" r="4.5"/><circle class="port-ring" cx="706" cy="150" r="7.5"/>
+              <text x="813" y="147" text-anchor="middle" class="chip-name">{% if trans.lang_code == 'ar' %}الوكيل المالي{% else %}Financial Agent{% endif %}</text>
+              <text x="813" y="167" text-anchor="middle" class="chip-act">{% if trans.lang_code == 'ar' %}يرصد السيولة ويقرّر{% else %}Watches liquidity, decides{% endif %}</text>
+            </g>
+            <g class="chip">
+              <rect class="chip-box" x="706" y="290" width="214" height="60" rx="18" filter="url(#ra-chipsh)"/>
+              <circle class="port" cx="706" cy="320" r="4.5"/><circle class="port-ring" cx="706" cy="320" r="7.5"/>
+              <text x="813" y="317" text-anchor="middle" class="chip-name">{% if trans.lang_code == 'ar' %}وكيل التسعير{% else %}Pricing Agent{% endif %}</text>
+              <text x="813" y="337" text-anchor="middle" class="chip-act">{% if trans.lang_code == 'ar' %}يضبط السعر تلقائياً{% else %}Tunes prices automatically{% endif %}</text>
+            </g>
+            <g class="chip">
+              <rect class="chip-box" x="706" y="460" width="214" height="60" rx="18" filter="url(#ra-chipsh)"/>
+              <circle class="port" cx="706" cy="490" r="4.5"/><circle class="port-ring" cx="706" cy="490" r="7.5"/>
+              <text x="813" y="487" text-anchor="middle" class="chip-name">{% if trans.lang_code == 'ar' %}وكيل السوق{% else %}Market Agent{% endif %}</text>
+              <text x="813" y="507" text-anchor="middle" class="chip-act">{% if trans.lang_code == 'ar' %}يقرأ المنافسين{% else %}Reads competitors{% endif %}</text>
+            </g>
+            <g class="chip">
+              <rect class="chip-box" x="120" y="120" width="214" height="60" rx="18" filter="url(#ra-chipsh)"/>
+              <circle class="port" cx="334" cy="150" r="4.5"/><circle class="port-ring" cx="334" cy="150" r="7.5"/>
+              <text x="227" y="147" text-anchor="middle" class="chip-name">{% if trans.lang_code == 'ar' %}التدقيق الجنائي{% else %}Forensic Audit{% endif %}</text>
+              <text x="227" y="167" text-anchor="middle" class="chip-act">{% if trans.lang_code == 'ar' %}يكشف التلاعب{% else %}Detects manipulation{% endif %}</text>
+            </g>
+            <g class="chip">
+              <rect class="chip-box" x="120" y="290" width="214" height="60" rx="18" filter="url(#ra-chipsh)"/>
+              <circle class="port" cx="334" cy="320" r="4.5"/><circle class="port-ring" cx="334" cy="320" r="7.5"/>
+              <text x="227" y="317" text-anchor="middle" class="chip-name">{% if trans.lang_code == 'ar' %}وكيل الاحتفاظ بالعملاء{% else %}Retention Agent{% endif %}</text>
+              <text x="227" y="337" text-anchor="middle" class="chip-act">{% if trans.lang_code == 'ar' %}ينبّه قبل فقد العميل{% else %}Warns before churn{% endif %}</text>
+            </g>
+            <g class="chip">
+              <rect class="chip-box" x="120" y="460" width="214" height="60" rx="18" filter="url(#ra-chipsh)"/>
+              <circle class="port" cx="334" cy="490" r="4.5"/><circle class="port-ring" cx="334" cy="490" r="7.5"/>
+              <text x="227" y="487" text-anchor="middle" class="chip-name">{% if trans.lang_code == 'ar' %}سلسلة التوريد{% else %}Supply Chain{% endif %}</text>
+              <text x="227" y="507" text-anchor="middle" class="chip-act">{% if trans.lang_code == 'ar' %}يوقّت الشراء{% else %}Times purchasing{% endif %}</text>
+            </g>
 
-                    <!-- Dot Indicators -->
-                    <div id="carouselDots" class="flex items-center gap-1.5" role="tablist">
-                        <!-- Dots populated via JS -->
-                    </div>
-
-                    <button type="button" onclick="nextCarouselItem()" aria-label="Next item" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 shadow-md backdrop-blur-md transition-all hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 hover:scale-105 active:scale-95 cursor-pointer">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="9 18 15 12 9 6"></polyline>
-                        </svg>
-                    </button>
-                </div>
-            </div>
+            <!-- CORE = RASD -->
+            <g id="raCoreWrap">
+              <circle id="raGlow" class="cglow" cx="520" cy="320" r="150" fill="url(#ra-crad)"/>
+              <g class="cring" opacity=".55"><circle cx="520" cy="320" r="112" fill="none" stroke="#7c6cf0" stroke-width="2" stroke-dasharray="2 14" stroke-linecap="round"/></g>
+              <g class="cring2" opacity=".4"><circle cx="520" cy="320" r="98" fill="none" stroke="#b9a6f2" stroke-width="1.4" stroke-dasharray="3 11" stroke-linecap="round"/></g>
+              <g id="raCore">
+                <circle cx="520" cy="320" r="84" fill="url(#ra-core)" filter="url(#ra-coresh)"/>
+                <circle cx="520" cy="320" r="84" fill="none" stroke="#b9a6f2" stroke-width="1" opacity=".45"/>
+                <circle cx="520" cy="320" r="66" fill="none" stroke="#8f7ff2" stroke-width="1" opacity=".22"/>
+                <g id="raIris">
+                  <g stroke="#9385f4" stroke-width="1.8" fill="none" stroke-linecap="round" opacity=".9"><path d="M520,320 L556,344"/><path d="M525,311 L566,300"/><path d="M515,331 L540,362"/></g>
+                  <circle cx="556" cy="344" r="2.8" fill="#b9a6f2"/><circle cx="566" cy="300" r="2.4" fill="#b9a6f2"/><circle cx="540" cy="362" r="2.4" fill="#b9a6f2"/>
+                  <rect x="488" y="300" width="30" height="30" rx="10" fill="#fff"/>
+                  <rect x="524" y="330" width="17" height="17" rx="6" fill="#fff"/>
+                </g>
+              </g>
+            </g>
+            <text x="520" y="432" text-anchor="middle" font-size="17" font-weight="900" fill="#2b2470" class="core-lbl">رَصْد</text>
+            <text x="520" y="452" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7c6cf0">{% if trans.lang_code == 'ar' %}النواة · تحسب بأكواد بايثون بلا هلوسة{% else %}The nucleus · computes in Python, no hallucination{% endif %}</text>
+          </svg>
         </div>
-
-        <!-- Master Orbital Simulation Canvas (Hidden by default, toggleable via tab) -->
-        <div id="orbitalSimulationViewContainer" class="hidden relative w-full max-w-[1020px] mx-auto min-h-[660px] md:min-h-[700px] flex items-center justify-center select-none py-4 px-2">
-            
-            <!-- SVG Connection Lines & Data Flow Packets -->
-            <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <svg id="orchestrationSvg" class="w-full h-full max-w-[980px] max-h-[700px]" viewBox="0 0 980 700" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <!-- Linear Blue-Lavender-Indigo Gradient for Outer Collaboration Loop -->
-                        <linearGradient id="orbitRainbowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#6366f1" stop-opacity="0.85"/>
-                            <stop offset="25%" stop-color="#3b82f6" stop-opacity="0.85"/>
-                            <stop offset="50%" stop-color="#a855f7" stop-opacity="0.85"/>
-                            <stop offset="75%" stop-color="#4f46e5" stop-opacity="0.85"/>
-                            <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0.85"/>
-                        </linearGradient>
-
-                        <!-- Outer Glow Filter -->
-                        <filter id="loopGlow" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="4" result="blur"/>
-                            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-                        </filter>
-                    </defs>
-
-                    <!-- Concentric Subtle Orbit Guides -->
-                    <ellipse cx="490" cy="350" rx="420" ry="280" stroke="#e2e8f0" stroke-width="1.2" stroke-dasharray="5 7" class="opacity-60 dark:opacity-20"/>
-                    <ellipse cx="490" cy="350" rx="280" ry="185" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3 5" class="opacity-50 dark:opacity-20"/>
-                    
-                    <!-- OUTER NEURAL COLLABORATION LOOP (Vibrant Multi-Color Circular Stream) -->
-                    <path id="outerLoopBase" d="M 730 120 C 830 190 870 270 870 350 C 870 430 830 510 730 580 C 610 630 370 630 250 580 C 150 510 110 430 110 350 C 110 270 150 190 250 120 C 370 70 610 70 730 120 Z" stroke="url(#orbitRainbowGrad)" stroke-width="2.2" stroke-dasharray="8 12" class="opacity-55 transition-all duration-500"/>
-                    <path id="outerLoopGlow" d="M 730 120 C 830 190 870 270 870 350 C 870 430 830 510 730 580 C 610 630 370 630 250 580 C 150 510 110 430 110 350 C 110 270 150 190 250 120 C 370 70 610 70 730 120 Z" stroke="url(#orbitRainbowGrad)" stroke-width="2" filter="url(#loopGlow)" class="opacity-40 transition-all duration-500"/>
-
-                    <!-- 6 Static Radiating Connection Lines (Center to 6 Nodes) -->
-                    <!-- 1. Top-Right: Financial Analyst (X: 730, Y: 120) -->
-                    <path id="path-financial" d="M 490 350 L 730 120" stroke="#6366f1" stroke-width="1.8" stroke-dasharray="4 4" class="connection-line opacity-40"/>
-                    <!-- 2. Middle-Right: Supply Chain (X: 870, Y: 350) -->
-                    <path id="path-supply" d="M 490 350 L 870 350" stroke="#3b82f6" stroke-width="1.8" stroke-dasharray="4 4" class="connection-line opacity-40"/>
-                    <!-- 3. Bottom-Right: Pricing Strategy (X: 730, Y: 580) -->
-                    <path id="path-pricing" d="M 490 350 L 730 580" stroke="#a855f7" stroke-width="1.8" stroke-dasharray="4 4" class="connection-line opacity-40"/>
-                    <!-- 4. Bottom-Left: Customer Retention (X: 250, Y: 580) -->
-                    <path id="path-retention" d="M 490 350 L 250 580" stroke="#4f46e5" stroke-width="1.8" stroke-dasharray="4 4" class="connection-line opacity-40"/>
-                    <!-- 5. Middle-Left: Market Intelligence (X: 110, Y: 350) -->
-                    <path id="path-market" d="M 490 350 L 110 350" stroke="#0284c7" stroke-width="1.8" stroke-dasharray="4 4" class="connection-line opacity-40"/>
-                    <!-- 6. Top-Left: Forensic Audit (X: 250, Y: 120) -->
-                    <path id="path-forensic" d="M 490 350 L 250 120" stroke="#8b5cf6" stroke-width="1.8" stroke-dasharray="4 4" class="connection-line opacity-40"/>
-
-                    <!-- Animated Radial & Perimeter Flow Packets -->
-                    <g id="flowPacketsGroup"></g>
-                    <!-- Dedicated Group for Outer Perimeter Circulating Stream -->
-                    <g id="outerLoopPacketsGroup"></g>
-                </svg>
-            </div>
-
-            <!-- Surrounding 6 Specialized Agent Cards (Desktop Orbital Layout) -->
-            <div id="agentsGridContainer" class="hidden md:block absolute inset-0 pointer-events-auto">
-                
-                <!-- 1. Financial Analyst (Top Right - Indigo) -->
-                <div onclick="handleAgentCardClick('financial')" id="agentCard-financial" class="agent-node-card absolute top-[8%] right-[18%] z-20 cursor-pointer transition-all duration-300 transform hover:-translate-y-1" data-agent="financial">
-                    <div class="agent-inner-pill flex items-center gap-3 bg-white/95 dark:bg-slate-900/95 rounded-full px-4 py-2.5 shadow-[0_4px_20px_rgba(99,102,241,0.12)] border border-indigo-200/80 dark:border-indigo-800/60 backdrop-blur-md">
-                        <div class="marble-orb orb-indigo"></div>
-                        <div class="text-start">
-                            <div class="text-[9px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">{% if trans.lang_code == 'ar' %}السيولة والأرباح{% else %}Finance & Cash{% endif %}</div>
-                            <div class="text-xs font-bold text-slate-800 dark:text-white">{% if trans.lang_code == 'ar' %}وكيل التحليل المالي{% else %}Financial Analyst{% endif %}</div>
-                        </div>
-                        <span id="agentStatus-financial" class="agent-live-dot h-2 w-2 rounded-full bg-indigo-500"></span>
-                    </div>
-                </div>
-
-                <!-- 2. Supply Chain & Inventory (Middle Right - Blue) -->
-                <div onclick="handleAgentCardClick('supply')" id="agentCard-supply" class="agent-node-card absolute top-[45%] right-[2%] z-20 cursor-pointer transition-all duration-300 transform hover:-translate-y-1" data-agent="supply">
-                    <div class="agent-inner-pill flex items-center gap-3 bg-white/95 dark:bg-slate-900/95 rounded-full px-4 py-2.5 shadow-[0_4px_20px_rgba(59,130,246,0.12)] border border-blue-200/80 dark:border-blue-800/60 backdrop-blur-md">
-                        <div class="marble-orb orb-blue"></div>
-                        <div class="text-start">
-                            <div class="text-[9px] font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400">{% if trans.lang_code == 'ar' %}المخزون والتوريد{% else %}Supply & Stock{% endif %}</div>
-                            <div class="text-xs font-bold text-slate-800 dark:text-white">{% if trans.lang_code == 'ar' %}وكيل سلاسل الإمداد{% else %}Supply Chain Agent{% endif %}</div>
-                        </div>
-                        <span id="agentStatus-supply" class="agent-live-dot h-2 w-2 rounded-full bg-blue-500"></span>
-                    </div>
-                </div>
-
-                <!-- 3. Pricing & Margin Strategy (Bottom Right - Lavender) -->
-                <div onclick="handleAgentCardClick('pricing')" id="agentCard-pricing" class="agent-node-card absolute bottom-[10%] right-[18%] z-20 cursor-pointer transition-all duration-300 transform hover:-translate-y-1" data-agent="pricing">
-                    <div class="agent-inner-pill flex items-center gap-3 bg-white/95 dark:bg-slate-900/95 rounded-full px-4 py-2.5 shadow-[0_4px_20px_rgba(168,85,247,0.12)] border border-purple-200/80 dark:border-purple-800/60 backdrop-blur-md">
-                        <div class="marble-orb orb-purple"></div>
-                        <div class="text-start">
-                            <div class="text-[9px] font-extrabold uppercase tracking-wider text-purple-600 dark:text-purple-400">{% if trans.lang_code == 'ar' %}التسعير والهوامش{% else %}Pricing & Margin{% endif %}</div>
-                            <div class="text-xs font-bold text-slate-800 dark:text-white">{% if trans.lang_code == 'ar' %}وكيل استراتيجية التسعير{% else %}Pricing Strategist{% endif %}</div>
-                        </div>
-                        <span id="agentStatus-pricing" class="agent-live-dot h-2 w-2 rounded-full bg-purple-500"></span>
-                    </div>
-                </div>
-
-                <!-- 4. Customer Retention Agent (Bottom Left - Violet Indigo) -->
-                <div onclick="handleAgentCardClick('retention')" id="agentCard-retention" class="agent-node-card absolute bottom-[10%] left-[18%] z-20 cursor-pointer transition-all duration-300 transform hover:-translate-y-1" data-agent="retention">
-                    <div class="agent-inner-pill flex items-center gap-3 bg-white/95 dark:bg-slate-900/95 rounded-full px-4 py-2.5 shadow-[0_4px_20px_rgba(79,70,229,0.12)] border border-indigo-200/80 dark:border-indigo-800/60 backdrop-blur-md">
-                        <div class="marble-orb orb-indigo"></div>
-                        <div class="text-start">
-                            <div class="text-[9px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">{% if trans.lang_code == 'ar' %}ولاء العملاء{% else %}Customer Retention{% endif %}</div>
-                            <div class="text-xs font-bold text-slate-800 dark:text-white">{% if trans.lang_code == 'ar' %}وكيل ولاء العملاء{% else %}Retention Agent{% endif %}</div>
-                        </div>
-                        <span id="agentStatus-retention" class="agent-live-dot h-2 w-2 rounded-full bg-indigo-500"></span>
-                    </div>
-                </div>
-
-                <!-- 5. Market Intelligence Agent (Middle Left - Sky Blue) -->
-                <div onclick="handleAgentCardClick('market')" id="agentCard-market" class="agent-node-card absolute top-[45%] left-[2%] z-20 cursor-pointer transition-all duration-300 transform hover:-translate-y-1" data-agent="market">
-                    <div class="agent-inner-pill flex items-center gap-3 bg-white/95 dark:bg-slate-900/95 rounded-full px-4 py-2.5 shadow-[0_4px_20px_rgba(2,132,199,0.12)] border border-sky-200/80 dark:border-sky-800/60 backdrop-blur-md">
-                        <div class="marble-orb orb-blue"></div>
-                        <div class="text-start">
-                            <div class="text-[9px] font-extrabold uppercase tracking-wider text-sky-600 dark:text-sky-400">{% if trans.lang_code == 'ar' %}ذكاء السوق{% else %}Market Intelligence{% endif %}</div>
-                            <div class="text-xs font-bold text-slate-800 dark:text-white">{% if trans.lang_code == 'ar' %}وكيل ذكاء السوق والمنافسين{% else %}Market Intelligence{% endif %}</div>
-                        </div>
-                        <span id="agentStatus-market" class="agent-live-dot h-2 w-2 rounded-full bg-sky-500"></span>
-                    </div>
-                </div>
-
-                <!-- 6. Forensic Audit & Waste (Top Left - Deep Lavender) -->
-                <div onclick="handleAgentCardClick('forensic')" id="agentCard-forensic" class="agent-node-card absolute top-[8%] left-[18%] z-20 cursor-pointer transition-all duration-300 transform hover:-translate-y-1" data-agent="forensic">
-                    <div class="agent-inner-pill flex items-center gap-3 bg-white/95 dark:bg-slate-900/95 rounded-full px-4 py-2.5 shadow-[0_4px_20px_rgba(139,92,246,0.12)] border border-purple-200/80 dark:border-purple-800/60 backdrop-blur-md">
-                        <div class="marble-orb orb-purple"></div>
-                        <div class="text-start">
-                            <div class="text-[9px] font-extrabold uppercase tracking-wider text-purple-600 dark:text-purple-400">{% if trans.lang_code == 'ar' %}التدقيق ومكافحة الهدر{% else %}Forensic Audit{% endif %}</div>
-                            <div class="text-xs font-bold text-slate-800 dark:text-white">{% if trans.lang_code == 'ar' %}وكيل التدقيق الجنائي{% else %}Forensic Auditor{% endif %}</div>
-                        </div>
-                        <span id="agentStatus-forensic" class="agent-live-dot h-2 w-2 rounded-full bg-purple-500"></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- CENTER HIGHLIGHT CARD: BASEERA AI ORCHESTRATOR -->
-            <div id="orchestratorCenterCard" class="relative z-30 w-full max-w-[360px] bg-white/95 dark:bg-slate-900/95 rounded-3xl p-6 md:p-7 border border-dashed border-indigo-200 dark:border-indigo-800/80 shadow-[0_10px_40px_-10px_rgba(43,36,112,0.15)] text-{{ trans.align }} transition-all duration-500 backdrop-blur-xl">
-                
-                <!-- Orchestrator Header -->
-                <div class="flex items-center justify-between gap-3 mb-3.5">
-                    <div class="flex items-center gap-3">
-                        <div id="orchestratorOrb" class="marble-orb orb-indigo animate-pulse" style="width: 44px; height: 44px;"></div>
-                        <div>
-                            <h3 id="orchestratorTitle" class="text-lg font-black text-slate-900 dark:text-white leading-tight">
-                                {% if trans.lang_code == 'ar' %}المساعد العام – بصيرة الذكية{% else %}Baseera Master Orchestrator{% endif %}
-                            </h3>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Active Pipeline Live Badge -->
-                <div id="orchestratorStatusBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold mb-4 border border-indigo-100 dark:border-indigo-900/40">
-                    <span id="orchestratorLiveDot" class="h-2 w-2 rounded-full bg-indigo-500 animate-ping"></span>
-                    <span id="orchestratorStatusText">{% if trans.lang_code == 'ar' %}جاهز لإدارة جلسة التنسيق بين الوكلاء الستة{% else %}Ready to coordinate 6 specialized agents{% endif %}</span>
-                </div>
-
-                <!-- Dynamic Content Box (Switches during Live Demo or Agent Selection) -->
-                <div id="orchestratorDynamicBody" class="min-h-[140px] flex flex-col justify-center">
-                    <!-- Default Overview Tasks List -->
-                    <div id="defaultTasksView" class="space-y-2 text-xs font-medium text-slate-700 dark:text-slate-200 mb-4">
-                        <div class="flex items-center gap-2.5 p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                            <i data-lucide="git-merge" class="h-3.5 w-3.5 text-indigo-600 shrink-0"></i>
-                            <span class="truncate">{% if trans.lang_code == 'ar' %}توزيع المهام تلقائياً على الوكلاء الستة{% else %}Auto-routes tasks across 6 specialized agents{% endif %}</span>
-                        </div>
-                        <div class="flex items-center gap-2.5 p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                            <i data-lucide="activity" class="h-3.5 w-3.5 text-emerald-600 shrink-0"></i>
-                            <span class="truncate">{% if trans.lang_code == 'ar' %}مقاطعة التدفقات وهوامش الأرباح والمخزون{% else %}Cross-validates cash flows, margins & stock{% endif %}</span>
-                        </div>
-                        <div class="flex items-center gap-2.5 p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                            <i data-lucide="award" class="h-3.5 w-3.5 text-amber-600 shrink-0"></i>
-                            <span class="truncate">{% if trans.lang_code == 'ar' %}صياغة القرار والتوصية التنفيذية النهائية{% else %}Synthesizes final executive business decision{% endif %}</span>
-                        </div>
-                    </div>
-
-                    <!-- Selected Agent Deep-Dive View (Hidden by default, shown on Agent click) -->
-                    <div id="agentDetailView" class="hidden space-y-2.5 text-xs text-slate-700 dark:text-slate-200 mb-4 animate-fade-up">
-                        <div class="p-3 rounded-2xl bg-indigo-50/50 dark:bg-slate-800/70 border border-indigo-100 dark:border-slate-700 space-y-2">
-                            <div id="agentDetailRole" class="font-black text-sm text-slate-900 dark:text-white mb-1"></div>
-                            <p id="agentDetailDesc" class="text-xs text-muted-foreground leading-relaxed mb-2"></p>
-                            
-                            <!-- 1. البيانات المدخلة -->
-                            <div class="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800">
-                                <div class="flex items-center gap-1.5 font-extrabold text-[11px] text-indigo-600 dark:text-indigo-400">
-                                    <i data-lucide="database" class="h-3.5 w-3.5"></i>
-                                    <span>{% if trans.lang_code == 'ar' %}البيانات المدخلة (Input):{% else %}Data Input:{% endif %}</span>
-                                </div>
-                                <p id="agentDetailInput" class="mt-0.5 text-[10px] text-muted-foreground leading-snug"></p>
-                            </div>
-
-                            <!-- 2. المهام والعمليات -->
-                            <div class="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800">
-                                <div class="flex items-center gap-1.5 font-extrabold text-[11px] text-amber-600 dark:text-amber-400">
-                                    <i data-lucide="cpu" class="h-3.5 w-3.5"></i>
-                                    <span>{% if trans.lang_code == 'ar' %}المهام والعمليات (Actions):{% else %}Actions & Processing:{% endif %}</span>
-                                </div>
-                                <p id="agentDetailAction" class="mt-0.5 text-[10px] text-muted-foreground leading-snug"></p>
-                            </div>
-
-                            <!-- 3. المخرجات والنتائج -->
-                            <div class="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800">
-                                <div class="flex items-center gap-1.5 font-extrabold text-[11px] text-emerald-600 dark:text-emerald-400">
-                                    <i data-lucide="file-check" class="h-3.5 w-3.5"></i>
-                                    <span>{% if trans.lang_code == 'ar' %}المخرجات والنتائج (Output):{% else %}Output & Insights:{% endif %}</span>
-                                </div>
-                                <p id="agentDetailOutput" class="mt-0.5 text-[10px] text-muted-foreground leading-snug"></p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Live Demo Resolution View (Hidden by default, shown at end of simulation) -->
-                    <div id="liveResolutionView" class="hidden p-3.5 rounded-2xl bg-emerald-50/90 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 mb-4 animate-fade-up">
-                        <div class="flex items-center gap-2 font-black text-xs text-emerald-700 dark:text-emerald-300 mb-1.5">
-                            <i data-lucide="check-circle-2" class="h-4 w-4 text-emerald-600"></i>
-                            <span>{% if trans.lang_code == 'ar' %}اكتمل التحليل — التوصية جاهزة{% else %}Analysis complete — recommendation ready{% endif %}</span>
-                        </div>
-                        <p class="text-[11px] font-semibold text-slate-700 dark:text-slate-300 leading-relaxed">
-                            {% if trans.lang_code == 'ar' %}
-                            تم التوافق: تجميد شراء الصنف الراكد (B) لتوفير 4,200 ر.ع. سيولة، مع إطلاق حزمة تسعير ترويجية تحقق عائد 18%+ دون زيادة مصاريف.
-                            {% else %}
-                            Consensus reached: Freeze stagnant item (B) to unlock $11k cash flow, and deploy pricing bundle for +18% gross margin.
-                            {% endif %}
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Simulation Trigger Action Button -->
-                <div class="space-y-2 mt-2">
-                    <button type="button" id="startDemoAnalysisBtn" onclick="runLiveOrchestrationDemo()" class="w-full py-3 px-5 rounded-2xl bg-gradient-to-r from-[var(--nile)] to-[var(--glow)] text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25 hover:brightness-110 active:scale-95 transition cursor-pointer">
-                        <i id="demoBtnIcon" data-lucide="play" class="h-4 w-4 fill-white"></i>
-                        <span id="demoBtnText">{% if trans.lang_code == 'ar' %}ابدأ التحليل الذكي{% else %}Start AI Orchestration{% endif %}</span>
-                    </button>
-                    
-                    <button type="button" id="resetSelectionBtn" onclick="resetAgentFocus()" class="hidden w-full py-1.5 text-[11px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition text-center">
-                        {% if trans.lang_code == 'ar' %}العودة للمنظر العام{% else %}Reset to Overview{% endif %}
-                    </button>
-                </div>
-            </div>
-        </div>
-
     </section>
 
 
@@ -435,6 +382,66 @@
                 </div>
                 <h3 class="mt-4 text-base font-bold text-ink">{{ trans.feat_3_title }}</h3>
                 <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{{ trans.feat_3_desc }}</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== WHY BASEERA (strengths) ===================== -->
+    <section id="why" class="mt-24 scroll-mt-28 animate-fade-up">
+        <div class="mx-auto max-w-2xl text-center">
+            <h2 class="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight text-slate-900 dark:text-white">
+                {% if trans.lang_code == 'ar' %}لماذا بصيرة تحديداً{% else %}Why Baseera, specifically{% endif %}
+            </h2>
+            <p class="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed">
+                {% if trans.lang_code == 'ar' %}ما يميّزنا ليس شعارات — بل قرارات هندسية مبنية في المنتج.{% else %}Our edge isn't slogans — it's engineering decisions built into the product.{% endif %}
+            </p>
+        </div>
+        <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="rounded-3xl p-6 glass transition hover:-translate-y-1">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="calculator" class="h-5 w-5"></i></div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}الحساب حتمي أولاً{% else %}Deterministic-first{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}الأرقام تُحسب بايثون عندنا، والذكاء الخارجي للقراءة فقط — فالتحليل يعمل بثبات حتى لو تعطّل أي مزوّد.{% else %}Numbers are computed in Python on our side; external AI only reads — analysis stays stable even if a provider goes down.{% endif %}</p>
+            </div>
+            <div class="rounded-3xl p-6 glass transition hover:-translate-y-1">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="shield-check" class="h-5 w-5"></i></div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}خصوصية مبدأ لا ميزة{% else %}Privacy by principle{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}بياناتك لا تُستخدم للتدريب ولا تُشارك، ومعزولة لكل مستخدم على حدة — تبقى ملكك أنت.{% else %}Your data is never used for training or shared, and is isolated per user — it stays yours.{% endif %}</p>
+            </div>
+            <div class="rounded-3xl p-6 glass transition hover:-translate-y-1">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="file-check-2" class="h-5 w-5"></i></div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}أثر موثّق من اليوم الأول{% else %}Auditable from day one{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}كل تقرير مبصوم بـ SHA-256 وسجل تدقيق كامل يربطه بمصادره — قابل للتتبّع والاعتماد.{% else %}Every report is SHA-256 stamped with a full audit trail linking it to its sources — traceable and dependable.{% endif %}</p>
+            </div>
+            <div class="rounded-3xl p-6 glass transition hover:-translate-y-1">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="map-pin" class="h-5 w-5"></i></div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}متجذّرون محلياً{% else %}Rooted locally{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}عربي أولاً، لهجة عُمانية، وفهم لواقع منشآت السلطنة — ما لا يقلّده منتج عالمي عام.{% else %}Arabic-first, Omani dialect, and a real grasp of local businesses — hard for a generic global tool to match.{% endif %}</p>
+            </div>
+            <div class="rounded-3xl p-6 glass transition hover:-translate-y-1">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="message-circle" class="h-5 w-5"></i></div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}بسيط عبر واتساب{% else %}Simple, over WhatsApp{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}لا تطبيقات معقّدة ولا منحنى تعلّم — يرفع ملفه ويسمع النتيجة بلغته مباشرة على واتساب.{% else %}No complex apps, no learning curve — upload a file and get the answer in your language, right on WhatsApp.{% endif %}</p>
+            </div>
+            <div class="rounded-3xl p-6 glass transition hover:-translate-y-1">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20"><i data-lucide="layers" class="h-5 w-5"></i></div>
+                <h3 class="mt-4 text-base font-bold text-ink dark:text-white">{% if trans.lang_code == 'ar' %}مرجع قطاعي يكبر معك{% else %}A benchmark that grows{% endif %}</h3>
+                <p class="mt-1.5 text-xs md:text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}نبني أكبر مرجع أداء للمنشآت العُمانية — كل ملف يرفع دقة مقارناتك ومقارنات غيرك.{% else %}We're building the largest performance benchmark for Omani businesses — every file sharpens everyone's comparisons.{% endif %}</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== SECURITY BAND ===================== -->
+    <section id="security" class="mt-16 scroll-mt-28 animate-fade-up">
+        <div class="rounded-3xl glass p-7 md:p-9 flex flex-col md:flex-row md:items-center gap-6">
+            <div class="shrink-0 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[var(--nile)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/25"><i data-lucide="lock" class="h-7 w-7"></i></div>
+            <div class="flex-1">
+                <h3 class="text-lg md:text-xl font-black text-ink dark:text-white">{% if trans.lang_code == 'ar' %}أمانك ليس إضافة — هو التصميم{% else %}Security isn't an add-on — it's the design{% endif %}</h3>
+                <p class="mt-1.5 text-sm text-muted-foreground leading-relaxed max-w-2xl">{% if trans.lang_code == 'ar' %}عزل كامل لبيانات كل مستخدم، حماية CSRF على كل إجراء، فحص للملفات المرفوعة، وبصمة سلامة لكل تقرير. لا تدريب على بياناتك، ولا مشاركة مع طرف ثالث.{% else %}Full per-user data isolation, CSRF protection on every action, uploaded-file scanning, and an integrity hash on every report. No training on your data, no third-party sharing.{% endif %}</p>
+            </div>
+            <div class="shrink-0 flex flex-wrap gap-2">
+                <span class="rounded-full bg-white/70 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700 px-3 py-1 text-xs font-bold text-[var(--nile)] dark:text-[var(--lavender)]">{% if trans.lang_code == 'ar' %}عزل لكل مستخدم{% else %}Per-user isolation{% endif %}</span>
+                <span class="rounded-full bg-white/70 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700 px-3 py-1 text-xs font-bold text-[var(--nile)] dark:text-[var(--lavender)]">{% if trans.lang_code == 'ar' %}بصمة SHA-256{% else %}SHA-256 hash{% endif %}</span>
+                <span class="rounded-full bg-white/70 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700 px-3 py-1 text-xs font-bold text-[var(--nile)] dark:text-[var(--lavender)]">{% if trans.lang_code == 'ar' %}بلا تدريب على بياناتك{% else %}No training on your data{% endif %}</span>
             </div>
         </div>
     </section>
@@ -504,6 +511,57 @@
         </figure>
     </section>
 
+    <!-- ===================== FAQ ===================== -->
+    <section id="faq" class="mt-24 scroll-mt-28 animate-fade-up">
+        <div class="mx-auto max-w-2xl text-center">
+            <h2 class="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight text-slate-900 dark:text-white">
+                {% if trans.lang_code == 'ar' %}أسئلة يسألها كل صاحب مشروع{% else %}Questions every owner asks{% endif %}
+            </h2>
+        </div>
+        <div class="mt-10 mx-auto max-w-3xl flex flex-col gap-3">
+            <details class="group rounded-2xl glass p-5">
+                <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-ink dark:text-white text-sm md:text-base">
+                    <span>{% if trans.lang_code == 'ar' %}هل بياناتي آمنة؟{% else %}Is my data safe?{% endif %}</span>
+                    <i data-lucide="plus" class="h-4 w-4 text-[var(--glow)] group-open:hidden"></i>
+                    <i data-lucide="minus" class="h-4 w-4 text-[var(--glow)] hidden group-open:block"></i>
+                </summary>
+                <p class="mt-3 text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}نعم. بيانات كل مستخدم معزولة تماماً، لا تُستخدم للتدريب ولا تُشارك مع أي طرف، وكل تقرير مبصوم ببصمة سلامة. أمانك جزء من التصميم لا إضافة.{% else %}Yes. Each user's data is fully isolated, never used for training or shared, and every report carries an integrity hash. Security is part of the design, not an add-on.{% endif %}</p>
+            </details>
+            <details class="group rounded-2xl glass p-5">
+                <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-ink dark:text-white text-sm md:text-base">
+                    <span>{% if trans.lang_code == 'ar' %}أحتاج محاسب أو خبرة مالية؟{% else %}Do I need an accountant or finance skills?{% endif %}</span>
+                    <i data-lucide="plus" class="h-4 w-4 text-[var(--glow)] group-open:hidden"></i>
+                    <i data-lucide="minus" class="h-4 w-4 text-[var(--glow)] hidden group-open:block"></i>
+                </summary>
+                <p class="mt-3 text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}لا. ترفع ملفك وتقرأ النتيجة بلغتك، بدون مصطلحات معقّدة. بصيرة تشرح لك وين يروح فلوسك وخطوة واحدة لإيقاف التسريب.{% else %}No. Upload a file and read the result in plain language. Baseera shows you where your money goes and one step to stop the leak.{% endif %}</p>
+            </details>
+            <details class="group rounded-2xl glass p-5">
+                <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-ink dark:text-white text-sm md:text-base">
+                    <span>{% if trans.lang_code == 'ar' %}أي ملفات أقدر أرفعها؟{% else %}What files can I upload?{% endif %}</span>
+                    <i data-lucide="plus" class="h-4 w-4 text-[var(--glow)] group-open:hidden"></i>
+                    <i data-lucide="minus" class="h-4 w-4 text-[var(--glow)] hidden group-open:block"></i>
+                </summary>
+                <p class="mt-3 text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}كشف حساب بنكي، ملف مبيعات أو مصروفات، أو حتى صورة دفترك — بصيغة Excel أو CSV أو PDF أو صورة.{% else %}A bank statement, a sales or expense file, or even a photo of your ledger — as Excel, CSV, PDF or an image.{% endif %}</p>
+            </details>
+            <details class="group rounded-2xl glass p-5">
+                <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-ink dark:text-white text-sm md:text-base">
+                    <span>{% if trans.lang_code == 'ar' %}الأرقام دقيقة ولا تخمين ذكاء اصطناعي؟{% else %}Are the numbers accurate, or AI guesses?{% endif %}</span>
+                    <i data-lucide="plus" class="h-4 w-4 text-[var(--glow)] group-open:hidden"></i>
+                    <i data-lucide="minus" class="h-4 w-4 text-[var(--glow)] hidden group-open:block"></i>
+                </summary>
+                <p class="mt-3 text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}كل رقم محسوب حتمياً بايثون من بياناتك أنت، بالمعادلة والدليل. الذكاء الاصطناعي يُستخدم للقراءة والصياغة فقط، لا لاختراع الأرقام.{% else %}Every number is computed deterministically in Python from your own data, with the formula and the evidence. AI is used only to read and phrase — never to invent figures.{% endif %}</p>
+            </details>
+            <details class="group rounded-2xl glass p-5">
+                <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-ink dark:text-white text-sm md:text-base">
+                    <span>{% if trans.lang_code == 'ar' %}كم يكلّف، وكيف أبدأ؟{% else %}What does it cost, and how do I start?{% endif %}</span>
+                    <i data-lucide="plus" class="h-4 w-4 text-[var(--glow)] group-open:hidden"></i>
+                    <i data-lucide="minus" class="h-4 w-4 text-[var(--glow)] hidden group-open:block"></i>
+                </summary>
+                <p class="mt-3 text-sm text-muted-foreground leading-relaxed">{% if trans.lang_code == 'ar' %}تبدأ مجاناً بدون بطاقة ائتمان — ترفع ملفك الأول وتشوف أول تسريب مالي فوراً.{% else %}Start free, no credit card — upload your first file and see your first financial leak right away.{% endif %}</p>
+            </details>
+        </div>
+    </section>
+
     <!-- ===================== FINAL CTA ===================== -->
     <section class="mt-24 animate-fade-up">
         <div class="relative overflow-hidden rounded-3xl px-6 py-12 md:px-14 md:py-16 text-center text-white shadow-[0_24px_70px_-24px_rgba(43,36,112,0.55)]" style="background: linear-gradient(135deg, #2b2470 0%, #7c6cf0 100%);">
@@ -536,955 +594,108 @@
 
 <span id="chartLang" data-lang="{{ trans.lang_code }}" hidden></span>
 
-<!-- CSS Styles for Multi-Agent Neural Canvas, 3D Fluid Spheres, and High-Performance Animations -->
+<!-- رَصْد agents architecture: scoped styles -->
 <style>
-/* Gentle floating micro-animation for the 6 surrounding agent nodes */
-@keyframes floatSlight {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-5px); }
-}
-
-/* Orchestrator Center Card Breathing Pulse */
-@keyframes orchestratorBreath {
-    0%, 100% { 
-        box-shadow: 0 10px 40px -10px rgba(43,36,112,0.15), 0 0 0 1px rgba(99,102,241,0.15); 
-    }
-    50% { 
-        box-shadow: 0 15px 50px -5px rgba(99,102,241,0.30), 0 0 25px rgba(99,102,241,0.25); 
-    }
-}
-
-#orchestratorCenterCard {
-    animation: orchestratorBreath 4s ease-in-out infinite;
-}
-
-.agent-node-card {
-    animation: floatSlight 5s ease-in-out infinite;
-    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.agent-node-card:nth-child(1) { animation-delay: 0s; }
-.agent-node-card:nth-child(2) { animation-delay: 0.8s; }
-.agent-node-card:nth-child(3) { animation-delay: 1.6s; }
-.agent-node-card:nth-child(4) { animation-delay: 2.4s; }
-.agent-node-card:nth-child(5) { animation-delay: 3.2s; }
-.agent-node-card:nth-child(6) { animation-delay: 4.0s; }
-
-/* Hover effects on Agent Cards */
-.agent-node-card:hover .agent-inner-pill {
-    transform: scale(1.06);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
-}
-
-/* Focused / Active Agent Card State */
-.agent-node-card.focused-agent .agent-inner-pill {
-    transform: scale(1.12);
-    box-shadow: 0 14px 35px rgba(124, 108, 240, 0.35) !important;
-    border-width: 2px !important;
-}
-
-/* Dimmed state for other agents */
-.agent-node-card.dimmed-agent {
-    opacity: 0.45;
-    filter: grayscale(20%);
-    transform: scale(0.96);
-}
-
-/* Agent Task Processing Animation (Pulse & Glow) */
-@keyframes agentProcessingGlow {
-    0%, 100% { transform: scale(1.08); filter: brightness(1); }
-    50% { transform: scale(1.14); filter: brightness(1.25); }
-}
-.agent-processing .agent-inner-pill {
-    animation: agentProcessingGlow 1s ease-in-out infinite alternate !important;
-}
-
-/* 3D Liquid Marble Sphere Styling (Fluid streaks & caustics) */
-.marble-orb {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    position: relative;
-    overflow: hidden;
-    flex-shrink: 0;
-    box-shadow: 
-        inset -3px -3px 7px rgba(0, 0, 0, 0.22),
-        inset 3px 3px 6px rgba(255, 255, 255, 0.9),
-        0 4px 10px rgba(0, 0, 0, 0.08);
-}
-
-.marble-orb::after {
-    content: '';
-    position: absolute;
-    top: 10%;
-    left: 15%;
-    width: 35%;
-    height: 25%;
-    border-radius: 50%;
-    background: radial-gradient(ellipse at center, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 80%);
-    transform: rotate(-35deg);
-    pointer-events: none;
-}
-
-/* 6 Distinct Liquid Marble Color Themes */
-.orb-emerald {
-    background: 
-        radial-gradient(circle at 35% 35%, #ffffff 0%, #a7f3d0 25%, #10b981 55%, #047857 85%, #064e3b 100%),
-        linear-gradient(135deg, transparent 35%, rgba(255,255,255,0.85) 48%, #059669 56%, transparent 70%);
-}
-
-.orb-blue {
-    background: 
-        radial-gradient(circle at 35% 35%, #ffffff 0%, #bfdbfe 25%, #3b82f6 55%, #1d4ed8 85%, #1e3a8a 100%),
-        linear-gradient(135deg, transparent 35%, rgba(255,255,255,0.85) 48%, #1e40af 56%, transparent 70%);
-}
-
-.orb-purple {
-    background: 
-        radial-gradient(circle at 35% 35%, #ffffff 0%, #e9d5ff 25%, #a855f7 55%, #7e22ce 85%, #3b0764 100%),
-        linear-gradient(135deg, transparent 35%, rgba(255,255,255,0.85) 48%, #6b21a8 56%, transparent 70%);
-}
-
-.orb-rose {
-    background: 
-        radial-gradient(circle at 35% 35%, #ffffff 0%, #fecdd3 25%, #f43f5e 55%, #be123c 85%, #4c0519 100%),
-        linear-gradient(135deg, transparent 35%, rgba(255,255,255,0.85) 48%, #e11d48 56%, transparent 70%);
-}
-
-.orb-amber {
-    background: 
-        radial-gradient(circle at 35% 35%, #ffffff 0%, #fde68a 25%, #f59e0b 55%, #b45309 85%, #451a03 100%),
-        linear-gradient(135deg, transparent 35%, rgba(255,255,255,0.85) 48%, #d97706 56%, transparent 70%);
-}
-
-.orb-cyan {
-    background: 
-        radial-gradient(circle at 35% 35%, #ffffff 0%, #a5f3fc 25%, #06b6d4 55%, #0e7490 85%, #164e63 100%),
-        linear-gradient(135deg, transparent 35%, rgba(255,255,255,0.85) 48%, #0891b2 56%, transparent 70%);
-}
-
-.orb-indigo {
-    background: 
-        radial-gradient(circle at 35% 35%, #ffffff 0%, #c7d2fe 25%, #6366f1 55%, #4338ca 85%, #1e1b4b 100%),
-        linear-gradient(135deg, transparent 35%, rgba(255,255,255,0.85) 48%, #4f46e5 56%, transparent 70%);
-}
-
-/* SVG Connection Lines & Outer Neural Loop Transition */
-.connection-line {
-    transition: stroke-width 0.3s ease, opacity 0.3s ease, stroke 0.3s ease;
-}
-
-/* Outer Neural Ring Animated Gradient Laser Flow */
-@keyframes outerOrbitFlow {
-    0% {
-        stroke-dashoffset: 0;
-    }
-    100% {
-        stroke-dashoffset: -200;
-    }
-}
-
-#outerLoopBase {
-    animation: outerOrbitFlow 14s linear infinite;
-}
-#outerLoopGlow {
-    animation: outerOrbitFlow 10s linear infinite;
-}
+  .rasd-arch .diagram{width:100%;height:auto;display:block}
+  .rasd-arch .chip-name{font-size:15px;font-weight:800;fill:var(--ink,#1e1b4b)}
+  .rasd-arch .chip-act{font-size:12px;font-weight:700;fill:var(--glow,#7c6cf0)}
+  .rasd-arch .chip-box{fill:#ffffff;stroke:#e7e3fb;stroke-width:1}
+  .rasd-arch .port{fill:var(--glow,#7c6cf0);animation:raPort 2.6s ease-in-out infinite}
+  .rasd-arch .port-ring{fill:none;stroke:var(--glow,#7c6cf0);stroke-opacity:.3}
+  .rasd-arch .chip{transform-box:fill-box;transform-origin:center;transition:transform .3s cubic-bezier(.4,0,.2,1),filter .3s}
+  .rasd-arch .chip:hover{transform:translateY(-3px) scale(1.015);filter:drop-shadow(0 14px 22px rgba(43,36,112,.20))}
+  .rasd-arch .chip:hover .chip-box{stroke:var(--glow,#7c6cf0);stroke-opacity:.55}
+  .rasd-arch .chip:hover .port{r:5.5}
+  .rasd-arch .cring{transform-box:fill-box;transform-origin:center;animation:raSpin 30s linear infinite}
+  .rasd-arch .cring2{transform-box:fill-box;transform-origin:center;animation:raSpin 52s linear infinite reverse}
+  .rasd-arch .cglow{transform-box:fill-box;transform-origin:center;animation:raBreathe 6s ease-in-out infinite}
+  .rasd-arch #raCore,.rasd-arch #raIris{will-change:transform}
+  @keyframes raSpin{to{transform:rotate(360deg)}}
+  @keyframes raBreathe{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:.85;transform:scale(1.05)}}
+  @keyframes raPort{0%,100%{opacity:.55}50%{opacity:1}}
+  /* dark mode */
+  .dark .rasd-arch .chip-box{fill:rgba(30,27,75,.55);stroke:rgba(124,108,240,.28)}
+  .dark .rasd-arch .chip-name{fill:#ece9fb}
+  .dark .rasd-arch .core-lbl{fill:#c9bdf6}
+  @media (prefers-reduced-motion:reduce){
+    .rasd-arch .cring,.rasd-arch .cring2,.rasd-arch .cglow,.rasd-arch .port,
+    .rasd-arch .diagram animateMotion{animation:none}
+  }
 </style>
 
-<!-- Live Interactive Multi-Agent Orchestration Logic & Neural Data Flow -->
 <script>
-const specializedAgentsData = {
-    financial: {
-        color: '#6366f1', // Indigo
-        titleAr: 'وكيل التحليل المالي',
-        titleEn: 'Financial Analyst Agent',
-        roleAr: 'تحليل الإيرادات ومخاطر التدفقات النقدية ونقاط التعادل',
-        roleEn: 'Cash flow forecasting, profit margin analysis & break-even simulation',
-        descAr: 'يستقبل بيانات البنوك والفواتير ويحلل هوامش الأرباح لكل منتج مع التنبؤ بعجز السيولة قبل 90 يوماً.',
-        descEn: 'Analyzes bank statements and invoices to predict liquidity shortfalls and unit profitability.',
-        inputAr: 'بيانات البنوك، الفواتير، التدفقات النقدية، وقوائم الأرباح والخسائر.',
-        actionAr: 'تحليل السيولة النقدية، حساب معدل الحرق المالي، واكتشاف نقاط التعادل.',
-        outputAr: 'تنبؤات التدفق النقدي لـ 90 يوماً، تقارير الربحية، وتوصيات السيولة.',
-        inputEn: 'Bank statements, invoices, cash flow logs, & P&L reports.',
-        actionEn: 'Analyzes liquidity, burn rate, & calculates unit break-even points.',
-        outputEn: '90-day cash flow forecast, profit metrics, & liquidity recommendations.',
-        coords: { x: 730, y: 120 }
-    },
-    supply: {
-        color: '#3b82f6', // Blue
-        titleAr: 'وكيل سلاسل الإمداد والمخزون',
-        titleEn: 'Supply Chain & Inventory Agent',
-        roleAr: 'تتبع البضاعة الراكدة وحساب توقيت إعادة الطلب الأمثل',
-        roleEn: 'Dead stock identification & optimal reorder scheduling',
-        descAr: 'يرصد المنتجات المجمدة التي تحتجز رأس المال العامل ويحدد الحجم الأمثل للمشتريات.',
-        descEn: 'Tracks inventory turnover velocity to eliminate tied-up working capital.',
-        inputAr: 'سجلات المشتريات، حركة المخزون، بيانات الموردين، ومعدل الدوران.',
-        actionAr: 'رصد البضائع الراكدة، تقييم كفاءة التوريد، وحساب توقيت إعادة الطلب.',
-        outputAr: 'جداول إعادة الشراء، تقارير دوران البضائع، وتحذيرات المخزون الراكد.',
-        inputEn: 'Purchase records, inventory turnover, supplier lead times.',
-        actionAr: 'Detects dead stock, evaluates supply efficiency, calculates reorder point.',
-        outputEn: 'Automated reorder schedules, stock velocity reports, & waste alerts.',
-        coords: { x: 870, y: 350 }
-    },
-    pricing: {
-        color: '#a855f7', // Lavender
-        titleAr: 'وكيل استراتيجية التسعير',
-        titleEn: 'Pricing & Margin Strategy Agent',
-        roleAr: 'مرونة الأسعار، هندسة الحزم، وتعظيم قيمة السلة',
-        roleEn: 'Price elasticity analysis & dynamic product bundling',
-        descAr: 'يصمم عروض بيع مجمعة (Bundles) ذكية ترفع متوسط قيمة الفاتورة دون الإضرار بالهوامش.',
-        descEn: 'Optimizes dynamic pricing models to protect gross margins while lifting AOV.',
-        inputAr: 'تكاليف المنتجات، أسعار المنافسين، مرونة الطلب، وقيمة السلة.',
-        actionAr: 'محاكاة خيارات التسعير، هندسة حزم المنتجات، وحساب الهوامش.',
-        outputAr: 'توصيات التعديل السعري الديناميكي، عروض AOV، وخطة حماية الربحية.',
-        inputEn: 'Product costs, competitor prices, demand elasticity, cart size.',
-        actionEn: 'Simulates pricing scenarios, designs bundles, calculates margins.',
-        outputEn: 'Dynamic pricing recommendations, AOV bundles, margin protection.',
-        coords: { x: 730, y: 580 }
-    },
-    retention: {
-        color: '#4f46e5', // Violet-Indigo
-        titleAr: 'وكيل ولاء واستعادة العملاء',
-        titleEn: 'Customer Retention Agent',
-        roleAr: 'رصد إشارات فقدان العملاء (Churn) وحساب القيمة الدائمة',
-        roleEn: 'Churn risk prediction & customer lifetime value optimization',
-        descAr: 'يتنبأ باحتمالية مغادرة العميل ويصمم حملات استعادة مخصصة ترفع معدل العودة.',
-        descEn: 'Detects early churn triggers and formulates targeted retention campaigns.',
-        inputAr: 'سجلات التسوق، تكرار الشراء، مراجعات العملاء، وسلوك التسوق.',
-        actionAr: 'تحليل معدل تسرب العملاء (Churn)، واكتشاف الشرائح الأكثر قيمة.',
-        outputAr: 'خطط الاستعادة المخصصة، تصميم برامج الولاء، وتوصيات رفع LTV.',
-        inputEn: 'Purchase history, buying frequency, feedback, cart behavior.',
-        actionEn: 'Analyzes churn triggers & segments highest LTV customers.',
-        outputEn: 'Targeted win-back campaigns, loyalty programs, LTV optimization.',
-        coords: { x: 250, y: 580 }
-    },
-    market: {
-        color: '#0284c7', // Sky Blue
-        titleAr: 'وكيل ذكاء السوق والمنافسين',
-        titleEn: 'Market Intelligence Agent',
-        roleAr: 'قراءة اتجاهات السوق، رصد المنافسين، واقتناص الفرص',
-        roleEn: 'Market trend synthesis & competitive landscape auditing',
-        descAr: 'يقارن أداء المنشأة بمؤشرات القطاع ويقترح فرص توسع ذات عائد استثماري مرتفع.',
-        descEn: 'Benchmarks business metrics against industry standards to identify growth opportunities.',
-        inputAr: 'تقارير القطاع، أسعار المنافسين، التغيرات الاقتصادية، واتجاهات السوق.',
-        actionAr: 'مراقبة التغيرات التنافسية، تحليل الفجوات، وتتبع نمو القطاع.',
-        outputAr: 'مقارنات التموضع التنافسي، تقارير الفرص النامية، وتحليل SWOT.',
-        inputEn: 'Industry reports, competitor pricing, macro trends, demand shifts.',
-        actionEn: 'Monitors market shifts, audits gaps, tracks category growth.',
-        outputEn: 'Competitive positioning benchmarks, growth opportunity briefs, SWOT.',
-        coords: { x: 110, y: 350 }
-    },
-    forensic: {
-        color: '#8b5cf6', // Deep Lavender
-        titleAr: 'وكيل التدقيق الجنائي ومكافحة الهدر',
-        titleEn: 'Forensic Audit & Waste Agent',
-        roleAr: 'كشف الفواتير المكررة، المصاريف غير الموثقة، والتسريبات',
-        roleEn: 'Duplicate invoice tracking & expense leakage prevention',
-        descAr: 'يفحص بنود المصروفات لاكتشاف أي شذوذ محاسبي أو مصاريف نقدية غير مبررة.',
-        descEn: 'Scans ledger anomalies to halt financial leakages with forensic precision.',
-        inputAr: 'المعاملات المالية، الفواتير، قيود اليومية، واستثناءات الصرف.',
-        actionAr: 'التدقيق الجنائي الآلي، رصد الانحرافات المحاسبية، ومتابعة المصروفات.',
-        outputAr: 'تنبيهات الاحتيال والهدر، تقارير الانحرافات، وتوصيات الحوكمة.',
-        inputEn: 'Financial ledger, invoices, manual entries, payment overrides.',
-        actionEn: 'Automated forensic audit, anomaly detection, leakage tracking.',
-        outputEn: 'Fraud & waste alerts, forensic reports, compliance controls.',
-        coords: { x: 250, y: 120 }
-    }
-};
-
-let isDemoRunning = false;
-let focusedAgentKey = null;
-let hoveredAgentKey = null;
-
-const centerX = 490;
-const centerY = 350;
-const agentKeys = Object.keys(specializedAgentsData);
-
-// 1. IDLE RADIAL & PERIMETER DATA FLOW ENGINE (60 FPS)
-let idleRadialParticles = [];
-let outerLoopParticles = [];
-
-function initDualNeuralStream() {
-    const packetsGroup = document.getElementById('flowPacketsGroup');
-    const outerGroup = document.getElementById('outerLoopPacketsGroup');
-    const outerPath = document.getElementById('outerLoopBase');
-    if (!packetsGroup || !outerGroup || !outerPath) return;
-
-    const pathTotalLen = outerPath.getTotalLength();
-    const agentColors = ['#10b981', '#3b82f6', '#a855f7', '#f43f5e', '#f59e0b', '#06b6d4'];
-
-    // A. Radial Packets (Center ↔ 6 Agents)
-    agentKeys.forEach((key, idx) => {
-        const agent = specializedAgentsData[key];
-        
-        // Outward packet
-        const p1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        p1.setAttribute('r', '3.5');
-        p1.setAttribute('fill', agent.color);
-        p1.setAttribute('filter', 'drop-shadow(0 0 4px ' + agent.color + ')');
-        p1.setAttribute('opacity', '0.75');
-        packetsGroup.appendChild(p1);
-
-        // Inward packet
-        const p2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        p2.setAttribute('r', '2.5');
-        p2.setAttribute('fill', agent.color);
-        p2.setAttribute('filter', 'drop-shadow(0 0 3px ' + agent.color + ')');
-        p2.setAttribute('opacity', '0.6');
-        packetsGroup.appendChild(p2);
-
-        idleRadialParticles.push({
-            elem: p1,
-            agentKey: key,
-            progress: (idx * 0.16) % 1,
-            speed: 0.0025,
-            direction: 1,
-            agent: agent
-        });
-
-        idleRadialParticles.push({
-            elem: p2,
-            agentKey: key,
-            progress: ((idx * 0.16) + 0.5) % 1,
-            speed: 0.002,
-            direction: -1,
-            agent: agent
-        });
-    });
-
-    // B. Outer Circular Perimeter Orbiting Packets (Circulating around the 6 agents with dynamic multi-color streams)
-    const numOuterParticles = 6;
-    for (let i = 0; i < numOuterParticles; i++) {
-        const pCirc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        const color = agentColors[i % agentColors.length];
-        pCirc.setAttribute('r', '4.5');
-        pCirc.setAttribute('fill', color);
-        pCirc.setAttribute('filter', 'drop-shadow(0 0 6px ' + color + ')');
-        pCirc.setAttribute('opacity', '0.85');
-        outerGroup.appendChild(pCirc);
-
-        outerLoopParticles.push({
-            elem: pCirc,
-            progress: (i / numOuterParticles),
-            speed: 0.0018,
-            colorIndex: i
-        });
-    }
-
-    // Step Animation Loop
-    function stepStream() {
-        // 1. Update Radial Lines
-        if (!isDemoRunning) {
-            idleRadialParticles.forEach(p => {
-                let currentSpeed = p.speed;
-                if (hoveredAgentKey === p.agentKey) {
-                    currentSpeed *= 3.2;
-                    p.elem.setAttribute('r', p.direction === 1 ? '5' : '3.5');
-                    p.elem.setAttribute('opacity', '1');
-                } else if (hoveredAgentKey) {
-                    p.elem.setAttribute('opacity', '0.2');
-                } else {
-                    p.elem.setAttribute('r', p.direction === 1 ? '3.5' : '2.5');
-                    p.elem.setAttribute('opacity', '0.75');
-                }
-
-                p.progress += currentSpeed;
-                if (p.progress > 1) p.progress = 0;
-
-                let actualRatio = p.direction === 1 ? p.progress : (1 - p.progress);
-                const curX = centerX + (p.agent.coords.x - centerX) * actualRatio;
-                const curY = centerY + (p.agent.coords.y - centerY) * actualRatio;
-
-                p.elem.setAttribute('cx', curX);
-                p.elem.setAttribute('cy', curY);
-            });
-        }
-
-        // 2. Update Outer Circular Perimeter Flow (Always active and orbiting around the 6 agents)
-        outerLoopParticles.forEach(p => {
-            let orbitSpeed = isDemoRunning ? 0.006 : (hoveredAgentKey ? 0.0035 : p.speed);
-            p.progress += orbitSpeed;
-            if (p.progress >= 1) p.progress = 0;
-
-            const point = outerPath.getPointAtLength(p.progress * pathTotalLen);
-            p.elem.setAttribute('cx', point.x);
-            p.elem.setAttribute('cy', point.y);
-
-            // Dynamic color morph based on position near agents
-            const colorIdx = Math.floor(p.progress * agentColors.length);
-            const activeColor = agentColors[colorIdx % agentColors.length];
-            p.elem.setAttribute('fill', activeColor);
-            p.elem.setAttribute('filter', 'drop-shadow(0 0 6px ' + activeColor + ')');
-        });
-
-        requestAnimationFrame(stepStream);
-    }
-    requestAnimationFrame(stepStream);
-}
-
-// 2. HOVER INTERACTION ENGINE
-function setupAgentHoverEvents() {
-    agentKeys.forEach(key => {
-        const card = document.getElementById('agentCard-' + key);
-        const line = document.getElementById('path-' + key);
-        const outerBase = document.getElementById('outerLoopBase');
-        const outerGlow = document.getElementById('outerLoopGlow');
-        const agent = specializedAgentsData[key];
-
-        if (card) {
-            card.addEventListener('mouseenter', () => {
-                if (isDemoRunning || focusedAgentKey) return;
-                hoveredAgentKey = key;
-
-                // Highlight hovered line & intensify outer loop
-                if (line) {
-                    line.classList.remove('opacity-40');
-                    line.style.opacity = '1';
-                    line.style.strokeWidth = '2.8';
-                    line.style.filter = 'drop-shadow(0 0 6px ' + agent.color + ')';
-                }
-                if (outerBase) outerBase.style.opacity = '0.7';
-                if (outerGlow) outerGlow.style.opacity = '0.6';
-
-                // Dim other cards slightly
-                document.querySelectorAll('.agent-node-card').forEach(c => {
-                    if (c.getAttribute('data-agent') !== key) {
-                        c.classList.add('dimmed-agent');
-                    }
-                });
-            });
-
-            card.addEventListener('mouseleave', () => {
-                if (isDemoRunning || focusedAgentKey) return;
-                hoveredAgentKey = null;
-
-                // Reset line & outer loop
-                if (line) {
-                    line.classList.add('opacity-40');
-                    line.style.opacity = '';
-                    line.style.strokeWidth = '1.8';
-                    line.style.filter = '';
-                }
-                if (outerBase) outerBase.style.opacity = '';
-                if (outerGlow) outerGlow.style.opacity = '';
-
-                // Reset dimming
-                document.querySelectorAll('.agent-node-card').forEach(c => {
-                    c.classList.remove('dimmed-agent');
-                });
-            });
-        }
-    });
-}
-
-// 3. Handle Single Agent Click (Focus & Dim other agents)
-function handleAgentCardClick(key) {
-    if (isDemoRunning) return;
-    const isAr = document.getElementById('chartLang').dataset.lang === 'ar';
-    const data = specializedAgentsData[key];
-    if (!data) return;
-
-    if (focusedAgentKey === key) {
-        resetAgentFocus();
-        return;
-    }
-
-    focusedAgentKey = key;
-    hoveredAgentKey = null;
-
-    // Highlight clicked card, dim others
-    document.querySelectorAll('.agent-node-card').forEach(card => {
-        const cardKey = card.getAttribute('data-agent');
-        const line = document.getElementById('path-' + cardKey);
-        if (cardKey === key) {
-            card.classList.remove('dimmed-agent');
-            card.classList.add('focused-agent');
-            card.querySelector('.agent-inner-pill').style.borderColor = data.color;
-            if (line) {
-                line.classList.remove('opacity-40');
-                line.style.opacity = '1';
-                line.style.strokeWidth = '3';
-                line.style.filter = 'drop-shadow(0 0 8px ' + data.color + ')';
-            }
-        } else {
-            card.classList.remove('focused-agent');
-            card.classList.add('dimmed-agent');
-            card.querySelector('.agent-inner-pill').style.borderColor = '';
-            if (line) {
-                line.classList.add('opacity-40');
-                line.style.strokeWidth = '1.8';
-                line.style.filter = '';
-            }
-        }
-    });
-
-    // Update Center Orchestrator Content
-    document.getElementById('defaultTasksView').classList.add('hidden');
-    document.getElementById('liveResolutionView').classList.add('hidden');
-    
-    const detailView = document.getElementById('agentDetailView');
-    detailView.classList.remove('hidden');
-    document.getElementById('agentDetailRole').innerText = isAr ? data.titleAr : data.titleEn;
-    document.getElementById('agentDetailDesc').innerText = isAr ? `${data.roleAr} — ${data.descAr}` : `${data.roleEn} — ${data.descEn}`;
-    
-    if (document.getElementById('agentDetailInput')) {
-        document.getElementById('agentDetailInput').innerText = isAr ? data.inputAr : (data.inputEn || data.inputAr);
-    }
-    if (document.getElementById('agentDetailAction')) {
-        document.getElementById('agentDetailAction').innerText = isAr ? data.actionAr : (data.actionEn || data.actionAr);
-    }
-    if (document.getElementById('agentDetailOutput')) {
-        document.getElementById('agentDetailOutput').innerText = isAr ? data.outputAr : (data.outputEn || data.outputAr);
-    }
-
-    document.getElementById('orchestratorStatusText').innerText = isAr ? `تركيز على: ${data.titleAr}` : `Inspecting: ${data.titleEn}`;
-    if (document.getElementById('resetSelectionBtn')) {
-        document.getElementById('resetSelectionBtn').classList.remove('hidden');
-    }
-}
-
-// Reset view to default
-function resetAgentFocus() {
-    focusedAgentKey = null;
-    hoveredAgentKey = null;
-    const isAr = document.getElementById('chartLang').dataset.lang === 'ar';
-
-    document.querySelectorAll('.agent-node-card').forEach(card => {
-        card.classList.remove('focused-agent', 'dimmed-agent');
-        card.querySelector('.agent-inner-pill').style.borderColor = '';
-    });
-
-    agentKeys.forEach(key => {
-        const line = document.getElementById('path-' + key);
-        if (line) {
-            line.classList.add('opacity-40');
-            line.style.opacity = '';
-            line.style.strokeWidth = '1.8';
-            line.style.filter = '';
-        }
-    });
-
-    document.getElementById('agentDetailView').classList.add('hidden');
-    document.getElementById('defaultTasksView').classList.remove('hidden');
-    document.getElementById('liveResolutionView').classList.add('hidden');
-    document.getElementById('resetSelectionBtn').classList.add('hidden');
-    document.getElementById('orchestratorStatusText').innerText = isAr ? 'جاهز لإدارة جلسة التنسيق بين الوكلاء الستة' : 'Ready to coordinate 6 specialized agents';
-}
-
-// 4. RUN LIVE ORCHESTRATION DEMO (User → Baseera Orchestrator → 6 Agents → Circular Collaboration Loop → Final Recommendation)
-function runLiveOrchestrationDemo() {
-    if (isDemoRunning) return;
-    isDemoRunning = true;
-    resetAgentFocus();
-
-    const isAr = document.getElementById('chartLang').dataset.lang === 'ar';
-    const btn = document.getElementById('startDemoAnalysisBtn');
-    const btnText = document.getElementById('demoBtnText');
-    const btnIcon = document.getElementById('demoBtnIcon');
-    const statusText = document.getElementById('orchestratorStatusText');
-    const packetsGroup = document.getElementById('flowPacketsGroup');
-    const centerCard = document.getElementById('orchestratorCenterCard');
-    const outerBase = document.getElementById('outerLoopBase');
-    const outerGlow = document.getElementById('outerLoopGlow');
-
-    btn.classList.add('opacity-75', 'pointer-events-none');
-    btnText.innerText = isAr ? 'جارٍ إرسال المهام للوكلاء...' : 'Dispatching to Agents...';
-    btnIcon.setAttribute('data-lucide', 'loader-2');
-    btnIcon.classList.add('animate-spin');
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-
-    // 1. Initial Orchestrator Energy Pulse & Outer Ring Light Up
-    centerCard.style.boxShadow = '0 0 50px rgba(99,102,241,0.5), 0 0 0 3px rgba(99,102,241,0.4)';
-    if (outerBase) {
-        outerBase.style.opacity = '1';
-        outerBase.style.strokeWidth = '3.5';
-    }
-    if (outerGlow) {
-        outerGlow.style.opacity = '0.9';
-        outerGlow.style.strokeWidth = '3';
-    }
-    statusText.innerText = isAr ? 'بصيرة تستقبل الهدف وتوزع المهام على الوكلاء الستة...' : 'Baseera receives goal & dispatches sub-tasks to 6 agents...';
-
-    // 2. High-Energy Outward Data Packets (Center -> 6 Agents)
-    agentKeys.forEach((key) => {
-        const agent = specializedAgentsData[key];
-        const line = document.getElementById('path-' + key);
-        if (line) {
-            line.classList.remove('opacity-40');
-            line.style.opacity = '1';
-            line.style.strokeWidth = '3.5';
-            line.style.filter = 'drop-shadow(0 0 8px ' + agent.color + ')';
-        }
-
-        // Create glowing high-speed packet
-        const packet = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        packet.setAttribute('r', '7');
-        packet.setAttribute('fill', agent.color);
-        packet.setAttribute('filter', 'drop-shadow(0 0 10px ' + agent.color + ')');
-        packetsGroup.appendChild(packet);
-
-        let startTime = performance.now();
-        const duration = 1000;
-
-        function animateOut(time) {
-            let progress = (time - startTime) / duration;
-            if (progress > 1) progress = 1;
-            
-            const curX = centerX + (agent.coords.x - centerX) * progress;
-            const curY = centerY + (agent.coords.y - centerY) * progress;
-            packet.setAttribute('cx', curX);
-            packet.setAttribute('cy', curY);
-
-            if (progress < 1) {
-                requestAnimationFrame(animateOut);
-            } else {
-                packet.remove();
-            }
-        }
-        requestAnimationFrame(animateOut);
-    });
-
-    // 3. Agents Receive Tasks & Begin Parallel Concurrent Analysis + Perimeter Synchronization
-    setTimeout(() => {
-        statusText.innerText = isAr ? 'تداول وتنسيق دائري: فحص السيولة، المخزون، التسعير، والهدر...' : 'Concurrent Collaboration: Cross-validating Cash, Stock, Pricing & Waste...';
-        btnText.innerText = isAr ? 'الوكلاء يتداولون البيانات...' : 'Agents Collaborating...';
-
-        agentKeys.forEach(key => {
-            const card = document.getElementById('agentCard-' + key);
-            const dot = document.getElementById('agentStatus-' + key);
-            if (card) {
-                card.classList.add('focused-agent', 'agent-processing');
-                card.querySelector('.agent-inner-pill').style.borderColor = specializedAgentsData[key].color;
-                card.querySelector('.agent-inner-pill').style.boxShadow = '0 0 25px ' + specializedAgentsData[key].color + '60';
-            }
-            if (dot) dot.classList.add('animate-ping');
-        });
-    }, 1050);
-
-    // 4. Return Synthesized Results (6 Agents -> Center Orchestrator)
-    setTimeout(() => {
-        statusText.innerText = isAr ? 'استقبال النتائج وتجميع الرؤى داخل بصيرة...' : 'Returning findings & synthesizing in Baseera...';
-        btnText.innerText = isAr ? 'توليد التوصية التنفيذية...' : 'Synthesizing Consensus...';
-
-        agentKeys.forEach(key => {
-            const agent = specializedAgentsData[key];
-            const packet = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            packet.setAttribute('r', '7');
-            packet.setAttribute('fill', agent.color);
-            packet.setAttribute('filter', 'drop-shadow(0 0 10px ' + agent.color + ')');
-            packetsGroup.appendChild(packet);
-
-            let startTime = performance.now();
-            const duration = 1000;
-
-            function animateIn(time) {
-                let progress = (time - startTime) / duration;
-                if (progress > 1) progress = 1;
-                
-                const curX = agent.coords.x + (centerX - agent.coords.x) * progress;
-                const curY = agent.coords.y + (centerY - agent.coords.y) * progress;
-                packet.setAttribute('cx', curX);
-                packet.setAttribute('cy', curY);
-
-                if (progress < 1) {
-                    requestAnimationFrame(animateIn);
-                } else {
-                    packet.remove();
-                }
-            }
-            requestAnimationFrame(animateIn);
-        });
-    }, 2700);
-
-    // 5. Final Recommendation Revealed Inside Center Card!
-    setTimeout(() => {
-        isDemoRunning = false;
-        
-        // Reset node styles & lines
-        agentKeys.forEach(key => {
-            const card = document.getElementById('agentCard-' + key);
-            const dot = document.getElementById('agentStatus-' + key);
-            const line = document.getElementById('path-' + key);
-            if (card) {
-                card.classList.remove('focused-agent', 'agent-processing');
-                card.querySelector('.agent-inner-pill').style.borderColor = '';
-                card.querySelector('.agent-inner-pill').style.boxShadow = '';
-            }
-            if (dot) dot.classList.remove('animate-ping');
-            if (line) {
-                line.classList.add('opacity-40');
-                line.style.strokeWidth = '1.8';
-                line.style.filter = '';
-            }
-        });
-
-        if (outerBase) {
-            outerBase.style.opacity = '';
-            outerBase.style.strokeWidth = '2';
-        }
-        if (outerGlow) {
-            outerGlow.style.opacity = '';
-            outerGlow.style.strokeWidth = '1.5';
-        }
-
-        // Center card success highlight
-        centerCard.style.boxShadow = '0 0 45px rgba(16,185,129,0.35), 0 0 0 2px rgba(16,185,129,0.4)';
-
-        // Show resolution view
-        document.getElementById('defaultTasksView').classList.add('hidden');
-        document.getElementById('agentDetailView').classList.add('hidden');
-        document.getElementById('liveResolutionView').classList.remove('hidden');
-
-        statusText.innerText = isAr ? 'جلسة التنسيق ناجحة — التوصية معتمدة' : 'Consensus reached — Recommendation approved';
-        
-        btn.classList.remove('opacity-75', 'pointer-events-none');
-        btnText.innerText = isAr ? 'إعادة تشغيل المحاكاة' : 'Re-run Orchestration';
-        btnIcon.setAttribute('data-lucide', 'refresh-cw');
-        btnIcon.classList.remove('animate-spin');
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-    }, 3900);
-}
-
-/* ==========================================================================
-   CIRCULAR CAROUSEL COMPONENT JS LOGIC (3D Orbital Calculation & Controls)
-   ========================================================================== */
-const carouselItems = [
-  {
-    id: "1",
-    title: "{% if trans.lang_code == 'ar' %}المساعد العام{% else %}General Assistant{% endif %}",
-    description: "{% if trans.lang_code == 'ar' %}إدارة وتوزيع الجلسة التنسيقية وتجميع التحليلات من كافة الوكلاء.{% else %}Coordinates and manages overall sessions, synthesizing insights across all agents.{% endif %}",
-    tag: "{% if trans.lang_code == 'ar' %}المنسق العام{% else %}General Coordinator{% endif %}",
-    icon: "bot",
-    badgeColorClass: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-  },
-  {
-    id: "2",
-    title: "{% if trans.lang_code == 'ar' %}الوكيل المالي{% else %}Financial Analyst Agent{% endif %}",
-    description: "{% if trans.lang_code == 'ar' %}تحليل الإيرادات ومخاطر التدفقات النقدية ونقاط التعادل والتنبؤ بعجز السيولة.{% else %}Analyzes revenue, cash flow risks, break-even points and predicts liquidity deficits.{% endif %}",
-    tag: "{% if trans.lang_code == 'ar' %}السيولة والأرباح{% else %}Finance & Cash{% endif %}",
-    icon: "trending-up",
-    badgeColorClass: "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400"
-  },
-  {
-    id: "3",
-    title: "{% if trans.lang_code == 'ar' %}وكيل الإمداد{% else %}Supply Chain Agent{% endif %}",
-    description: "{% if trans.lang_code == 'ar' %}تتبع البضاعة الراكدة وحساب توقيت إعادة الطلب الأمثل لتفادي تجميد رأس المال.{% else %}Tracks stagnant stock and calculates optimal reorder timing to prevent capital freezing.{% endif %}",
-    tag: "{% if trans.lang_code == 'ar' %}المخزون والتوريد{% else %}Supply & Stock{% endif %}",
-    icon: "truck",
-    badgeColorClass: "bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400"
-  },
-  {
-    id: "4",
-    title: "{% if trans.lang_code == 'ar' %}وكيل التسعير{% else %}Pricing Strategy Agent{% endif %}",
-    description: "{% if trans.lang_code == 'ar' %}مرونة الأسعار، هندسة الحزم (Bundles)، وتعظيم متوسط قيمة الفاتورة.{% else %}Price elasticity, product bundle engineering, and maximizing average order value.{% endif %}",
-    tag: "{% if trans.lang_code == 'ar' %}التسعير والهوامش{% else %}Pricing & Margins{% endif %}",
-    icon: "tag",
-    badgeColorClass: "bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400"
-  },
-  {
-    id: "5",
-    title: "{% if trans.lang_code == 'ar' %}التدقيق والرقابة{% else %}Forensic Audit Agent{% endif %}",
-    description: "{% if trans.lang_code == 'ar' %}كشف الفواتير المكررة، المصاريف غير الموثقة، والشذوذ المحاسبي ومكافحة الهدر.{% else %}Detects duplicate invoices, undocumented expenses, accounting anomalies, and waste.{% endif %}",
-    tag: "{% if trans.lang_code == 'ar' %}التدقيق الجنائي{% else %}Forensic Audit{% endif %}",
-    icon: "shield-check",
-    badgeColorClass: "bg-cyan-100 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400"
-  },
-  {
-    id: "6",
-    title: "{% if trans.lang_code == 'ar' %}استعادة العملاء{% else %}Customer Retention Agent{% endif %}",
-    description: "{% if trans.lang_code == 'ar' %}رصد إشارات فقدان العملاء (Churn) وحساب القيمة الدائمة LTV واستعادتهم.{% else %}Detects customer churn signals, calculates lifetime value (LTV), and plans win-back campaigns.{% endif %}",
-    tag: "{% if trans.lang_code == 'ar' %}ولاء العملاء{% else %}Customer Loyalty{% endif %}",
-    icon: "heart",
-    badgeColorClass: "bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400"
-  }
-];
-
-let currentCarouselIndex = 0;
-let carouselAutoPlayInterval = null;
-
-function switchAgentViewMode(mode) {
-    const orbitalContainer = document.getElementById('orbitalSimulationViewContainer');
-    const carouselContainer = document.getElementById('circularCarouselViewContainer');
-    const btnOrbital = document.getElementById('tabModeOrbital');
-    const btnCarousel = document.getElementById('tabModeCarousel');
-
-    if (mode === 'carousel') {
-        orbitalContainer.classList.add('hidden');
-        carouselContainer.classList.remove('hidden');
-        
-        btnOrbital.className = "px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer";
-        btnCarousel.className = "px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm cursor-pointer";
-        
-        renderCircularCarousel();
-        startCarouselAutoPlay();
-    } else {
-        carouselContainer.classList.add('hidden');
-        orbitalContainer.classList.remove('hidden');
-
-        btnCarousel.className = "px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer";
-        btnOrbital.className = "px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm cursor-pointer";
-
-        stopCarouselAutoPlay();
-    }
-}
-
-function getCarouselItemPosition(index, activeIndex, total) {
-    const VISIBLE_COUNT = 5;
-    const RADIUS_X = 220;
-    const RADIUS_Y = 100;
-    const offset = index - activeIndex;
-    const half = Math.floor(VISIBLE_COUNT / 2);
-    let adjustedOffset = offset;
-    if (offset > half) adjustedOffset = offset - total;
-    if (offset < -half) adjustedOffset = offset + total;
-    if (Math.abs(adjustedOffset) > half * 2) return null;
-
-    const angle = (adjustedOffset / VISIBLE_COUNT) * Math.PI;
-    const x = Math.sin(angle) * RADIUS_X;
-    const y = -Math.cos(angle) * RADIUS_Y;
-    const distance = Math.abs(adjustedOffset);
-    const maxDistance = half + 1;
-    const scale = Math.max(0, 1 - (distance / maxDistance) * 0.3);
-    const opacity = Math.max(0.3, 1 - (distance / maxDistance) * 0.7);
-    const zIndex = VISIBLE_COUNT - distance;
-
-    return { x, y, scale, opacity, zIndex };
-}
-
-function renderCircularCarousel() {
-    const track = document.getElementById('circularTrack');
-    const dotsContainer = document.getElementById('carouselDots');
-    const activeNum = document.getElementById('carouselActiveNum');
-    const totalNum = document.getElementById('carouselTotalNum');
-    
-    if (!track) return;
-    const total = carouselItems.length;
-
-    activeNum.innerText = String(currentCarouselIndex + 1).padStart(2, '0');
-    totalNum.innerText = `of ${String(total).padStart(2, '0')}`;
-
-    // Render Cards
-    track.innerHTML = '';
-    carouselItems.forEach((item, i) => {
-        const pos = getCarouselItemPosition(i, currentCarouselIndex, total);
-        if (!pos) return;
-        const isActive = i === currentCarouselIndex;
-
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.onclick = () => {
-            currentCarouselIndex = i;
-            renderCircularCarousel();
-        };
-
-        btn.className = `absolute left-1/2 top-1/2 flex h-40 w-60 -translate-x-1/2 -translate-y-1/2 cursor-pointer flex-col justify-between rounded-2xl border ${
-            isActive ? 'bg-white/95 dark:bg-slate-800/95 border-2 border-indigo-500 shadow-xl shadow-indigo-500/25' : 'bg-white/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-md hover:bg-white/95 dark:hover:bg-slate-800'
-        } p-4 backdrop-blur-md transition-all duration-500 overflow-hidden text-start`;
-
-        btn.style.transform = `translate(-50%, -50%) translate3d(${pos.x}px, ${pos.y}px, 0px) scale(${pos.scale})`;
-        btn.style.opacity = pos.opacity;
-        btn.style.zIndex = pos.zIndex;
-
-        btn.innerHTML = `
-            <div class="flex items-center gap-3.5 w-full">
-                <div class="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 border border-slate-200/60 dark:border-slate-700/60 shadow-xs ${item.badgeColorClass || 'bg-slate-100 text-slate-600'}">
-                    <i data-lucide="${item.icon || 'bot'}" class="h-7 w-7 stroke-[2.2]"></i>
-                </div>
-                <div class="flex flex-col text-start min-w-0 flex-1">
-                    ${item.tag ? `<span class="text-[10px] font-extrabold uppercase tracking-wider truncate mb-0.5 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'}">${item.tag}</span>` : ''}
-                    <h3 class="font-black leading-tight transition-colors duration-300 truncate ${isActive ? 'text-slate-900 dark:text-white text-sm sm:text-base' : 'text-slate-800 dark:text-slate-100 text-xs sm:text-sm'}">${item.title}</h3>
-                </div>
-            </div>
-            <p class="mt-2.5 line-clamp-2 text-xs leading-relaxed transition-colors duration-300 text-start w-full ${isActive ? 'text-slate-600 dark:text-slate-300' : 'text-slate-500 dark:text-slate-400'}">${item.description}</p>
-        `;
-        track.appendChild(btn);
-    });
-
-    // Render Dots
-    dotsContainer.innerHTML = '';
-    carouselItems.forEach((_, i) => {
-        const dot = document.createElement('button');
-        dot.type = 'button';
-        dot.onclick = () => {
-            currentCarouselIndex = i;
-            renderCircularCarousel();
-        };
-        dot.className = `h-2 rounded-full transition-all duration-300 cursor-pointer ${i === currentCarouselIndex ? 'w-6 bg-indigo-600 dark:bg-indigo-400 shadow-sm' : 'w-2 bg-slate-300 dark:bg-slate-600 hover:bg-slate-400'}`;
-        dotsContainer.appendChild(dot);
-    });
-
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-}
-
-function nextCarouselItem() {
-    currentCarouselIndex = (currentCarouselIndex + 1) % carouselItems.length;
-    renderCircularCarousel();
-}
-
-function prevCarouselItem() {
-    currentCarouselIndex = (currentCarouselIndex - 1 + carouselItems.length) % carouselItems.length;
-    renderCircularCarousel();
-}
-
-function stopCarouselAutoPlay() {
-    if (carouselAutoPlayInterval) {
-        clearInterval(carouselAutoPlayInterval);
-        carouselAutoPlayInterval = null;
-    }
-}
-
-function startCarouselAutoPlay() {
-    stopCarouselAutoPlay();
-    carouselAutoPlayInterval = setInterval(nextCarouselItem, 4000);
-}
-
-// Call immediately and on DOMContentLoaded
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', renderCircularCarousel);
-} else {
-    renderCircularCarousel();
-}
-
 document.addEventListener('DOMContentLoaded', function() {
-    renderCircularCarousel();
-
+    // Hero revenue chart
     const chartEl = document.getElementById('heroChart');
-    if (chartEl) {
+    if (chartEl && typeof Chart !== 'undefined') {
         const ctx = chartEl.getContext('2d');
         const gradient = ctx.createLinearGradient(0, 0, 0, 150);
         gradient.addColorStop(0, 'rgba(124,108,240,0.6)');
         gradient.addColorStop(1, 'rgba(124,108,240,0)');
-
         const chartLangEl = document.getElementById('chartLang');
         const isAr = chartLangEl ? chartLangEl.dataset.lang === 'ar' : true;
         const labels = isAr
             ? ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس']
             : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'];
+        new Chart(ctx, {
+            type: 'line',
+            data: { labels: labels, datasets: [{
+                data: [120, 180, 160, 240, 320, 300, 420, 480],
+                fill: true, backgroundColor: gradient, borderColor: '#2b2470',
+                borderWidth: 2.5, tension: 0.4, pointRadius: 0
+            }]},
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { display: false }, y: { display: false, min: 0 } }
+            }
+        });
+    }
 
-        if (typeof Chart !== 'undefined') {
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: [120, 180, 160, 240, 320, 300, 420, 480],
-                        fill: true,
-                        backgroundColor: gradient,
-                        borderColor: '#2b2470',
-                        borderWidth: 2.5,
-                        tension: 0.4,
-                        pointRadius: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { x: { display: false }, y: { display: false, min: 0 } }
-                }
-            });
+    // رَصْد core: subtle cursor tracking (matches the hero eye)
+    var svg = document.querySelector('.rasd-arch .diagram'),
+        core = document.getElementById('raCore'),
+        iris = document.getElementById('raIris');
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (svg && core && iris && !reduce) {
+        var tx = 0, ty = 0, px = 0, py = 0, raf = 0;
+        function onMove(e){
+            var r = svg.getBoundingClientRect(); if (!r.width) return;
+            var mx = (e.clientX - (r.left + r.width/2)) / (r.width/2);
+            var my = (e.clientY - (r.top + r.height/2)) / (r.height/2);
+            tx = Math.max(-1, Math.min(1, mx)); ty = Math.max(-1, Math.min(1, my));
+            if (!raf) raf = requestAnimationFrame(frame);
         }
+        function frame(){
+            px += (tx - px) * 0.08; py += (ty - py) * 0.08;
+            core.style.transform = 'translate(' + (px*7).toFixed(2) + 'px,' + (py*7).toFixed(2) + 'px)';
+            iris.style.transform = 'translate(' + (px*12).toFixed(2) + 'px,' + (py*12).toFixed(2) + 'px)';
+            if (Math.abs(tx-px) > 0.001 || Math.abs(ty-py) > 0.001) { raf = requestAnimationFrame(frame); }
+            else { raf = 0; }
+        }
+        window.addEventListener('pointermove', onMove, { passive: true });
     }
 });
+</script>
+
+<script>
+/* Reveal each .animate-fade-up element as it enters the viewport, so the page
+   comes alive on arrival and while scrolling instead of appearing all at once. */
+(function () {
+  var html = document.documentElement;
+  if (!html.classList.contains('wl-reveal')) return;   // JS/IO unavailable or reduced motion -> normal fade-up
+  function start() {
+    var els = [].slice.call(document.querySelectorAll('.animate-fade-up'));
+    if (!els.length) return;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    els.forEach(function (el) { io.observe(el); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
 </script>
 {% endblock %}
