@@ -6,28 +6,43 @@
 {% block content %}
 {% include 'dashboard/navbar.html' %}
 
+{# Scroll-reveal entrance: hide fade-up elements up front only when JS + IntersectionObserver are available (and motion is allowed); otherwise the normal on-load fade-up plays as a safe fallback. #}
+<script>
+(function(){
+  if ('IntersectionObserver' in window && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+    document.documentElement.classList.add('wl-reveal');
+  }
+})();
+</script>
+<style>
+  html.wl-reveal .animate-fade-up { animation: none !important; opacity: 0; transform: translateY(28px);
+    transition: opacity .7s cubic-bezier(.16,.84,.28,1), transform .7s cubic-bezier(.16,.84,.28,1);
+    transition-delay: var(--rd, 0s); will-change: opacity, transform; }
+  html.wl-reveal .animate-fade-up.in { opacity: 1; transform: none; }
+</style>
+
 <main class="mx-auto w-[min(1200px,calc(100%-2rem))] pb-20 pt-32 text-{{ trans.align }}">
 
     <!-- HERO -->
-    <section class="relative animate-fade-up">
+    <section class="relative">
         <!-- Ambient Glowing Spotlights -->
         <div class="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[580px] w-[880px] -translate-x-1/2 rounded-full bg-gradient-to-tr from-indigo-600/25 via-purple-600/25 to-cyan-500/20 blur-3xl opacity-60"></div>
         
         <div class="grid gap-10 md:grid-cols-2 md:items-center">
             <!-- Hero text -->
             <div>
-                <div class="inline-flex items-center gap-2 rounded-full border border-indigo-200/80 dark:border-indigo-800/60 bg-white/80 dark:bg-slate-900/80 px-4 py-1.5 text-xs font-black text-[var(--glow)] shadow-sm backdrop-blur mb-4">
+                <div class="animate-fade-up inline-flex items-center gap-2 rounded-full border border-indigo-200/80 dark:border-indigo-800/60 bg-white/80 dark:bg-slate-900/80 px-4 py-1.5 text-xs font-black text-[var(--glow)] shadow-sm backdrop-blur mb-4" style="--rd:.05s">
                     <span>{% if trans.lang_code == 'ar' %}منصة الذكاء المالي للمنشآت العُمانية{% else %}Financial intelligence for Omani businesses{% endif %}</span>
                 </div>
 
-                <h1 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black leading-snug md:leading-[1.35] tracking-tight" style="font-family: 'Tajawal', sans-serif;">
+                <h1 class="animate-fade-up text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black leading-snug md:leading-[1.35] tracking-tight" style="font-family: 'Tajawal', sans-serif; --rd:.12s">
                     {{ trans.hero_title }} <br>
                     <span class="text-gradient inline-block pt-2 md:pt-2.5">{{ trans.hero_title_sub }}</span>
                 </h1>
-                <p class="mt-5 max-w-lg text-base md:text-lg text-muted-foreground leading-relaxed">
+                <p class="animate-fade-up mt-5 max-w-lg text-base md:text-lg text-muted-foreground leading-relaxed" style="--rd:.2s">
                     {{ trans.hero_desc }}
                 </p>
-                <div class="mt-8 flex flex-wrap gap-3.5">
+                <div class="animate-fade-up mt-8 flex flex-wrap gap-3.5" style="--rd:.28s">
                     <a href="{% url 'register' %}" class="group inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all transform hover:-translate-y-0.5 active:translate-y-0">
                         <i data-lucide="upload" class="h-4 w-4"></i> {{ trans.register_today }}
                         {% if trans.lang_code == 'ar' %}
@@ -43,7 +58,7 @@
             </div>
 
             <!-- INTERACTIVE BASEERA EYE (SVG, tracks the cursor, brand colors) -->
-            <div id="baseeraEyeWrap" class="relative mx-auto w-full max-w-[300px] sm:max-w-[380px] md:max-w-[440px] aspect-square">
+            <div id="baseeraEyeWrap" class="animate-fade-up relative mx-auto w-full max-w-[300px] sm:max-w-[380px] md:max-w-[440px] aspect-square" style="--rd:.34s">
                 <svg id="baseeraEye" viewBox="0 0 400 400" class="w-full h-full overflow-visible" role="img" aria-label="{% if trans.lang_code == 'ar' %}شعار بصيرة يرصد حركتك{% else %}Baseera eye that tracks your cursor{% endif %}">
                     <defs>
                         <radialGradient id="eyeDisc" cx="50%" cy="45%" r="60%">
@@ -110,16 +125,20 @@
                     </g>
                 </svg>
 
-                <!-- Floating cards (kept) -->
-                <div class="absolute {% if trans.lang_code == 'ar' %}-right-4 sm:-right-8{% else %}-left-4 sm:-left-8{% endif %} bottom-2 hidden w-52 rounded-2xl p-4 glass animate-float md:block border border-white/60 dark:border-slate-700 shadow-xl z-10">
-                    <div class="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                        <i data-lucide="cpu" class="h-4 w-4"></i> {% if trans.lang_code == 'ar' %}الحساب الحتمي{% else %}Deterministic engine{% endif %}
+                <!-- Floating cards: revenue chart (restored) + Rasd chip -->
+                <div class="absolute {% if trans.lang_code == 'ar' %}-right-3 sm:-right-10{% else %}-left-3 sm:-left-10{% endif %} -bottom-2 hidden w-60 rounded-2xl p-3.5 glass animate-float md:block border border-white/60 dark:border-slate-700 shadow-xl z-10">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <div class="min-w-0">
+                            <div class="text-[10px] font-semibold text-muted-foreground truncate">{% if trans.lang_code == 'ar' %}نظرة عامة على الإيرادات{% else %}Revenue overview{% endif %}</div>
+                            <div class="text-base font-black num">{% if trans.lang_code == 'ar' %}٤٨,٣٢٠ ر.ع.{% else %}OMR 48,320{% endif %}</div>
+                        </div>
+                        <div class="shrink-0 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <i data-lucide="trending-up" class="h-3 w-3"></i><span>{% if trans.lang_code == 'ar' %}+٢٤.٦٪{% else %}+24.6%{% endif %}</span>
+                        </div>
                     </div>
-                    <div class="mt-1 text-sm font-black text-ink">{% if trans.lang_code == 'ar' %}أرقام محسوبة لا تخمين{% else %}Computed, not guessed{% endif %}</div>
-                    <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                        <div class="h-full w-11/12 rounded-full" style="background:linear-gradient(90deg,var(--nile),var(--glow))"></div>
+                    <div class="h-16 relative">
+                        <canvas id="heroChart"></canvas>
                     </div>
-                    <div class="mt-1.5 text-[10px] font-bold text-muted-foreground">{% if trans.lang_code == 'ar' %}دقة كشف الهدر ٩٩٪+{% else %}99%+ leak detection{% endif %}</div>
                 </div>
                 <div class="absolute {% if trans.lang_code == 'ar' %}-left-2 sm:-left-6{% else %}-right-2 sm:-right-6{% endif %} top-2 hidden w-56 rounded-2xl p-4 glass animate-float md:block font-medium text-{{ trans.align }} border border-white/60 dark:border-slate-700 shadow-xl z-10" style="animation-delay: 1.5s;">
                     <div class="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-400">
@@ -1711,5 +1730,26 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+</script>
+
+<script>
+/* Reveal each .animate-fade-up element as it enters the viewport, so the page
+   comes alive on arrival and while scrolling instead of appearing all at once. */
+(function () {
+  var html = document.documentElement;
+  if (!html.classList.contains('wl-reveal')) return;   // JS/IO unavailable or reduced motion -> normal fade-up
+  function start() {
+    var els = [].slice.call(document.querySelectorAll('.animate-fade-up'));
+    if (!els.length) return;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    els.forEach(function (el) { io.observe(el); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
 </script>
 {% endblock %}
