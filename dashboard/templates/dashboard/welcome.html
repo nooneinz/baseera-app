@@ -23,187 +23,121 @@
 
 <main class="mx-auto w-[min(1200px,calc(100%-2rem))] pb-20 pt-32 text-{{ trans.align }}">
 
-    <!-- HERO -->
-    <section class="relative">
-        <!-- Ambient Glowing Spotlights -->
-        <div class="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[580px] w-[880px] -translate-x-1/2 rounded-full bg-gradient-to-tr from-indigo-600/25 via-purple-600/25 to-cyan-500/20 blur-3xl opacity-60"></div>
-        
-        <div class="grid gap-10 md:grid-cols-2 md:items-center">
-            <!-- Hero text -->
-            <div>
-                <div class="animate-fade-up inline-flex items-center gap-2 rounded-full border border-indigo-200/80 dark:border-indigo-800/60 bg-white/80 dark:bg-slate-900/80 px-4 py-1.5 text-xs font-black text-[var(--glow)] shadow-sm backdrop-blur mb-4" style="--rd:.05s">
-                    <span>{% if trans.lang_code == 'ar' %}منصة الذكاء المالي للمنشآت العُمانية{% else %}Financial intelligence for Omani businesses{% endif %}</span>
-                </div>
-
-                <h1 class="animate-fade-up text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black leading-snug md:leading-[1.35] tracking-tight" style="font-family: 'Tajawal', sans-serif; --rd:.12s">
-                    {{ trans.hero_title }} <br>
-                    <span class="text-gradient inline-block pt-2 md:pt-2.5">{{ trans.hero_title_sub }}</span>
-                </h1>
-                <p class="animate-fade-up mt-5 max-w-lg text-base md:text-lg text-muted-foreground leading-relaxed" style="--rd:.2s">
-                    {{ trans.hero_desc }}
-                </p>
-                <div class="animate-fade-up mt-8 flex flex-wrap gap-3.5" style="--rd:.28s">
-                    <a href="{% url 'register' %}" class="group inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all transform hover:-translate-y-0.5 active:translate-y-0">
-                        <i data-lucide="upload" class="h-4 w-4"></i> {{ trans.register_today }}
-                        {% if trans.lang_code == 'ar' %}
-                        <i data-lucide="arrow-left" class="h-4 w-4 transition group-hover:-translate-x-1"></i>
-                        {% else %}
-                        <i data-lucide="arrow-right" class="h-4 w-4 transition group-hover:translate-x-1"></i>
-                        {% endif %}
-                    </a>
-                    <a href="{% url 'about' %}" class="inline-flex items-center gap-2 rounded-full border border-slate-200/80 dark:border-slate-700/80 bg-white/70 dark:bg-slate-800/70 px-7 py-3.5 text-sm font-bold text-foreground backdrop-blur hover:bg-white/90 dark:hover:bg-slate-800 transition-all shadow-sm">
-                        {{ trans.learn_story }}
-                    </a>
-                </div>
-            </div>
-
-            <!-- INTERACTIVE BASEERA EYE (SVG, tracks the cursor, brand colors) -->
-            <div id="baseeraEyeWrap" class="animate-fade-up relative mx-auto w-full max-w-[300px] sm:max-w-[380px] md:max-w-[440px] aspect-square" style="--rd:.34s">
-                <svg id="baseeraEye" viewBox="0 0 400 400" class="w-full h-full overflow-visible" role="img" aria-label="{% if trans.lang_code == 'ar' %}شعار بصيرة يرصد حركتك{% else %}Baseera eye that tracks your cursor{% endif %}">
-                    <defs>
-                        <radialGradient id="eyeDisc" cx="50%" cy="45%" r="60%">
-                            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.92"/>
-                            <stop offset="55%" stop-color="#b9a6f2" stop-opacity="0.28"/>
-                            <stop offset="100%" stop-color="#7c6cf0" stop-opacity="0"/>
-                        </radialGradient>
-                        <radialGradient id="eyeIrisGrad" cx="42%" cy="40%" r="70%">
-                            <stop offset="0%" stop-color="#4a3f8a"/>
-                            <stop offset="70%" stop-color="#2b2470"/>
-                            <stop offset="100%" stop-color="#211b57"/>
-                        </radialGradient>
-                        <filter id="eyeGlow" x="-40%" y="-40%" width="180%" height="180%">
-                            <feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-                        </filter>
-                        <clipPath id="eyeIrisClip"><circle cx="200" cy="200" r="98"/></clipPath>
-                    </defs>
-
-                    <g id="eyeParallax">
-                        <!-- ambient light disc -->
-                        <circle cx="200" cy="200" r="168" fill="url(#eyeDisc)"/>
-                        <!-- rotating scan ring -->
-                        <g class="eye-spin"><circle cx="200" cy="200" r="150" fill="none" stroke="#7c6cf0" stroke-width="3" stroke-dasharray="1.5 13" stroke-linecap="round" opacity="0.55"/></g>
-                        <!-- soft pulse ring -->
-                        <circle class="eye-pulse" cx="200" cy="200" r="132" fill="none" stroke="#b9a6f2" stroke-width="1.5" opacity="0.4"/>
-                        <!-- eye outline (draws in on load) -->
-                        <circle id="eyeRing" cx="200" cy="200" r="120" fill="none" stroke="#2b2470" stroke-width="6" stroke-linecap="round"/>
-
-                        <!-- iris group: watches the cursor -->
-                        <g id="eyeIris">
-                            <circle cx="200" cy="200" r="98" fill="url(#eyeIrisGrad)"/>
-                            <g clip-path="url(#eyeIrisClip)">
-                                <!-- circuit traces (data flowing) -->
-                                <g fill="none" stroke="#7c6cf0" stroke-width="2.2" stroke-linecap="round" filter="url(#eyeGlow)">
-                                    <path class="eye-trace" d="M200 200 L252 238"/>
-                                    <path class="eye-trace" d="M206 190 L270 172" style="animation-delay:.3s"/>
-                                    <path class="eye-trace" d="M198 214 L236 274" style="animation-delay:.6s"/>
-                                    <path class="eye-trace" d="M210 205 L278 214" style="animation-delay:.15s"/>
-                                    <path class="eye-trace" d="M193 202 L146 246" style="animation-delay:.45s"/>
-                                    <path class="eye-trace" d="M200 196 L214 150" style="animation-delay:.75s"/>
-                                </g>
-                                <g fill="#b9a6f2">
-                                    <circle class="eye-node" cx="252" cy="238" r="4.5"/>
-                                    <circle class="eye-node" cx="270" cy="172" r="3.6" style="animation-delay:.4s"/>
-                                    <circle class="eye-node" cx="236" cy="274" r="3.6" style="animation-delay:.8s"/>
-                                    <circle class="eye-node" cx="278" cy="214" r="3.2" style="animation-delay:.2s"/>
-                                    <circle class="eye-node" cx="146" cy="246" r="3.6" style="animation-delay:.6s"/>
-                                    <circle class="eye-node" cx="214" cy="150" r="3.2" style="animation-delay:1s"/>
-                                </g>
-                                <!-- pixel pupil (the recognizable Baseera mark) -->
-                                <rect x="150" y="150" width="46" height="46" rx="14" fill="#ffffff"/>
-                                <rect x="206" y="206" width="26" height="26" rx="8" fill="#ffffff"/>
-                            </g>
-                        </g>
-
-                        <!-- floating data particles -->
-                        <g fill="#7c6cf0">
-                            <circle class="eye-dot" cx="70" cy="120" r="3"/>
-                            <circle class="eye-dot" cx="330" cy="150" r="2.5" style="animation-delay:.6s"/>
-                            <circle class="eye-dot" cx="300" cy="330" r="3" style="animation-delay:1.2s"/>
-                            <circle class="eye-dot" cx="90" cy="300" r="2.5" style="animation-delay:.9s"/>
-                            <circle class="eye-dot" cx="200" cy="46" r="2.5" style="animation-delay:.3s"/>
-                        </g>
-                    </g>
-                </svg>
-
-                <!-- Floating cards: revenue chart (restored) + Rasd chip -->
-                <div class="absolute {% if trans.lang_code == 'ar' %}-right-3 sm:-right-10{% else %}-left-3 sm:-left-10{% endif %} -bottom-2 hidden w-60 rounded-2xl p-3.5 glass animate-float md:block border border-white/60 dark:border-slate-700 shadow-xl z-10">
-                    <div class="flex items-center justify-between gap-2 mb-2">
-                        <div class="min-w-0">
-                            <div class="text-[10px] font-semibold text-muted-foreground truncate">{% if trans.lang_code == 'ar' %}نظرة عامة على الإيرادات{% else %}Revenue overview{% endif %}</div>
-                            <div class="text-base font-black num">{% if trans.lang_code == 'ar' %}٤٨,٣٢٠ ر.ع.{% else %}OMR 48,320{% endif %}</div>
-                        </div>
-                        <div class="shrink-0 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                            <i data-lucide="trending-up" class="h-3 w-3"></i><span>{% if trans.lang_code == 'ar' %}+٢٤.٦٪{% else %}+24.6%{% endif %}</span>
-                        </div>
-                    </div>
-                    <div class="h-16 relative">
-                        <canvas id="heroChart"></canvas>
-                    </div>
-                </div>
-                <div class="absolute {% if trans.lang_code == 'ar' %}-left-2 sm:-left-6{% else %}-right-2 sm:-right-6{% endif %} top-2 hidden w-56 rounded-2xl p-4 glass animate-float md:block font-medium text-{{ trans.align }} border border-white/60 dark:border-slate-700 shadow-xl z-10" style="animation-delay: 1.5s;">
-                    <div class="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-400">
-                        <i data-lucide="scan-eye" class="h-4 w-4"></i> {% if trans.lang_code == 'ar' %}رَصْد يعمل الآن{% else %}Rasd is watching{% endif %}
-                    </div>
-                    <div class="mt-1.5 text-xs text-ink leading-relaxed font-bold">{% if trans.lang_code == 'ar' %}"وين تروح فلوسك؟ ارفع ملفك وأكشفها لك."{% else %}"Where does your money go? Upload and I'll reveal it."{% endif %}</div>
-                </div>
-            </div>
-        </div>
-    </section>
-
+    <!-- HERO (dashboard-forward) -->
     <style>
-      #baseeraEye #eyeParallax, #baseeraEye #eyeIris { will-change: transform; }
-      #baseeraEye .eye-spin { transform-box: fill-box; transform-origin: center; animation: bEyeSpin 16s linear infinite; }
-      @keyframes bEyeSpin { to { transform: rotate(360deg); } }
-      #baseeraEye .eye-pulse { transform-box: fill-box; transform-origin: center; animation: bEyePulse 3.6s ease-in-out infinite; }
-      @keyframes bEyePulse { 0%,100% { opacity:.3; transform: scale(1); } 50% { opacity:.6; transform: scale(1.07); } }
-      #baseeraEye #eyeRing { stroke-dasharray: 754; stroke-dashoffset: 754; animation: bEyeDraw 1.7s cubic-bezier(.6,.05,.2,1) .2s forwards; }
-      @keyframes bEyeDraw { to { stroke-dashoffset: 0; } }
-      #baseeraEye .eye-trace { stroke-dasharray: 7 9; animation: bEyeFlow 2.4s linear infinite; }
-      @keyframes bEyeFlow { to { stroke-dashoffset: -64; } }
-      #baseeraEye .eye-node { animation: bEyeNode 2.2s ease-in-out infinite; }
-      @keyframes bEyeNode { 0%,100% { opacity:.45; } 50% { opacity:1; } }
-      #baseeraEye .eye-dot { animation: bEyeDot 3.4s ease-in-out infinite; }
-      @keyframes bEyeDot { 0%,100% { opacity:.15; } 50% { opacity:.85; } }
-      @media (prefers-reduced-motion: reduce) {
-        #baseeraEye .eye-spin, #baseeraEye .eye-pulse, #baseeraEye .eye-trace, #baseeraEye .eye-node, #baseeraEye .eye-dot { animation: none !important; }
+      .bh{position:relative;border-radius:28px;overflow:hidden;color:#fff;padding:34px 32px 40px;
+          background:
+            radial-gradient(900px 500px at 82% -10%, rgba(124,108,240,.5), transparent 60%),
+            radial-gradient(700px 500px at 8% 115%, rgba(74,63,138,.55), transparent 60%),
+            linear-gradient(135deg,#241d63 0%, #1e1b4b 55%, #171043 100%);}
+      .bh-grid{display:grid;grid-template-columns:1.05fr 1fr;gap:28px;align-items:center}
+      .bh-pill{display:inline-block;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#e7e2fb;font-size:12px;font-weight:800;padding:6px 14px;border-radius:999px;margin-bottom:16px}
+      .bh h1{font-size:40px;line-height:1.3;font-weight:900;margin:0;letter-spacing:-.5px;color:#fff}
+      .bh h1 .g{background:linear-gradient(90deg,#b9a6f2,#7c6cf0);-webkit-background-clip:text;background-clip:text;color:transparent}
+      .bh-desc{margin:16px 0 0;color:#cbc6ea;font-size:15px;line-height:1.9;max-width:460px}
+      .bh-btns{display:flex;flex-wrap:wrap;gap:14px;margin-top:24px}
+      .bh-b1{background:linear-gradient(90deg,#7c6cf0,#9d8bf5);color:#fff;font-weight:800;padding:13px 24px;border-radius:999px;font-size:14px;box-shadow:0 14px 30px -8px rgba(124,108,240,.7);display:inline-flex;align-items:center;gap:8px;transition:transform .2s,filter .2s}
+      .bh-b1:hover{transform:translateY(-2px);filter:brightness(1.06)}
+      .bh-b2{border:1px solid rgba(255,255,255,.28);color:#fff;font-weight:800;padding:13px 22px;border-radius:999px;font-size:14px;background:rgba(255,255,255,.05);display:inline-flex;align-items:center;gap:8px;transition:background .2s}
+      .bh-b2:hover{background:rgba(255,255,255,.12)}
+      .bh-stats{display:flex;gap:28px;margin-top:30px;flex-wrap:wrap}
+      .bh-stats .n{font-size:24px;font-weight:900;color:#fff}
+      .bh-stats .l{font-size:11.5px;color:#a9a3d6;margin-top:2px}
+      /* dashboard card */
+      .bh-board{position:relative;background:#fff;border-radius:22px;padding:16px 16px 14px;color:#1e1b4b;box-shadow:0 40px 90px -25px rgba(0,0,0,.55)}
+      .bh-board .bhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px}
+      .bh-bt{display:flex;align-items:center;gap:8px;font-weight:900;font-size:13.5px;color:#2b2470}
+      .bh-dot{width:9px;height:9px;border-radius:50%;background:#7c6cf0;flex:0 0 auto}
+      .bh-chip{font-size:10.5px;font-weight:800;color:#7c6cf0;background:#f1eefc;border:1px solid #e5e0fb;padding:4px 9px;border-radius:999px;white-space:nowrap}
+      .bh-kpis{display:flex;gap:8px;margin-bottom:10px}
+      .bh-kpi{flex:1;background:#f7f6fd;border:1px solid #eee9fb;border-radius:12px;padding:8px 10px}
+      .bh-kpi .k{font-size:10px;color:#7b769b;font-weight:700}
+      .bh-kpi .v{font-size:14px;font-weight:900;color:#1e1b4b;margin-top:1px}
+      .bh-kpi .v.up{color:#0f9d6b}
+      .bh-chartbox{background:#faf9ff;border:1px solid #eee9fb;border-radius:14px;padding:8px 8px 6px;margin-bottom:10px}
+      .bh-ct{font-size:11px;font-weight:800;color:#5b5776;padding:2px 4px 6px;display:flex;justify-content:space-between}
+      .bh-chartbox .cv{height:96px;position:relative}
+      .bh-notes{background:#fbfaff;border:1px solid #eee9fb;border-radius:14px;padding:10px 12px}
+      .bh-nt{font-size:11px;font-weight:900;color:#2b2470;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+      .bh-note{display:flex;align-items:flex-start;gap:8px;margin:7px 0;font-size:12px;line-height:1.5;color:#3a3556}
+      .bh-note .b{width:8px;height:8px;border-radius:3px;margin-top:4px;flex:0 0 auto}
+      .bh-note .bad{background:#e5484d}.bh-note .warn{background:#f0a020}.bh-note .good{background:#0f9d6b}
+      .bh-float{position:absolute;inset-inline-start:-12px;bottom:22px;background:#fff;border-radius:14px;padding:9px 12px;box-shadow:0 20px 40px -14px rgba(0,0,0,.4);display:flex;align-items:center;gap:8px}
+      .bh-float .d2{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#2b2470,#7c6cf0);flex:0 0 auto}
+      .bh-float .t{font-size:10.5px;font-weight:800;color:#2b2470}
+      .bh-float .s{font-size:9.5px;color:#0f9d6b;font-weight:800}
+      /* entrance + gentle float (like the reference video) */
+      .bh-boardwrap{animation:bhFloat 6s ease-in-out infinite}
+      .bh-board{animation:bhCardIn .9s cubic-bezier(.16,.84,.28,1) .1s both}
+      .bh-kpi{animation:bhUp .6s ease both}
+      .bh-kpi:nth-child(1){animation-delay:.35s}
+      .bh-kpi:nth-child(2){animation-delay:.45s}
+      .bh-kpi:nth-child(3){animation-delay:.55s}
+      .bh-chartbox{animation:bhUp .7s ease .6s both}
+      .bh-notes{animation:bhUp .7s ease .75s both}
+      .bh-notes .bh-note:nth-child(2){animation:bhUp .5s ease .9s both}
+      .bh-notes .bh-note:nth-child(3){animation:bhUp .5s ease 1.02s both}
+      .bh-notes .bh-note:nth-child(4){animation:bhUp .5s ease 1.14s both}
+      .bh-float{animation:bhUp .6s ease 1.3s both, bhFloat 5s ease-in-out 2s infinite}
+      @keyframes bhCardIn{from{opacity:0;transform:translateY(38px) scale(.97)}to{opacity:1;transform:none}}
+      @keyframes bhUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+      @keyframes bhFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+      @media (prefers-reduced-motion:reduce){
+        .bh-boardwrap,.bh-board,.bh-kpi,.bh-chartbox,.bh-notes,.bh-note,.bh-float{animation:none!important}
+      }
+      @media (max-width:860px){
+        .bh{padding:24px 18px 28px}
+        .bh-grid{grid-template-columns:1fr;gap:22px}
+        .bh h1{font-size:30px}
+        .bh-float{display:none}
       }
     </style>
-    <script>
-    (function () {
-      var wrap = document.getElementById('baseeraEyeWrap');
-      var eye = document.getElementById('baseeraEye');
-      if (!wrap || !eye) return;
-      var parallax = eye.querySelector('#eyeParallax');
-      var iris = eye.querySelector('#eyeIris');
-      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      var tx = 0, ty = 0, px = 0, py = 0, lastMove = -9999;
-      function onMove(e) {
-        var r = wrap.getBoundingClientRect();
-        if (!r.width) return;
-        var mx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
-        var my = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
-        tx = Math.max(-1.4, Math.min(1.4, mx));
-        ty = Math.max(-1.4, Math.min(1.4, my));
-        lastMove = performance.now();
-      }
-      window.addEventListener('pointermove', onMove, { passive: true });
-      window.addEventListener('pointerleave', function () { lastMove = -9999; });
-      function frame() {
-        var now = performance.now();
-        // when the cursor is idle, the eye keeps gazing around on its own
-        if (now - lastMove > 1600) {
-          var s = now / 1000;
-          tx = Math.cos(s * 0.55) * 0.8 + Math.sin(s * 0.23) * 0.3;
-          ty = Math.sin(s * 0.75) * 0.55;
-        }
-        px += (tx - px) * 0.07; py += (ty - py) * 0.07;
-        if (parallax) parallax.style.transform = 'translate(' + (px * 9).toFixed(2) + 'px,' + (py * 9).toFixed(2) + 'px)';
-        if (iris) iris.style.transform = 'translate(' + (px * 15).toFixed(2) + 'px,' + (py * 15).toFixed(2) + 'px)';
-        requestAnimationFrame(frame);
-      }
-      if (!reduce) requestAnimationFrame(frame);
-    })();
-    </script>
+
+    <section class="relative animate-fade-up">
+      <div class="bh">
+        <div class="bh-grid">
+          <!-- dashboard card -->
+          <div class="bh-boardwrap"><div class="bh-board">
+            <div class="bhead">
+              <div class="bh-bt"><span class="bh-dot"></span> {% if trans.lang_code == 'ar' %}لوحة بصيرة — نظرة عامة{% else %}Baseera dashboard — overview{% endif %}</div>
+              <div class="bh-chip">{% if trans.lang_code == 'ar' %}رَصْد يحسب بايثون · بلا هلوسة{% else %}Rasd computes in Python · no hallucination{% endif %}</div>
+            </div>
+            <div class="bh-kpis">
+              <div class="bh-kpi"><div class="k">{% if trans.lang_code == 'ar' %}الدخل{% else %}Income{% endif %}</div><div class="v up">{% if trans.lang_code == 'ar' %}٤٨,٣٢٠ ر.ع{% else %}OMR 48,320{% endif %}</div></div>
+              <div class="bh-kpi"><div class="k">{% if trans.lang_code == 'ar' %}المصروف{% else %}Expense{% endif %}</div><div class="v">{% if trans.lang_code == 'ar' %}٣١,١٠٠ ر.ع{% else %}OMR 31,100{% endif %}</div></div>
+              <div class="bh-kpi"><div class="k">{% if trans.lang_code == 'ar' %}الصافي{% else %}Net{% endif %}</div><div class="v up">{% if trans.lang_code == 'ar' %}+١٧,٢٢٠{% else %}+17,220{% endif %}</div></div>
+            </div>
+            <div class="bh-chartbox">
+              <div class="bh-ct"><span>{% if trans.lang_code == 'ar' %}التدفّق النقدي{% else %}Cash flow{% endif %}</span><span>{% if trans.lang_code == 'ar' %}آخر ٨ أشهر{% else %}last 8 months{% endif %}</span></div>
+              <div class="cv"><canvas id="heroChart"></canvas></div>
+            </div>
+            <div class="bh-notes">
+              <div class="bh-nt"><span class="bh-dot"></span> {% if trans.lang_code == 'ar' %}ملاحظات رَصْد على بياناتك{% else %}Rasd's notes on your data{% endif %}</div>
+              <div class="bh-note"><span class="b bad"></span><span>{% if trans.lang_code == 'ar' %}<b>أكبر تسريب:</b> اشتراكات مكرّرة — ٣٤٠ ر.ع/شهر يمكن إيقافها.{% else %}<b>Biggest leak:</b> duplicate subscriptions — OMR 340/mo you can stop.{% endif %}</span></div>
+              <div class="bh-note"><span class="b good"></span><span>{% if trans.lang_code == 'ar' %}<b>كفاية السيولة:</b> ٤.٢ أشهر تشغيل قادمة بأمان.{% else %}<b>Runway:</b> 4.2 safe operating months ahead.{% endif %}</span></div>
+              <div class="bh-note"><span class="b warn"></span><span>{% if trans.lang_code == 'ar' %}<b>بند متكرر مرتفع:</b> شحن ومناولة — ١,٢٥٠ ر.ع هذا الشهر.{% else %}<b>High recurring cost:</b> shipping — OMR 1,250 this month.{% endif %}</span></div>
+            </div>
+            <div class="bh-float"><div class="d2"></div><div><div class="t">{% if trans.lang_code == 'ar' %}رَصْد يعمل الآن{% else %}Rasd is working{% endif %}</div><div class="s">{% if trans.lang_code == 'ar' %}حلّل ٣١٢ عملية · بالدليل{% else %}analyzed 312 rows · with evidence{% endif %}</div></div></div>
+          </div></div>
+
+          <!-- copy -->
+          <div>
+            <span class="bh-pill">{% if trans.lang_code == 'ar' %}منصة الذكاء المالي للمنشآت العُمانية{% else %}Financial intelligence for Omani businesses{% endif %}</span>
+            <h1>{{ trans.hero_title }} <span class="g">{{ trans.hero_title_sub }}</span></h1>
+            <p class="bh-desc">{{ trans.hero_desc }}</p>
+            <div class="bh-btns">
+              <a href="{% url 'register' %}" class="bh-b1"><i data-lucide="upload" class="h-4 w-4"></i> {{ trans.register_today }}</a>
+              <a href="{% url 'about' %}" class="bh-b2">{{ trans.learn_story }}</a>
+            </div>
+            <div class="bh-stats">
+              <div><div class="n">{% if trans.lang_code == 'ar' %}٦{% else %}6{% endif %}</div><div class="l">{% if trans.lang_code == 'ar' %}وكلاء متخصّصون{% else %}specialized agents{% endif %}</div></div>
+              <div><div class="n">{% if trans.lang_code == 'ar' %}٥ دقائق{% else %}5 min{% endif %}</div><div class="l">{% if trans.lang_code == 'ar' %}حتى أول قرار{% else %}to first decision{% endif %}</div></div>
+              <div><div class="n">{% if trans.lang_code == 'ar' %}٪٠{% else %}0%{% endif %}</div><div class="l">{% if trans.lang_code == 'ar' %}هلوسة في الأرقام{% else %}hallucination in numbers{% endif %}</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- HOW IT WORKS -->
     <section class="mt-24 animate-fade-up">
