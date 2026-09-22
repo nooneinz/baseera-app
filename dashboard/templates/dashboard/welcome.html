@@ -152,10 +152,10 @@
 
     <style>
       #baseeraEye #eyeParallax, #baseeraEye #eyeIris { will-change: transform; }
-      #baseeraEye .eye-spin { transform-box: fill-box; transform-origin: center; animation: bEyeSpin 26s linear infinite; }
+      #baseeraEye .eye-spin { transform-box: fill-box; transform-origin: center; animation: bEyeSpin 16s linear infinite; }
       @keyframes bEyeSpin { to { transform: rotate(360deg); } }
-      #baseeraEye .eye-pulse { transform-box: fill-box; transform-origin: center; animation: bEyePulse 4.5s ease-in-out infinite; }
-      @keyframes bEyePulse { 0%,100% { opacity:.25; transform: scale(1); } 50% { opacity:.5; transform: scale(1.05); } }
+      #baseeraEye .eye-pulse { transform-box: fill-box; transform-origin: center; animation: bEyePulse 3.6s ease-in-out infinite; }
+      @keyframes bEyePulse { 0%,100% { opacity:.3; transform: scale(1); } 50% { opacity:.6; transform: scale(1.07); } }
       #baseeraEye #eyeRing { stroke-dasharray: 754; stroke-dashoffset: 754; animation: bEyeDraw 1.7s cubic-bezier(.6,.05,.2,1) .2s forwards; }
       @keyframes bEyeDraw { to { stroke-dashoffset: 0; } }
       #baseeraEye .eye-trace { stroke-dasharray: 7 9; animation: bEyeFlow 2.4s linear infinite; }
@@ -176,7 +176,7 @@
       var parallax = eye.querySelector('#eyeParallax');
       var iris = eye.querySelector('#eyeIris');
       var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      var tx = 0, ty = 0, px = 0, py = 0;
+      var tx = 0, ty = 0, px = 0, py = 0, lastMove = -9999;
       function onMove(e) {
         var r = wrap.getBoundingClientRect();
         if (!r.width) return;
@@ -184,11 +184,19 @@
         var my = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
         tx = Math.max(-1.4, Math.min(1.4, mx));
         ty = Math.max(-1.4, Math.min(1.4, my));
+        lastMove = performance.now();
       }
       window.addEventListener('pointermove', onMove, { passive: true });
-      window.addEventListener('pointerleave', function () { tx = 0; ty = 0; });
+      window.addEventListener('pointerleave', function () { lastMove = -9999; });
       function frame() {
-        px += (tx - px) * 0.09; py += (ty - py) * 0.09;
+        var now = performance.now();
+        // when the cursor is idle, the eye keeps gazing around on its own
+        if (now - lastMove > 1600) {
+          var s = now / 1000;
+          tx = Math.cos(s * 0.55) * 0.8 + Math.sin(s * 0.23) * 0.3;
+          ty = Math.sin(s * 0.75) * 0.55;
+        }
+        px += (tx - px) * 0.07; py += (ty - py) * 0.07;
         if (parallax) parallax.style.transform = 'translate(' + (px * 9).toFixed(2) + 'px,' + (py * 9).toFixed(2) + 'px)';
         if (iris) iris.style.transform = 'translate(' + (px * 15).toFixed(2) + 'px,' + (py * 15).toFixed(2) + 'px)';
         requestAnimationFrame(frame);
