@@ -37,10 +37,13 @@
       .bh h1 .g{background:linear-gradient(90deg,#7c6cf0,#2b2470);-webkit-background-clip:text;background-clip:text;color:transparent}
       .bh-desc{margin:16px 0 0;color:#5b5776;font-size:15px;line-height:1.9;max-width:460px}
       .bh-btns{display:flex;flex-wrap:wrap;gap:14px;margin-top:24px}
-      .bh-b1{background:linear-gradient(90deg,#7c6cf0,#9d8bf5);color:#fff;font-weight:800;padding:13px 24px;border-radius:999px;font-size:14px;box-shadow:0 14px 30px -8px rgba(124,108,240,.5);display:inline-flex;align-items:center;gap:8px;transition:transform .2s,filter .2s}
-      .bh-b1:hover{transform:translateY(-2px);filter:brightness(1.06)}
-      .bh-b2{border:1px solid #d9d4f5;color:#2b2470;font-weight:800;padding:13px 22px;border-radius:999px;font-size:14px;background:#fff;display:inline-flex;align-items:center;gap:8px;transition:background .2s,border-color .2s}
-      .bh-b2:hover{background:#f7f6fd;border-color:#c4bcf0}
+      /* 4) interactive hover — scale 1.02 up / 0.98 press + border glow (0.2s) */
+      .bh-b1{background:linear-gradient(90deg,#7c6cf0,#9d8bf5);color:#fff;font-weight:800;padding:13px 24px;border-radius:999px;font-size:14px;box-shadow:0 14px 30px -8px rgba(124,108,240,.5);display:inline-flex;align-items:center;gap:8px;transition:transform .2s cubic-bezier(.16,.84,.28,1),box-shadow .2s,filter .2s}
+      .bh-b1:hover{transform:translateY(-2px) scale(1.02);filter:brightness(1.06);box-shadow:0 20px 40px -8px rgba(124,108,240,.62)}
+      .bh-b1:active{transform:scale(.98)}
+      .bh-b2{border:1px solid #d9d4f5;color:#2b2470;font-weight:800;padding:13px 22px;border-radius:999px;font-size:14px;background:#fff;display:inline-flex;align-items:center;gap:8px;transition:transform .2s cubic-bezier(.16,.84,.28,1),background .2s,border-color .2s,box-shadow .2s}
+      .bh-b2:hover{background:#f7f6fd;border-color:#b9a6f2;transform:scale(1.02);box-shadow:0 12px 26px -12px rgba(124,108,240,.4)}
+      .bh-b2:active{transform:scale(.98)}
       .bh-stats{display:flex;gap:28px;margin-top:30px;flex-wrap:wrap}
       .bh-stats .n{font-size:24px;font-weight:900;color:#1e1b4b}
       .bh-stats .l{font-size:11.5px;color:#7b769b;margin-top:2px}
@@ -55,11 +58,20 @@
       /* ===== 3D stage + floating cards ===== */
       .bh-stage{position:relative;height:506px;perspective:1300px}
       .bh-deck{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .25s ease-out;will-change:transform}
-      .bh-fc{position:absolute;background:#fff;border:1px solid #eee9fb;border-radius:18px;box-shadow:0 26px 54px -22px rgba(43,36,112,.4);padding:16px 18px;will-change:transform,opacity}
+      .bh-fc{position:absolute;background:#fff;border:1px solid #eee9fb;border-radius:18px;box-shadow:0 26px 54px -22px rgba(43,36,112,.4);padding:16px 18px;will-change:transform,opacity;
+             transition:scale .25s cubic-bezier(.16,.84,.28,1),box-shadow .25s ease,border-color .25s ease}
       .dark .bh-fc{background:#171433;border-color:rgba(255,255,255,.08)}
+      /* 4) hover: lift + scale 1.02 + brand border glow — `scale` composites with the float transform */
+      .bh-fc:hover{scale:1.02;border-color:#c4b8f5;box-shadow:0 34px 66px -18px rgba(124,108,240,.55),0 0 0 1px rgba(124,108,240,.25)}
+      .dark .bh-fc:hover{border-color:rgba(124,108,240,.55);box-shadow:0 34px 66px -18px rgba(0,0,0,.6),0 0 0 1px rgba(124,108,240,.4)}
       .bh-cap{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px}
-      .bh-cap .lbl{font-size:12px;font-weight:800;color:#5b5776}
+      .bh-cap .lbl{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:#5b5776}
       .dark .bh-cap .lbl{color:#b9b4d6}
+      /* 5) continuous pulse — a live "Rasd is running" dot (green core, brand-glow echo) */
+      .bh-dot{position:relative;width:8px;height:8px;border-radius:50%;background:#0f9d6b;flex:0 0 auto}
+      .bh-dot::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 0 rgba(124,108,240,.5);animation:bhPulse 2.2s cubic-bezier(.16,.84,.28,1) infinite}
+      @keyframes bhPulse{0%{box-shadow:0 0 0 0 rgba(124,108,240,.5)}70%{box-shadow:0 0 0 9px rgba(124,108,240,0)}100%{box-shadow:0 0 0 0 rgba(124,108,240,0)}}
+      @media (prefers-reduced-motion:reduce){.bh-dot::after{animation:none}}
       .bh-chip{font-size:10px;font-weight:800;color:#7c6cf0;background:#f1eefc;border:1px solid #e5e0fb;padding:4px 9px;border-radius:999px;white-space:nowrap}
       .bh-cg{left:14px;top:24px;width:534px;height:256px;--dz:0px}
       .bh-cg .cv{height:196px;position:relative}
@@ -76,13 +88,14 @@
       .bh-ca .ic{width:34px;height:34px;border-radius:10px;background:#fdecec;color:#e5484d;display:grid;place-items:center;font-weight:900;font-size:18px;flex:0 0 auto}
       .bh-ca .m{font-size:13px;color:#3a3556;line-height:1.5}
       .dark .bh-ca .m{color:#d7d3ea}
-      /* 1) text reveals first (staggered slide-up) */
+      /* 1) staggered entrance — text reveals first, each 0.1s after the last */
       .bh-rev{animation:bhUpT .6s cubic-bezier(.16,.84,.28,1) var(--d,0s) both}
-      /* 2) then cards fly up into place, one by one, at layered depths */
+      /* 2) then the cards fly up one-by-one on the same 0.1s cadence, at layered 3D depths,
+            then settle into a slow continuous float so the hero never feels dead */
       .bh-cg{animation:bhUp .8s cubic-bezier(.16,.84,.28,1) .55s both, bhFlo 6.5s ease-in-out 1.9s infinite}
-      .bh-ci{animation:bhUp .7s cubic-bezier(.16,.84,.28,1) .78s both, bhFlo 6.9s ease-in-out 2.2s infinite}
-      .bh-cn{animation:bhUp .7s cubic-bezier(.16,.84,.28,1) .95s both, bhFlo 7.2s ease-in-out 2.5s infinite}
-      .bh-ca{animation:bhUp .7s cubic-bezier(.16,.84,.28,1) 1.15s both, bhFlo 7.5s ease-in-out 2.8s infinite}
+      .bh-ci{animation:bhUp .7s cubic-bezier(.16,.84,.28,1) .65s both, bhFlo 6.9s ease-in-out 2.2s infinite}
+      .bh-cn{animation:bhUp .7s cubic-bezier(.16,.84,.28,1) .75s both, bhFlo 7.2s ease-in-out 2.5s infinite}
+      .bh-ca{animation:bhUp .7s cubic-bezier(.16,.84,.28,1) .85s both, bhFlo 7.5s ease-in-out 2.8s infinite}
       @keyframes bhUp{from{opacity:0;transform:translateY(46px) translateZ(var(--dz,0))}to{opacity:1;transform:translateY(0) translateZ(var(--dz,0))}}
       @keyframes bhFlo{0%,100%{transform:translateY(0) translateZ(var(--dz,0))}50%{transform:translateY(-8px) translateZ(var(--dz,0))}}
       @keyframes bhUpT{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
@@ -105,7 +118,7 @@
           <div class="bh-stage">
             <div class="bh-deck">
               <div class="bh-fc bh-cg">
-                <div class="bh-cap"><span class="lbl">{% if trans.lang_code == 'ar' %}التدفّق النقدي — آخر ٨ أشهر{% else %}Cash flow — last 8 months{% endif %}</span><span class="bh-chip">{% if trans.lang_code == 'ar' %}رَصْد يحسب بايثون{% else %}Rasd computes in Python{% endif %}</span></div>
+                <div class="bh-cap"><span class="lbl"><span class="bh-dot" aria-hidden="true"></span>{% if trans.lang_code == 'ar' %}التدفّق النقدي — آخر ٨ أشهر{% else %}Cash flow — last 8 months{% endif %}</span><span class="bh-chip">{% if trans.lang_code == 'ar' %}رَصْد يحسب بايثون{% else %}Rasd computes in Python{% endif %}</span></div>
                 <div class="cv"><canvas id="heroChart"></canvas></div>
               </div>
               <div class="bh-fc bh-ck bh-ci"><div class="k">{% if trans.lang_code == 'ar' %}الدخل{% else %}Income{% endif %}</div><div class="v up bh-count" data-num="48320" data-tpl="{% if trans.lang_code == 'ar' %}{n} ر.ع{% else %}OMR {n}{% endif %}">{% if trans.lang_code == 'ar' %}٤٨,٣٢٠ ر.ع{% else %}OMR 48,320{% endif %}</div><div class="d">{% if trans.lang_code == 'ar' %}هذا الشهر{% else %}this month{% endif %}</div></div>
@@ -116,14 +129,14 @@
 
           <!-- copy (reveals first) -->
           <div class="bh-copy">
-            <span class="bh-pill bh-rev" style="--d:.05s">{% if trans.lang_code == 'ar' %}منصة الذكاء المالي للمنشآت العُمانية{% else %}Financial intelligence for Omani businesses{% endif %}</span>
-            <h1 class="bh-rev" style="--d:.14s">{{ trans.hero_title }} <span class="g">{{ trans.hero_title_sub }}</span></h1>
-            <p class="bh-desc bh-rev" style="--d:.24s">{{ trans.hero_desc }}</p>
-            <div class="bh-btns bh-rev" style="--d:.34s">
+            <span class="bh-pill bh-rev" style="--d:0s">{% if trans.lang_code == 'ar' %}منصة الذكاء المالي للمنشآت العُمانية{% else %}Financial intelligence for Omani businesses{% endif %}</span>
+            <h1 class="bh-rev" style="--d:.1s">{{ trans.hero_title }} <span class="g">{{ trans.hero_title_sub }}</span></h1>
+            <p class="bh-desc bh-rev" style="--d:.2s">{{ trans.hero_desc }}</p>
+            <div class="bh-btns bh-rev" style="--d:.3s">
               <a href="{% url 'register' %}" class="bh-b1"><i data-lucide="upload" class="h-4 w-4"></i> {{ trans.register_today }}</a>
               <a href="{% url 'about' %}" class="bh-b2">{{ trans.learn_story }}</a>
             </div>
-            <div class="bh-stats bh-rev" style="--d:.44s">
+            <div class="bh-stats bh-rev" style="--d:.4s">
               <div><div class="n">{% if trans.lang_code == 'ar' %}٦{% else %}6{% endif %}</div><div class="l">{% if trans.lang_code == 'ar' %}وكلاء متخصّصون{% else %}specialized agents{% endif %}</div></div>
               <div><div class="n">{% if trans.lang_code == 'ar' %}٥ دقائق{% else %}5 min{% endif %}</div><div class="l">{% if trans.lang_code == 'ar' %}حتى أول قرار{% else %}to first decision{% endif %}</div></div>
               <div><div class="n">{% if trans.lang_code == 'ar' %}٪٠{% else %}0%{% endif %}</div><div class="l">{% if trans.lang_code == 'ar' %}هلوسة في الأرقام{% else %}hallucination in numbers{% endif %}</div></div>
