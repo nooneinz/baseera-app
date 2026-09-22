@@ -8,29 +8,59 @@ deterministic engine the dashboard uses (compute_transaction_signal), so the
 image agrees with the site exactly.
 
 Rendered with Pillow (already a dependency) rather than matplotlib, to stay
-light on the memory-constrained web instance. Labels are English + numerals
-for now (Arabic-in-image needs a bundled Arabic font; that's a follow-up);
-the numbers are the point and read the same in any language.
+light on the memory-constrained web instance.
+
+Arabic text: when Pillow is built with libraqm we pass RAW logical Arabic and
+let raqm do shaping + bidi (direction="rtl"). Manually reshaping first (with
+arabic_reshaper/bidi) and THEN handing it to raqm double-processes the string
+and renders it disconnected and reversed — that was the old bug. We only fall
+back to arabic_reshaper/bidi when raqm is unavailable.
+
+The card carries Baseera's identity: the eye logo and the brand's Nile/Glow
+palette (green/red stay reserved for income/expense, which are semantic).
 """
 import io
 import os
+import re
 import logging
 from datetime import date
 
 logger = logging.getLogger(__name__)
 
 _AR_FONT = os.path.join(os.path.dirname(__file__), "fonts", "Amiri.ttf")
+_LOGO = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),  # dashboard/
+    "static", "dashboard", "img", "logo.png",
+)
+
+_AR_RE = re.compile(r"[؀-ۿ]")
+
+
+def _has_raqm():
+    """True when Pillow can shape complex text (Arabic) itself."""
+    try:
+        from PIL import features
+        return features.check("raqm")
+    except Exception:
+        return False
+
+
+_HAS_RAQM = _has_raqm()
 
 
 def _shape(text):
-    """Reshape + bidi-order Arabic so it renders connected and right-to-left in
-    a raster image. Returns the text unchanged if the libraries aren't present."""
+    """With raqm we return the raw logical text (raqm shapes + orders it). Only
+    when raqm is missing do we reshape + bidi-order manually so Arabic still
+    renders connected and right-to-left."""
+    if _HAS_RAQM:
+        return text
     try:
         import arabic_reshaper
         from bidi.algorithm import get_display
         return get_display(arabic_reshaper.reshape(text))
     except Exception:
         return text
+
 
 # Keyword gate: only build+send an image when the user actually asks for one.
 _VISUAL_TERMS = (
@@ -40,14 +70,15 @@ _VISUAL_TERMS = (
     "تقرير", "ملخص", "ملخّص", "report", "summary",
 )
 
-# Palette (kept in sync with Baseera's teal identity).
-_TEAL = (14, 90, 83)
-_TEAL_LIGHT = (18, 133, 122)
-_GREEN = (22, 143, 108)
+# Palette — Baseera's identity (Nile / Glow), with green/red reserved for the
+# semantic income/expense meaning.
+_NILE = (43, 36, 112)      # #2b2470 brand primary (header)
+_GLOW = (124, 108, 240)    # #7c6cf0 brand accent
+_GREEN = (15, 157, 107)
 _RED = (200, 68, 68)
-_INK = (18, 33, 30)
-_MUTED = (90, 107, 101)
-_GROUND = (244, 246, 245)
+_INK = (30, 27, 75)        # #1e1b4b
+_MUTED = (91, 87, 118)     # #5b5776
+_GROUND = (246, 245, 251)  # soft lavender ground
 _CARD = (255, 255, 255)
 
 
@@ -58,7 +89,7 @@ def wants_visual(text):
 
 def _font(size, bold=False):
     from PIL import ImageFont
-    # Prefer the bundled Cairo face (has Arabic + Latin); fall back to DejaVu,
+    # Prefer the bundled Amiri face (has Arabic + Latin); fall back to DejaVu,
     # then Pillow's default, so rendering never crashes on a bare environment.
     candidates = [_AR_FONT] + (["DejaVuSans-Bold.ttf"] if bold else []) + ["DejaVuSans.ttf"]
     for name in candidates:
@@ -72,11 +103,36 @@ def _font(size, bold=False):
         return None
 
 
+def _text(d, xy, text, font, fill, anchor=None):
+    """Draw text, letting raqm handle Arabic shaping + RTL ordering when the
+    string actually contains Arabic (numbers/dates stay left-to-right)."""
+    kwargs = {}
+    if _HAS_RAQM and _AR_RE.search(text or ""):
+        kwargs["direction"] = "rtl"
+    try:
+        d.text(xy, _shape(text), font=font, fill=fill, anchor=anchor, **kwargs)
+    except Exception:
+        # Some Pillow builds reject direction+anchor combos; retry plainly.
+        d.text(xy, _shape(text), font=font, fill=fill, anchor=anchor)
+
+
 def _fmt(n):
     try:
         return f"{round(float(n)):,}"
     except (TypeError, ValueError):
         return "0"
+
+
+def _paste_logo(img, x, y, box):
+    """Paste the Baseera eye logo (fit inside box×box) with its alpha; no-op if
+    the asset is missing."""
+    try:
+        from PIL import Image
+        logo = Image.open(_LOGO).convert("RGBA")
+        logo.thumbnail((box, box), Image.LANCZOS)
+        img.paste(logo, (int(x), int(y)), logo)
+    except Exception as e:
+        logger.info("logo paste skipped: %s", e)
 
 
 def render_summary_image(rows):
@@ -98,17 +154,20 @@ def render_summary_image(rows):
             return None
         top = (sig.get("top_groups") or [None])[0]
 
-        W, H = 900, 620
+        W, H = 900, 640
         img = Image.new("RGB", (W, H), _GROUND)
         d = ImageDraw.Draw(img)
 
         cur = "ر.ع"
 
-        # Header band
-        d.rectangle([0, 0, W, 96], fill=_TEAL)
-        d.text((40, 24), _shape("بصيرة"), font=_font(40, True), fill=(255, 255, 255))
-        d.text((285, 38), _shape("الملخّص المالي"), font=_font(26), fill=(220, 240, 236))
-        d.text((W - 190, 40), date.today().isoformat(), font=_font(20), fill=(200, 226, 221))
+        # Header band — Baseera Nile, with the eye logo + brand name on the RTL
+        # (right) side and the date on the left.
+        HH = 110
+        d.rectangle([0, 0, W, HH], fill=_NILE)
+        _paste_logo(img, W - 40 - 64, (HH - 64) // 2, 64)
+        _text(d, (W - 40 - 64 - 18, 22), "بصيرة", _font(38, True), (255, 255, 255), anchor="ra")
+        _text(d, (W - 40 - 64 - 18, 66), "الملخّص المالي", _font(22), (206, 198, 244), anchor="ra")
+        _text(d, (40, 44), date.today().isoformat(), _font(20), (206, 198, 244))
 
         # Three stat tiles (right-aligned label + value for a natural RTL read)
         tiles = [
@@ -116,21 +175,21 @@ def render_summary_image(rows):
             ("المصروف", expense, _RED),
             ("الصافي", net, _GREEN if net >= 0 else _RED),
         ]
-        tw, th, gap, x0, y0 = 260, 120, 20, 40, 128
+        tw, th, gap, x0, y0 = 260, 120, 20, 40, 142
         for i, (label, val, color) in enumerate(tiles):
             x = x0 + i * (tw + gap)
             d.rounded_rectangle([x, y0, x + tw, y0 + th], radius=18, fill=_CARD)
             d.rectangle([x + tw - 8, y0, x + tw, y0 + th], fill=color)  # accent on the right (RTL)
-            d.text((x + tw - 26, y0 + 20), _shape(label), font=_font(22, True), fill=_MUTED, anchor="ra")
-            d.text((x + tw - 26, y0 + 52), _shape(f"{_fmt(val)} {cur}"), font=_font(32, True), fill=color, anchor="ra")
+            _text(d, (x + tw - 26, y0 + 20), label, _font(22, True), _MUTED, anchor="ra")
+            _text(d, (x + tw - 26, y0 + 52), f"{_fmt(val)} {cur}", _font(32, True), color, anchor="ra")
 
         # Income vs Expense bar chart
-        cx0, cy0, cx1, cy1 = 40, 300, W - 40, 560
+        cx0, cy0, cx1, cy1 = 40, 314, W - 40, 574
         d.rounded_rectangle([cx0, cy0, cx1, cy1], radius=18, fill=_CARD)
-        d.text((cx1 - 26, cy0 + 18), _shape("الدخل مقابل المصروف"), font=_font(24, True), fill=_INK, anchor="ra")
+        _text(d, (cx1 - 26, cy0 + 18), "الدخل مقابل المصروف", _font(24, True), _INK, anchor="ra")
         base_y = cy1 - 60
         top_y = cy0 + 115
-        d.line([cx0 + 40, base_y, cx1 - 40, base_y], fill=(210, 220, 217), width=2)
+        d.line([cx0 + 40, base_y, cx1 - 40, base_y], fill=(224, 220, 240), width=2)
         peak = max(income, expense, 1)
         bars = [("الدخل", income, _GREEN), ("المصروف", expense, _RED)]
         bar_w = 150
@@ -139,15 +198,14 @@ def render_summary_image(rows):
             h = int((val / peak) * (base_y - top_y))
             d.rounded_rectangle([cx - bar_w // 2, base_y - h, cx + bar_w // 2, base_y],
                                 radius=10, fill=color)
-            d.text((cx, base_y - h - 28), _shape(f"{_fmt(val)}"), font=_font(22, True),
-                   fill=color, anchor="mm")
-            d.text((cx, base_y + 22), _shape(label), font=_font(22), fill=_MUTED, anchor="mm")
+            _text(d, (cx, base_y - h - 28), f"{_fmt(val)}", _font(22, True), color, anchor="mm")
+            _text(d, (cx, base_y + 22), label, _font(22), _MUTED, anchor="mm")
 
         # Footer note (biggest expense, if any) -- right-aligned RTL
         if top and top.get("name"):
-            note = _shape(f"أكبر مصروف: {top['name']} = {_fmt(top.get('total'))} {cur}")
-            d.text((W - 40, 578), note, font=_font(20), fill=_MUTED, anchor="ra")
-        d.text((40, 592), _shape("أُنشئ بواسطة بصيرة"), font=_font(16), fill=(150, 165, 160))
+            _text(d, (W - 40, 592), f"أكبر مصروف: {top['name']} = {_fmt(top.get('total'))} {cur}",
+                  _font(20), _MUTED, anchor="ra")
+        _text(d, (40, 606), "أُنشئ بواسطة بصيرة", _font(16), _GLOW)
 
         buf = io.BytesIO()
         img.save(buf, format="PNG")

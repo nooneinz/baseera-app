@@ -633,7 +633,12 @@
     });
     let chatHistory = [];
     let currentSessionId = Date.now();
-    let webChatSessions = JSON.parse(localStorage.getItem('basira_web_chat_sessions')) || [];
+    // Per-account chat-history key. localStorage is shared across all accounts
+    // on the same browser, so a single global key leaked every account's
+    // history into every other one. Namespacing by the logged-in user id keeps
+    // each account's sidebar private (anonymous visitors fall back to "guest").
+    const CHAT_STORE_KEY = 'basira_web_chat_sessions_{% if user.is_authenticated %}{{ user.id }}{% else %}guest{% endif %}';
+    let webChatSessions = JSON.parse(localStorage.getItem(CHAT_STORE_KEY)) || [];
     
     // Multi-Agent Committee Registry
     const ALL_AGENTS = {
@@ -734,7 +739,7 @@
                 selected_agents: selectedAgentIds
             });
         }
-        localStorage.setItem('basira_web_chat_sessions', JSON.stringify(webChatSessions));
+        localStorage.setItem(CHAT_STORE_KEY, JSON.stringify(webChatSessions));
         renderChatHistoryList();
     }
 
@@ -943,7 +948,7 @@
     function deleteChatSession(id, event) {
         event.stopPropagation();
         webChatSessions = webChatSessions.filter(s => s.id !== id);
-        localStorage.setItem('basira_web_chat_sessions', JSON.stringify(webChatSessions));
+        localStorage.setItem(CHAT_STORE_KEY, JSON.stringify(webChatSessions));
         if (currentSessionId === id) {
             chatHistory = [];
             currentSessionId = Date.now();
