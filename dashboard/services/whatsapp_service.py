@@ -193,6 +193,70 @@ def send_whatsapp_image(phone, image_bytes, caption=""):
         return False
 
 
+def send_whatsapp_document(phone, doc_bytes, filename="baseera-report.pdf", caption=""):
+    """
+    Send a document (e.g. a PDF report) over the Meta WhatsApp Cloud API: upload
+    the bytes to /media (multipart) as application/pdf, then send a document
+    message by the returned media id. Mirrors send_whatsapp_image. Returns True
+    on success. Never raises.
+    """
+    import urllib.request
+    import uuid
+
+    token = os.environ.get("WHATSAPP_GRAPH_TOKEN", "").strip()
+    phone_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "").strip()
+    ph = normalize_phone(phone)
+    if not token or not phone_id or not ph or not doc_bytes:
+        return False
+    version = os.environ.get("WHATSAPP_GRAPH_VERSION", "v20.0").strip() or "v20.0"
+    try:
+        boundary = "----baseera" + uuid.uuid4().hex
+        parts = []
+        for k, v in (("messaging_product", "whatsapp"), ("type", "application/pdf")):
+            parts.append(("--" + boundary).encode())
+            parts.append(('Content-Disposition: form-data; name="%s"' % k).encode())
+            parts.append(b"")
+            parts.append(str(v).encode())
+        parts.append(("--" + boundary).encode())
+        parts.append(('Content-Disposition: form-data; name="file"; filename="%s"' % filename).encode())
+        parts.append(b"Content-Type: application/pdf")
+        parts.append(b"")
+        parts.append(doc_bytes)
+        parts.append(("--" + boundary + "--").encode())
+        parts.append(b"")
+        body = b"\r\n".join(parts)
+        up = urllib.request.Request(
+            f"https://graph.facebook.com/{version}/{phone_id}/media",
+            data=body, method="POST",
+            headers={
+                "Authorization": "Bearer " + token,
+                "Content-Type": "multipart/form-data; boundary=" + boundary,
+            },
+        )
+        with urllib.request.urlopen(up, timeout=30) as resp:
+            media = json.loads(resp.read().decode("utf-8") or "{}")
+        media_id = media.get("id")
+        if not media_id:
+            return False
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": ph,
+            "type": "document",
+            "document": {"id": media_id, "filename": filename, "caption": (caption or "")[:1024]},
+        }
+        send = urllib.request.Request(
+            f"https://graph.facebook.com/{version}/{phone_id}/messages",
+            data=json.dumps(payload).encode("utf-8"), method="POST",
+            headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(send, timeout=20) as resp:
+            return 200 <= getattr(resp, "status", 200) < 300
+    except Exception as e:
+        logger.info("WhatsApp send document failed for %s: %s", phone, e)
+        return False
+
+
 def transcribe_audio(audio_bytes, mime="audio/ogg"):
     """
     Transcribe a WhatsApp voice note to Arabic text with Gemini, so a spoken
@@ -284,8 +348,10 @@ def process_and_reply(phone, text=None, media_id=None, media_type=None):
         # as an image -- the same figures the dashboard shows, not a fabricated
         # picture. Best-effort; never blocks the text reply.
         try:
-            from dashboard.services.whatsapp_visual import wants_visual, render_summary_image
-            if text and wants_visual(text):
+            from dashboard.services.whatsapp_visual import (
+                wants_visual, wants_pdf, render_summary_image, render_report_pdf,
+            )
+            if text and (wants_visual(text) or wants_pdf(text)):
                 user = resolve_user_by_phone(phone)
                 if user:
                     from dashboard.models import DynamicRecord
@@ -293,9 +359,23 @@ def process_and_reply(phone, text=None, media_id=None, media_type=None):
                         DynamicRecord.objects.filter(user=user)
                         .values_list("row_data", flat=True)[:10000]
                     )
-                    png = render_summary_image(rows)
-                    if png:
-                        send_whatsapp_image(phone, png, caption="ملخّصك المالي 📊 (بيانات حقيقية من ملفاتك)")
+                    # A PDF request gets the full multi-section report as a
+                    # document; any other visual ask gets the concise image.
+                    if wants_pdf(text):
+                        pdf = render_report_pdf(rows)
+                        if pdf:
+                            send_whatsapp_document(
+                                phone, pdf, filename="baseera-report.pdf",
+                                caption="تقرير بصيرة الكامل — أرقام حقيقية من ملفاتك",
+                            )
+                        else:
+                            png = render_summary_image(rows)
+                            if png:
+                                send_whatsapp_image(phone, png, caption="ملخّصك المالي — بيانات حقيقية من ملفاتك")
+                    else:
+                        png = render_summary_image(rows)
+                        if png:
+                            send_whatsapp_image(phone, png, caption="ملخّصك المالي — بيانات حقيقية من ملفاتك")
         except Exception as viz_err:
             logger.info("WhatsApp visual generation skipped: %s", viz_err)
 
@@ -439,12 +519,35 @@ def _recent_file_context(user, max_rows=60):
     return redacted_json(rows, cap=max_rows, max_chars=6000)
 
 
+# Which specialised agent a WhatsApp message is asking for. Lets a user say
+# "أبي أكلم وكيل الهدر" and get the audit/waste agent's persona instead of the
+# general assistant. Falls back to "general" when nothing specific is asked.
+_AGENT_KEYWORDS = (
+    ("audit", ("هدر", "تسريب", "تدقيق", "تالف", "منتهي", "احتيال", "waste", "audit", "fraud", "leak")),
+    ("pricing", ("تسعير", "سعر", "هامش", "تسعيره", "pricing", "price", "margin")),
+    ("supply_chain", ("مخزون", "سلاسل", "إمداد", "توريد", "جرد", "inventory", "supply", "stock")),
+    ("retention", ("عملاء", "ولاء", "احتفاظ", "زبائن", "retention", "loyalty", "customer")),
+    ("financial", ("مالي", "ربح", "ربحية", "سيولة", "تدفق", "cfo", "financial", "profit", "cash")),
+)
+
+
+def _detect_agent(message):
+    """Return the agent_id the message is asking for, or 'general'."""
+    t = (message or "").lower()
+    # An explicit "وكيل X / تكلم مع X" phrasing, or any of the agent's keywords.
+    for agent_id, words in _AGENT_KEYWORDS:
+        if any(w in t for w in words):
+            return agent_id
+    return "general"
+
+
 def generate_agent_reply(user, message, lang="ar"):
     """
     A real, grounded agent answer for a WhatsApp text message -- the same
     Baseera agent persona the web "اسأل بصيرة" chat uses, but shaped for
-    WhatsApp (short, plain text). Returns None when the AI client is
-    unavailable (no GEMINI_API_KEY) so the caller can fall back gracefully.
+    WhatsApp (short, plain text). When the user asks for a specific agent (e.g.
+    the waste/audit agent), that agent's persona answers. Returns None when the
+    AI client is unavailable (no GEMINI_API_KEY) so the caller can fall back.
     """
     try:
         from dashboard.services.ai_service import GeminiAIService, GEMINI_MODEL
@@ -468,8 +571,9 @@ def generate_agent_reply(user, message, lang="ar"):
 
     safe_msg = sanitize_cell_for_prompt(message or "", max_len=1200)
     file_context = _recent_file_context(user)
+    agent_id = _detect_agent(message)
     try:
-        meta = ai.get_agent_meta("general", user_id=user.id, lang=lang)
+        meta = ai.get_agent_meta(agent_id, user_id=user.id, lang=lang)
         persona = meta["system_prompt_ar"] if lang == "ar" else meta["system_prompt_en"]
     except Exception:
         persona = "أنت بصيرة، المحلل المالي الذكي." if lang == "ar" else "You are Baseera, the smart financial analyst."
