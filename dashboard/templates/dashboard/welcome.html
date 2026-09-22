@@ -90,13 +90,14 @@
       .dark .bh-ca .m{color:#d7d3ea}
       /* 1) staggered entrance — text reveals first, each 0.1s after the last */
       .bh-rev{animation:bhUpT .6s cubic-bezier(.16,.84,.28,1) var(--d,0s) both}
-      /* 2) then the cards fly up one-by-one on the same 0.1s cadence, at layered 3D depths,
-            then settle into a slow continuous float so the hero never feels dead */
-      .bh-cg{animation:bhUp .8s cubic-bezier(.16,.84,.28,1) .55s both, bhFlo 6.5s ease-in-out 1.9s infinite}
-      .bh-ci{animation:bhUp .7s cubic-bezier(.16,.84,.28,1) .65s both, bhFlo 6.9s ease-in-out 2.2s infinite}
-      .bh-cn{animation:bhUp .7s cubic-bezier(.16,.84,.28,1) .75s both, bhFlo 7.2s ease-in-out 2.5s infinite}
-      .bh-ca{animation:bhUp .7s cubic-bezier(.16,.84,.28,1) .85s both, bhFlo 7.5s ease-in-out 2.8s infinite}
-      @keyframes bhUp{from{opacity:0;transform:translateY(46px) translateZ(var(--dz,0))}to{opacity:1;transform:translateY(0) translateZ(var(--dz,0))}}
+      /* 2) then the dashboard cards slide/fade IN FROM THE RIGHT one-by-one on the
+            same 0.1s cadence, at layered 3D depths — chart first, then the KPI
+            overlay cards — then settle into a slow continuous float. */
+      .bh-cg{animation:bhInR .8s cubic-bezier(.16,.84,.28,1) .55s both, bhFlo 6.5s ease-in-out 1.9s infinite}
+      .bh-ci{animation:bhInR .7s cubic-bezier(.16,.84,.28,1) .65s both, bhFlo 6.9s ease-in-out 2.2s infinite}
+      .bh-cn{animation:bhInR .7s cubic-bezier(.16,.84,.28,1) .75s both, bhFlo 7.2s ease-in-out 2.5s infinite}
+      .bh-ca{animation:bhInR .7s cubic-bezier(.16,.84,.28,1) .85s both, bhFlo 7.5s ease-in-out 2.8s infinite}
+      @keyframes bhInR{from{opacity:0;transform:translateX(64px) translateZ(var(--dz,0))}to{opacity:1;transform:translateX(0) translateZ(var(--dz,0))}}
       @keyframes bhFlo{0%,100%{transform:translateY(0) translateZ(var(--dz,0))}50%{transform:translateY(-8px) translateZ(var(--dz,0))}}
       @keyframes bhUpT{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
       @media (prefers-reduced-motion:reduce){.bh-fc,.bh-rev{animation:none!important}.bh-deck{transform:none!important}}
