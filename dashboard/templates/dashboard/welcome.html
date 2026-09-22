@@ -187,9 +187,25 @@
         stage.addEventListener('pointerleave',function(){tx=0;ty=0;});
         (function loop(){rx+=((-ty*5)-rx)*0.09; ry+=((tx*6)-ry)*0.09; deck.style.transform='rotateX('+rx.toFixed(2)+'deg) rotateY('+ry.toFixed(2)+'deg)'; requestAnimationFrame(loop);})();
       }
-      function start(){ document.querySelectorAll('.bh-count').forEach(countUp); }
-      // start the count-up as the KPI cards arrive (~0.9s into the stagger)
-      setTimeout(start, reduce ? 0 : 900);
+      // Replay the whole entrance (slide-in from the right + count-up) every
+      // time the hero scrolls into view — so the ~1.4s animation is never
+      // missed after a slow/cached load or when the visitor scrolls back up.
+      // Elements stay visible by default (CSS `both`); this only restarts them.
+      var animEls = document.querySelectorAll('.bh-rev, .bh-cg, .bh-ci, .bh-cn, .bh-ca');
+      function countAll(){ document.querySelectorAll('.bh-count').forEach(countUp); }
+      function replay(){
+        if(reduce){ countAll(); return; }
+        animEls.forEach(function(el){ el.style.animation='none'; void el.offsetWidth; el.style.animation=''; });
+        setTimeout(countAll, 700);  // count up as the KPI cards land
+      }
+      if(stage && 'IntersectionObserver' in window){
+        var io = new IntersectionObserver(function(entries){
+          entries.forEach(function(e){ if(e.isIntersecting){ replay(); } });
+        }, { threshold: 0.35 });
+        io.observe(stage);
+      } else {
+        setTimeout(countAll, reduce ? 0 : 900);
+      }
     })();
     </script>
 
