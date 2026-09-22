@@ -1,640 +1,158 @@
 {% extends 'dashboard/base.html' %}
 {% load static %}
 
-{% block title %}{% if trans.lang_code == 'ar' %}الوكلاء المعتمدون – بصيرة{% else %}Specialized AI Agents – Baseera{% endif %}{% endblock %}
+{% block title %}{% if trans.lang_code == 'ar' %}رَصْد ووكلاؤه – بصيرة{% else %}Rasd & its agents – Baseera{% endif %}{% endblock %}
 
 {% block content %}
-<div
-    class="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col justify-between pt-20">
+<div class="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col justify-between pt-20">
     {% include 'dashboard/navbar.html' %}
 
-    <main class="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-7xl">
-        <!-- Standalone Page Header -->
-        <div class="text-center max-w-3xl mx-auto mb-14 animate-fade-up">
-            <div
-                class="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-50/80 dark:bg-indigo-950/50 px-4 py-1.5 text-xs font-black text-indigo-600 dark:text-indigo-400 shadow-sm backdrop-blur mb-4">
-                <span>{{ trans.agents_badge }}</span>
+    <main class="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-6xl">
+        <!-- Page header: the رَصْد tagline -->
+        <div class="text-center max-w-3xl mx-auto mb-12 animate-fade-up">
+            <div class="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-50/80 dark:bg-indigo-950/50 px-4 py-1.5 text-xs font-black text-indigo-600 dark:text-indigo-400 shadow-sm backdrop-blur mb-5">
+                <span>{% if trans.lang_code == 'ar' %}رَصْد · النواة الذكية{% else %}Rasd · the intelligent nucleus{% endif %}</span>
             </div>
-            <h1
-                class="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight text-slate-900 dark:text-white">
-                {{ trans.agents_title }}
+            <h1 class="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight text-slate-900 dark:text-white">
+                {% if trans.lang_code == 'ar' %}عقلٌ يَرْصُد.. ليمنحك <span class="text-[var(--nile)] dark:text-[var(--lavender)]">البصيرة</span>{% else %}A mind that watches.. to give you <span class="text-[var(--nile)] dark:text-[var(--lavender)]">insight</span>{% endif %}
             </h1>
-            <p
-                class="mt-4 text-sm sm:text-base md:text-lg text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl mx-auto">
-                {{ trans.agents_subtitle }}
+            <p class="mt-5 text-sm sm:text-base md:text-lg text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl mx-auto">
+                {% if trans.lang_code == 'ar' %}ستة وكلاءَ يعملون بصمت، وعقلٌ واحد يوحّدهم ليكشف لك أين تربح وأين تخسر — بالدليل، لا بالتخمين.{% else %}Six agents working in silence, and one mind that unites them to show you where you win and where you lose — with evidence, not guesswork.{% endif %}
             </p>
         </div>
 
-        <!-- Group 1: Platform & Core Governance -->
-        <div class="mb-14">
-            <div class="flex items-center gap-3 mb-6 border-b border-slate-200/80 dark:border-slate-800 pb-3">
-                <div class="h-3.5 w-3.5 rounded-full bg-slate-500"></div>
-                <h2 class="text-lg font-black text-slate-800 dark:text-slate-100">
-                    {% if trans.lang_code == 'ar' %}إدارة المنصة والتنسيق (Platform & Core Governance){% else %}Platform
-                    & Core Governance{% endif %}
-                </h2>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- General Coordinator -->
-                <div onclick="openAgentWorkflowModal('general')"
-                    class="group relative flex flex-col justify-between rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6 shadow-sm hover:shadow-2xl hover:border-indigo-500 dark:hover:border-indigo-500 backdrop-blur-md transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="flex items-center gap-4">
-                        <div
-                            class="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 shadow-xs border border-slate-200/60 dark:border-slate-700/60 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                            <i data-lucide="bot" class="h-7 w-7 stroke-[2.2]"></i>
-                        </div>
-                        <div class="min-w-0 flex-1 text-start">
-                            <span
-                                class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-0.5">{% if trans.lang_code == 'ar' %}رَصْد{% else %}Rasd{% endif %}</span>
-                            <h3
-                                class="font-black text-base sm:text-lg text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                                {% if trans.lang_code == 'ar' %}المساعد العام – بصيرة{% else %}General AI Assistant –
-                                Baseera{% endif %}</h3>
-                        </div>
-                    </div>
-                    <p class="mt-4 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-start">
-                        {% if trans.lang_code == 'ar' %}إدارة الجلسة التنسيقية وتجميع التحليلات وتوليد القرار النهائي
-                        الموحد من كافة الوكلاء.{% else %}Coordinates strategic sessions, aggregates analytical insights,
-                        and generates unified executive directives.{% endif %}
-                    </p>
-                    <div
-                        class="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                        <span>{% if trans.lang_code == 'ar' %}عرض آلية العمل ➔{% else %}View Workflow ➔{% endif %}</span>
-                        <span
-                            class="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2.5 py-0.5 rounded-full">{% if trans.lang_code == 'ar' %}رَصْد{% else %}Rasd{% endif %}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- رَصْد nucleus + six agents architecture -->
+        <section class="animate-fade-up">
+          <div class="rasd-arch mx-auto w-full max-w-[1040px] px-2">
+            <svg class="diagram" viewBox="0 0 1040 620" role="img" aria-label="{% if trans.lang_code == 'ar' %}معمارية وكلاء بصيرة{% else %}Baseera agents architecture{% endif %}">
+              <defs>
+                <radialGradient id="ra-core" cx="40%" cy="34%" r="78%"><stop offset="0%" stop-color="#6455ab"/><stop offset="52%" stop-color="#2b2470"/><stop offset="100%" stop-color="#181146"/></radialGradient>
+                <radialGradient id="ra-crad" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#7c6cf0" stop-opacity=".38"/><stop offset="55%" stop-color="#7c6cf0" stop-opacity=".08"/><stop offset="100%" stop-color="#7c6cf0" stop-opacity="0"/></radialGradient>
+                <linearGradient id="ra-wireR" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#7c6cf0" stop-opacity=".85"/><stop offset="1" stop-color="#b9a6f2" stop-opacity=".16"/></linearGradient>
+                <linearGradient id="ra-wireL" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7c6cf0" stop-opacity=".85"/><stop offset="1" stop-color="#b9a6f2" stop-opacity=".16"/></linearGradient>
+                <filter id="ra-chipsh" x="-30%" y="-40%" width="160%" height="180%"><feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#2b2470" flood-opacity="0.13"/></filter>
+                <filter id="ra-coresh" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="10" stdDeviation="20" flood-color="#2b2470" flood-opacity="0.28"/></filter>
+              </defs>
 
-        <!-- Group 2: Growth & Revenue Agents -->
-        <div class="mb-14">
-            <div class="flex items-center gap-3 mb-6 border-b border-slate-200/80 dark:border-slate-800 pb-3">
-                <div class="h-3.5 w-3.5 rounded-full bg-emerald-500"></div>
-                <h2 class="text-lg font-black text-slate-800 dark:text-slate-100">
-                    {% if trans.lang_code == 'ar' %}النمو والإيرادات (Growth & Revenue Agents){% else %}Growth & Revenue
-                    Agents{% endif %}
-                </h2>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Financial Agent -->
-                <div onclick="openAgentWorkflowModal('financial')"
-                    class="group relative flex flex-col justify-between rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6 shadow-sm hover:shadow-2xl hover:border-emerald-500 dark:hover:border-emerald-500 backdrop-blur-md transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="flex items-center gap-4">
-                        <div
-                            class="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 shadow-xs border border-emerald-200/60 dark:border-emerald-900/60 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
-                            <i data-lucide="trending-up" class="h-7 w-7 stroke-[2.2]"></i>
-                        </div>
-                        <div class="min-w-0 flex-1 text-start">
-                            <span
-                                class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-0.5">{% if trans.lang_code == 'ar' %}السيولة والأرباح{% else %}Liquidity & Profitability{% endif %}</span>
-                            <h3
-                                class="font-black text-base sm:text-lg text-slate-900 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                                {% if trans.lang_code == 'ar' %}الوكيل المالي{% else %}Financial Agent{% endif %}</h3>
-                        </div>
-                    </div>
-                    <p class="mt-4 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-start">
-                        {% if trans.lang_code == 'ar' %}تحليل الإيرادات ومخاطر التدفقات النقدية ونقاط التعادل والتنبؤ
-                        بعجز السيولة.{% else %}Analyzes revenue streams, cash flow risks, break-even thresholds, and
-                        forecasts liquidity shortfalls.{% endif %}
-                    </p>
-                    <div
-                        class="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                        <span>{% if trans.lang_code == 'ar' %}عرض آلية العمل ➔{% else %}View Workflow ➔{% endif %}</span>
-                        <span
-                            class="text-[10px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 px-2.5 py-0.5 rounded-full">{% if trans.lang_code == 'ar' %}مالي وتحليلي{% else %}Financial Analytics{% endif %}</span>
-                    </div>
-                </div>
+              <!-- CONNECTORS -->
+              <g fill="none" stroke-width="2">
+                <path d="M596,310 C660,210 700,150 706,150" stroke="url(#ra-wireR)"/>
+                <path d="M604,320 C660,320 700,320 706,320" stroke="url(#ra-wireR)"/>
+                <path d="M596,330 C660,430 700,490 706,490" stroke="url(#ra-wireR)"/>
+                <path d="M444,310 C384,210 340,150 334,150" stroke="url(#ra-wireL)"/>
+                <path d="M436,320 C380,320 340,320 334,320" stroke="url(#ra-wireL)"/>
+                <path d="M444,330 C384,430 340,490 334,490" stroke="url(#ra-wireL)"/>
+              </g>
+              <!-- outward: Rasd delegates -->
+              <g fill="#2b2470">
+                <circle r="3.4"><animateMotion dur="3.4s" repeatCount="indefinite" path="M596,310 C660,210 700,150 706,150"/></circle>
+                <circle r="3.4"><animateMotion dur="3.4s" begin="-1.1s" repeatCount="indefinite" path="M604,320 C660,320 700,320 706,320"/></circle>
+                <circle r="3.4"><animateMotion dur="3.4s" begin="-2.2s" repeatCount="indefinite" path="M596,330 C660,430 700,490 706,490"/></circle>
+                <circle r="3.4"><animateMotion dur="3.4s" begin="-.6s" repeatCount="indefinite" path="M444,310 C384,210 340,150 334,150"/></circle>
+                <circle r="3.4"><animateMotion dur="3.4s" begin="-1.7s" repeatCount="indefinite" path="M436,320 C380,320 340,320 334,320"/></circle>
+                <circle r="3.4"><animateMotion dur="3.4s" begin="-2.8s" repeatCount="indefinite" path="M444,330 C384,430 340,490 334,490"/></circle>
+              </g>
+              <!-- inward: agents feed Rasd -->
+              <g fill="#b9a6f2">
+                <circle r="3.4"><animateMotion dur="3.8s" begin="-.3s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M596,310 C660,210 700,150 706,150"/></circle>
+                <circle r="3.4"><animateMotion dur="3.8s" begin="-1.4s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M604,320 C660,320 700,320 706,320"/></circle>
+                <circle r="3.4"><animateMotion dur="3.8s" begin="-2.5s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M596,330 C660,430 700,490 706,490"/></circle>
+                <circle r="3.4"><animateMotion dur="3.8s" begin="-.9s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M444,310 C384,210 340,150 334,150"/></circle>
+                <circle r="3.4"><animateMotion dur="3.8s" begin="-2s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M436,320 C380,320 340,320 334,320"/></circle>
+                <circle r="3.4"><animateMotion dur="3.8s" begin="-3.1s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M444,330 C384,430 340,490 334,490"/></circle>
+              </g>
 
-                <!-- Pricing Agent -->
-                <div onclick="openAgentWorkflowModal('pricing')"
-                    class="group relative flex flex-col justify-between rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6 shadow-sm hover:shadow-2xl hover:border-purple-500 dark:hover:border-purple-500 backdrop-blur-md transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="flex items-center gap-4">
-                        <div
-                            class="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 shadow-xs border border-purple-200/60 dark:border-purple-900/60 bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
-                            <i data-lucide="tag" class="h-7 w-7 stroke-[2.2]"></i>
-                        </div>
-                        <div class="min-w-0 flex-1 text-start">
-                            <span
-                                class="text-[10px] font-extrabold uppercase tracking-wider text-purple-600 dark:text-purple-400 block mb-0.5">{% if trans.lang_code == 'ar' %}التسعير والهوامش{% else %}Pricing & Margins{% endif %}</span>
-                            <h3
-                                class="font-black text-base sm:text-lg text-slate-900 dark:text-white truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                                {% if trans.lang_code == 'ar' %}وكيل التسعير{% else %}Pricing Strategy Agent{% endif %}
-                            </h3>
-                        </div>
-                    </div>
-                    <p class="mt-4 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-start">
-                        {% if trans.lang_code == 'ar' %}مرونة الأسعار، هندسة الحزم (Bundles)، وتعظيم متوسط قيمة
-                        الفاتورة.{% else %}Evaluates price elasticity, designs product bundles, and optimizes Average
-                        Order Value (AOV).{% endif %}
-                    </p>
-                    <div
-                        class="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-purple-600 dark:text-purple-400">
-                        <span>{% if trans.lang_code == 'ar' %}عرض آلية العمل ➔{% else %}View Workflow ➔{% endif %}</span>
-                        <span
-                            class="text-[10px] bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 px-2.5 py-0.5 rounded-full">{% if trans.lang_code == 'ar' %}إستراتيجي{% else %}Strategic{% endif %}</span>
-                    </div>
-                </div>
+              <!-- AGENT CHIPS -->
+              <g class="chip">
+                <rect class="chip-box" x="706" y="120" width="214" height="60" rx="18" filter="url(#ra-chipsh)"/>
+                <circle class="port" cx="706" cy="150" r="4.5"/><circle class="port-ring" cx="706" cy="150" r="7.5"/>
+                <text x="813" y="147" text-anchor="middle" class="chip-name">{% if trans.lang_code == 'ar' %}الوكيل المالي{% else %}Financial Agent{% endif %}</text>
+                <text x="813" y="167" text-anchor="middle" class="chip-act">{% if trans.lang_code == 'ar' %}يرصد السيولة ويقرّر{% else %}Watches liquidity, decides{% endif %}</text>
+              </g>
+              <g class="chip">
+                <rect class="chip-box" x="706" y="290" width="214" height="60" rx="18" filter="url(#ra-chipsh)"/>
+                <circle class="port" cx="706" cy="320" r="4.5"/><circle class="port-ring" cx="706" cy="320" r="7.5"/>
+                <text x="813" y="317" text-anchor="middle" class="chip-name">{% if trans.lang_code == 'ar' %}وكيل التسعير{% else %}Pricing Agent{% endif %}</text>
+                <text x="813" y="337" text-anchor="middle" class="chip-act">{% if trans.lang_code == 'ar' %}يضبط السعر تلقائياً{% else %}Tunes prices automatically{% endif %}</text>
+              </g>
+              <g class="chip">
+                <rect class="chip-box" x="706" y="460" width="214" height="60" rx="18" filter="url(#ra-chipsh)"/>
+                <circle class="port" cx="706" cy="490" r="4.5"/><circle class="port-ring" cx="706" cy="490" r="7.5"/>
+                <text x="813" y="487" text-anchor="middle" class="chip-name">{% if trans.lang_code == 'ar' %}وكيل السوق{% else %}Market Agent{% endif %}</text>
+                <text x="813" y="507" text-anchor="middle" class="chip-act">{% if trans.lang_code == 'ar' %}يقرأ المنافسين{% else %}Reads competitors{% endif %}</text>
+              </g>
+              <g class="chip">
+                <rect class="chip-box" x="120" y="120" width="214" height="60" rx="18" filter="url(#ra-chipsh)"/>
+                <circle class="port" cx="334" cy="150" r="4.5"/><circle class="port-ring" cx="334" cy="150" r="7.5"/>
+                <text x="227" y="147" text-anchor="middle" class="chip-name">{% if trans.lang_code == 'ar' %}التدقيق الجنائي{% else %}Forensic Audit{% endif %}</text>
+                <text x="227" y="167" text-anchor="middle" class="chip-act">{% if trans.lang_code == 'ar' %}يكشف التلاعب{% else %}Detects manipulation{% endif %}</text>
+              </g>
+              <g class="chip">
+                <rect class="chip-box" x="120" y="290" width="214" height="60" rx="18" filter="url(#ra-chipsh)"/>
+                <circle class="port" cx="334" cy="320" r="4.5"/><circle class="port-ring" cx="334" cy="320" r="7.5"/>
+                <text x="227" y="317" text-anchor="middle" class="chip-name">{% if trans.lang_code == 'ar' %}وكيل الاحتفاظ بالعملاء{% else %}Retention Agent{% endif %}</text>
+                <text x="227" y="337" text-anchor="middle" class="chip-act">{% if trans.lang_code == 'ar' %}ينبّه قبل فقد العميل{% else %}Warns before churn{% endif %}</text>
+              </g>
+              <g class="chip">
+                <rect class="chip-box" x="120" y="460" width="214" height="60" rx="18" filter="url(#ra-chipsh)"/>
+                <circle class="port" cx="334" cy="490" r="4.5"/><circle class="port-ring" cx="334" cy="490" r="7.5"/>
+                <text x="227" y="487" text-anchor="middle" class="chip-name">{% if trans.lang_code == 'ar' %}سلسلة التوريد{% else %}Supply Chain{% endif %}</text>
+                <text x="227" y="507" text-anchor="middle" class="chip-act">{% if trans.lang_code == 'ar' %}يوقّت الشراء{% else %}Times purchasing{% endif %}</text>
+              </g>
 
-                <!-- Market Intel Agent -->
-                <div onclick="openAgentWorkflowModal('market')"
-                    class="group relative flex flex-col justify-between rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6 shadow-sm hover:shadow-2xl hover:border-amber-500 dark:hover:border-amber-500 backdrop-blur-md transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="flex items-center gap-4">
-                        <div
-                            class="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 shadow-xs border border-amber-200/60 dark:border-amber-900/60 bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
-                            <i data-lucide="compass" class="h-7 w-7 stroke-[2.2]"></i>
-                        </div>
-                        <div class="min-w-0 flex-1 text-start">
-                            <span
-                                class="text-[10px] font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-0.5">{% if trans.lang_code == 'ar' %}ذكاء السوق{% else %}Market Intelligence{% endif %}</span>
-                            <h3
-                                class="font-black text-base sm:text-lg text-slate-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                                {% if trans.lang_code == 'ar' %}ذكاء السوق والمنافسين{% else %}Market & Competitor
-                                Intelligence Agent{% endif %}</h3>
-                        </div>
-                    </div>
-                    <p class="mt-4 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-start">
-                        {% if trans.lang_code == 'ar' %}قراءة اتجاهات السوق، رصد المنافسين، واقتناص الفرص ذات العائد
-                        المرتفع.{% else %}Monitors market trends, tracks competitor actions, and captures high-yield
-                        opportunities.{% endif %}
-                    </p>
-                    <div
-                        class="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-amber-600 dark:text-amber-400">
-                        <span>{% if trans.lang_code == 'ar' %}عرض آلية العمل ➔{% else %}View Workflow ➔{% endif %}</span>
-                        <span
-                            class="text-[10px] bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 rounded-full">{% if trans.lang_code == 'ar' %}استخباراتي{% else %}Intelligence{% endif %}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Group 3: Operations & Governance Agents -->
-        <div class="mb-10">
-            <div class="flex items-center gap-3 mb-6 border-b border-slate-200/80 dark:border-slate-800 pb-3">
-                <div class="h-3.5 w-3.5 rounded-full bg-blue-500"></div>
-                <h2 class="text-lg font-black text-slate-800 dark:text-slate-100">
-                    {% if trans.lang_code == 'ar' %}وكلاء العمليات والرقابة (Operations & Governance Agents){% else %}Operations & Governance Agents{% endif %}
-                </h2>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Supply Chain Agent -->
-                <div onclick="openAgentWorkflowModal('supply')"
-                    class="group relative flex flex-col justify-between rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6 shadow-sm hover:shadow-2xl hover:border-blue-500 dark:hover:border-blue-500 backdrop-blur-md transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="flex items-center gap-4">
-                        <div
-                            class="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 shadow-xs border border-blue-200/60 dark:border-blue-900/60 bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
-                            <i data-lucide="truck" class="h-7 w-7 stroke-[2.2]"></i>
-                        </div>
-                        <div class="min-w-0 flex-1 text-start">
-                            <span
-                                class="text-[10px] font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-0.5">{% if trans.lang_code == 'ar' %}المخزون والتوريد{% else %}Inventory & Supply Chain{% endif %}</span>
-                            <h3
-                                class="font-black text-base sm:text-lg text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                {% if trans.lang_code == 'ar' %}وكيل سلاسل الإمداد{% else %}Supply Chain Agent{% endif %}</h3>
-                        </div>
-                    </div>
-                    <p class="mt-4 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-start">
-                        {% if trans.lang_code == 'ar' %}تتبع البضاعة الراكدة وحساب توقيت إعادة الطلب الأمثل لتفادي تجميد
-                        رأس المال.{% else %}Tracks slow-moving items, computes optimal re-order points, and prevents
-                        working capital freeze.{% endif %}
-                    </p>
-                    <div
-                        class="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-blue-600 dark:text-blue-400">
-                        <span>{% if trans.lang_code == 'ar' %}عرض آلية العمل ➔{% else %}View Workflow ➔{% endif %}</span>
-                        <span
-                            class="text-[10px] bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 px-2.5 py-0.5 rounded-full">{% if trans.lang_code == 'ar' %}تشغيلي{% else %}Operations{% endif %}</span>
-                    </div>
-                </div>
-
-                <!-- Forensic Audit Agent -->
-                <div onclick="openAgentWorkflowModal('forensic')"
-                    class="group relative flex flex-col justify-between rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6 shadow-sm hover:shadow-2xl hover:border-cyan-500 dark:hover:border-cyan-500 backdrop-blur-md transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="flex items-center gap-4">
-                        <div
-                            class="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 shadow-xs border border-cyan-200/60 dark:border-cyan-900/60 bg-cyan-100 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400">
-                            <i data-lucide="shield-check" class="h-7 w-7 stroke-[2.2]"></i>
-                        </div>
-                        <div class="min-w-0 flex-1 text-start">
-                            <span
-                                class="text-[10px] font-extrabold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 block mb-0.5">{% if trans.lang_code == 'ar' %}التدقيق والرقابة{% else %}Audit & Governance{% endif %}</span>
-                            <h3
-                                class="font-black text-base sm:text-lg text-slate-900 dark:text-white truncate group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
-                                {% if trans.lang_code == 'ar' %}التدقيق والرقابة{% else %}Forensic Audit & Governance
-                                Agent{% endif %}</h3>
-                        </div>
-                    </div>
-                    <p class="mt-4 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-start">
-                        {% if trans.lang_code == 'ar' %}كشف الفواتير المكررة، المصاريف غير الموثقة، والشذوذ المحاسبي
-                        ومكافحة الهدر.{% else %}Detects duplicate invoices, unbacked expense claims, accounting
-                        anomalies, and mitigates financial waste.{% endif %}
-                    </p>
-                    <div
-                        class="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-cyan-600 dark:text-cyan-400">
-                        <span>{% if trans.lang_code == 'ar' %}عرض آلية العمل ➔{% else %}View Workflow ➔{% endif %}</span>
-                        <span
-                            class="text-[10px] bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400 px-2.5 py-0.5 rounded-full">{% if trans.lang_code == 'ar' %}رقابي{% else %}Governance & Audit{% endif %}</span>
-                    </div>
-                </div>
-
-                <!-- Customer Retention Agent -->
-                <div onclick="openAgentWorkflowModal('retention')"
-                    class="group relative flex flex-col justify-between rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-6 shadow-sm hover:shadow-2xl hover:border-rose-500 dark:hover:border-rose-500 backdrop-blur-md transition-all duration-300 cursor-pointer transform hover:-translate-y-1">
-                    <div class="flex items-center gap-4">
-                        <div
-                            class="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 shadow-xs border border-rose-200/60 dark:border-rose-900/60 bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
-                            <i data-lucide="heart" class="h-7 w-7 stroke-[2.2]"></i>
-                        </div>
-                        <div class="min-w-0 flex-1 text-start">
-                            <span
-                                class="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-0.5">{% if trans.lang_code == 'ar' %}ولاء العملاء{% else %}Customer Loyalty{% endif %}</span>
-                            <h3
-                                class="font-black text-base sm:text-lg text-slate-900 dark:text-white truncate group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
-                                {% if trans.lang_code == 'ar' %}استعادة العملاء{% else %}Customer Retention Agent{% endif %}</h3>
-                        </div>
-                    </div>
-                    <p class="mt-4 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-start">
-                        {% if trans.lang_code == 'ar' %}رصد إشارات فقدان العملاء (Churn) وحساب القيمة الدائمة LTV
-                        واستعادتهم.{% else %}Identifies churn risk signals, measures Customer Lifetime Value (LTV), and
-                        plans win-back campaigns.{% endif %}
-                    </p>
-                    <div
-                        class="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-rose-600 dark:text-rose-400">
-                        <span>{% if trans.lang_code == 'ar' %}عرض آلية العمل ➔{% else %}View Workflow ➔{% endif %}</span>
-                        <span
-                            class="text-[10px] bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 px-2.5 py-0.5 rounded-full">{% if trans.lang_code == 'ar' %}ولاء واستعادة{% else %}Retention & Loyalty{% endif %}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
+              <!-- CORE = RASD -->
+              <g id="raCoreWrap">
+                <circle id="raGlow" class="cglow" cx="520" cy="320" r="150" fill="url(#ra-crad)"/>
+                <g class="cring" opacity=".55"><circle cx="520" cy="320" r="112" fill="none" stroke="#7c6cf0" stroke-width="2" stroke-dasharray="2 14" stroke-linecap="round"/></g>
+                <g class="cring2" opacity=".4"><circle cx="520" cy="320" r="98" fill="none" stroke="#b9a6f2" stroke-width="1.4" stroke-dasharray="3 11" stroke-linecap="round"/></g>
+                <g id="raCore">
+                  <circle cx="520" cy="320" r="84" fill="url(#ra-core)" filter="url(#ra-coresh)"/>
+                  <circle cx="520" cy="320" r="84" fill="none" stroke="#b9a6f2" stroke-width="1" opacity=".45"/>
+                  <circle cx="520" cy="320" r="66" fill="none" stroke="#8f7ff2" stroke-width="1" opacity=".22"/>
+                  <g id="raIris">
+                    <g stroke="#9385f4" stroke-width="1.8" fill="none" stroke-linecap="round" opacity=".9"><path d="M520,320 L556,344"/><path d="M525,311 L566,300"/><path d="M515,331 L540,362"/></g>
+                    <circle cx="556" cy="344" r="2.8" fill="#b9a6f2"/><circle cx="566" cy="300" r="2.4" fill="#b9a6f2"/><circle cx="540" cy="362" r="2.4" fill="#b9a6f2"/>
+                    <rect x="488" y="300" width="30" height="30" rx="10" fill="#fff"/>
+                    <rect x="524" y="330" width="17" height="17" rx="6" fill="#fff"/>
+                  </g>
+                </g>
+              </g>
+              <text x="520" y="432" text-anchor="middle" font-size="17" font-weight="900" fill="#2b2470" class="core-lbl">رَصْد</text>
+              <text x="520" y="452" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7c6cf0">{% if trans.lang_code == 'ar' %}النواة · تحسب بأكواد بايثون بلا هلوسة{% else %}The nucleus · computes in Python, no hallucination{% endif %}</text>
+            </svg>
+          </div>
+        </section>
     </main>
-
-    <!-- INTERACTIVE AGENT WORKFLOW DETAIL MODAL -->
-    <div id="agentWorkflowModal"
-        class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in overflow-y-auto">
-        <div
-            class="relative w-full max-w-4xl rounded-3xl border border-slate-200/80 dark:border-slate-700/80 bg-white/95 dark:bg-slate-900/95 shadow-2xl p-6 md:p-8 my-auto overflow-hidden text-start">
-            <!-- Modal Header -->
-            <div class="flex items-center justify-between pb-5 border-b border-slate-200/80 dark:border-slate-800 mb-6">
-                <div class="flex items-center gap-4">
-                    <div id="modalBadgeContainer"
-                        class="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm border border-slate-200 dark:border-slate-700">
-                        <i id="modalBadgeIcon" data-lucide="bot" class="h-7 w-7 stroke-[2.2]"></i>
-                    </div>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span id="modalRoleTag"
-                                class="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400">{% if trans.lang_code == 'ar' %}المثال{% else %}Sample{% endif %}</span>
-                            <span class="text-[10px] font-bold text-slate-400">{% if trans.lang_code == 'ar' %}آلية
-                                العمل الذكية | Workflow Visualizer{% else %}Workflow Visualizer | AI Engine{% endif %}</span>
-                        </div>
-                        <h3 id="modalAgentTitle"
-                            class="text-xl md:text-2xl font-black text-slate-900 dark:text-white mt-1">{% if trans.lang_code == 'ar' %}عنوان الوكيل{% else %}Agent Title{% endif %}</h3>
-                    </div>
-                </div>
-                <button type="button" onclick="closeAgentWorkflowModal()"
-                    class="h-10 w-10 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-rose-500 hover:text-white transition-colors cursor-pointer">
-                    <i data-lucide="x" class="h-5 w-5"></i>
-                </button>
-            </div>
-
-            <!-- Visual Flowchart Grid -->
-            <div class="relative grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                <div class="lg:col-span-4 flex flex-col h-full">
-                    <div
-                        class="text-xs font-black text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <i data-lucide="file-input" class="h-4 w-4 text-indigo-500"></i>
-                        <span>{% if trans.lang_code == 'ar' %}مدخلات البيانات (Sample Input){% else %}Sample Input
-                            Data{% endif %}</span>
-                    </div>
-                    <div
-                        class="flex-1 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 p-4 shadow-sm flex flex-col justify-between">
-                        <div>
-                            <div
-                                class="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-700/80 pb-2.5 mb-3">
-                                <span id="modalInputRef"
-                                    class="text-xs font-black text-indigo-600 dark:text-indigo-400">#INV-9021</span>
-                                <span
-                                    class="text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">{% if trans.lang_code == 'ar' %}بيانات معالجة{% else %}Processed Data{% endif %}</span>
-                            </div>
-                            <h5 id="modalInputTitle" class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">
-                                {% if trans.lang_code == 'ar' %}بيانات العينة{% else %}Sample Data{% endif %}</h5>
-                            <div id="modalInputFields"
-                                class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400 font-medium"></div>
-                        </div>
-                        <div
-                            class="mt-4 pt-3 border-t border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between">
-                            <span class="text-[11px] font-bold text-slate-400">{% if trans.lang_code == 'ar' %}نسبة دقة
-                                التطابق{% else %}Match Accuracy Ratio{% endif %}</span>
-                            <span id="modalMetricBadge"
-                                class="text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-1 rounded-lg">94%
-                                Confidence</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="lg:col-span-3 flex flex-col items-center justify-center text-center py-4 relative">
-                    <div class="relative flex flex-col items-center">
-                        <div id="modalCoreNode"
-                            class="h-20 w-20 rounded-full flex items-center justify-center text-white shadow-2xl transition-all duration-500 animate-pulse relative z-10">
-                            <i id="modalCoreIcon" data-lucide="cpu" class="h-9 w-9 stroke-[2.2]"></i>
-                        </div>
-                        <div class="mt-3">
-                            <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">{% if trans.lang_code == 'ar' %}خطوة المعالجة{% else %}Processing Step{% endif %}</span>
-                            <p id="modalProcessText"
-                                class="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5 leading-snug">{% if trans.lang_code == 'ar' %}جارٍ فحص البيانات واستخراج التوصيات...{% else %}Analyzing data
-                                and compiling recommendations...{% endif %}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="lg:col-span-5 flex flex-col h-full space-y-3">
-                    <div
-                        class="text-xs font-black text-slate-400 uppercase tracking-wider mb-0.5 flex items-center gap-1.5">
-                        <i data-lucide="git-branch" class="h-4 w-4 text-emerald-500"></i>
-                        <span>{% if trans.lang_code == 'ar' %}مخرجات شجرة القرار (Output Flow){% else %}Decision Tree
-                            Output{% endif %}</span>
-                    </div>
-                    <div id="modalOutputList" class="space-y-2.5"></div>
-                </div>
-            </div>
-
-            <!-- Footer Controls -->
-            <div class="mt-8 pt-4 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
-                <button type="button" onclick="navigateModalAgent(-1)"
-                    class="px-4 py-2 rounded-xl text-xs font-black bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer flex items-center gap-1.5">
-                    <span>{% if trans.lang_code == 'ar' %}الوكيل السابق ➔{% else %}← Previous Agent{% endif %}</span>
-                </button>
-                <button type="button" onclick="closeAgentWorkflowModal()"
-                    class="px-6 py-2.5 rounded-xl text-xs font-black bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-md shadow-indigo-500/20 cursor-pointer">
-                    {% if trans.lang_code == 'ar' %}إغلاق الدليل{% else %}Close Guide{% endif %}
-                </button>
-                <button type="button" onclick="navigateModalAgent(1)"
-                    class="px-4 py-2 rounded-xl text-xs font-black bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer flex items-center gap-1.5">
-                    <span>{% if trans.lang_code == 'ar' %}← الوكيل التالي{% else %}Next Agent ➔{% endif %}</span>
-                </button>
-            </div>
-        </div>
-    </div>
 
     {% include 'dashboard/footer.html' %}
 </div>
 
-<script>
-    const isAr = "{{ trans.lang_code }}" === 'ar';
-
-    const agentWorkflowData = {
-        general: {
-            id: "general",
-            title: isAr ? "المساعد العام – بصيرة" : "General AI Assistant – Baseera",
-            tag: isAr ? "رَصْد" : "Rasd",
-            icon: "bot",
-            badgeClass: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300",
-            coreColor: "bg-slate-700 shadow-slate-500/50",
-            inputRef: "#SES-9041",
-            inputTitle: isAr ? "الجلسة التنسيقية المركزية" : "Central Alignment Session",
-            inputFields: isAr
-                ? ["• عدد الوكلاء المنسقين: 6 وكلاء", "• حالة الاتصال: متزامن ومباشر", "• نسبة توافق التوصيات: 98%"]
-                : ["• Coordinated Agents: 6 Agents", "• Connection Status: Real-time Sync", "• Consensus Alignment: 98%"],
-            confidence: "98% Consensual Match",
-            processText: isAr
-                ? "إدارة التداول بين الوكلاء، مطابقة التوصيات، وتوليد القرار التنفيذي النهائي..."
-                : "Orchestrating agent debate, cross-evaluating recommendations, and generating final executive directive...",
-            outputs: isAr ? [
-                { title: "التوصية المعتمدة", tag: "قرار موحد", text: "تجميد شراء الصنف الراكد B وتوفير 4,200 ر.ع. سيولة، مع إطلاق حزمة تسعير ترويجية.", icon: "check-circle", color: "emerald" },
-                { title: "توزيع المهمات", tag: "توجيه خط العمل", text: "إرسال خطة إغلاق المخزون لوكيل الإمداد وحساب المرونة لوكيل التسعير.", icon: "arrow-left-right", color: "indigo" },
-                { title: "ملخص المجلس التنفيذي", tag: "تقرير شامل", text: "تصدير تقرير الجلسة التنسيقية بصيغة PDF / Excel لمجلس الإدارة.", icon: "file-text", color: "purple" }
-            ] : [
-                { title: "Approved Recommendation", tag: "Unified Decision", text: "Freeze purchasing deadstock B to release 4,200 OMR liquidity and launch promotional bundle.", icon: "check-circle", color: "emerald" },
-                { title: "Task Delegation", tag: "Workflow Action", text: "Dispatched liquidation plan to Supply Chain Agent and elasticity model to Pricing Agent.", icon: "arrow-left-right", color: "indigo" },
-                { title: "Executive Summary", tag: "Full Report", text: "Exported alignment session summary in PDF/Excel format for the Board.", icon: "file-text", color: "purple" }
-            ]
-        },
-        financial: {
-            id: "financial",
-            title: isAr ? "الوكيل المالي" : "Financial & Cash Flow Agent",
-            tag: isAr ? "السيولة والأرباح" : "Liquidity & Profitability",
-            icon: "trending-up",
-            badgeClass: "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400",
-            coreColor: "bg-emerald-600 shadow-emerald-500/50",
-            inputRef: "#INV-4091",
-            inputTitle: isAr ? "سجل التدفقات النقدية والقوائم" : "Cash Flow Ledger & Financial Statements",
-            inputFields: isAr
-                ? ["• إجمالي الإيرادات: 48,320 ر.ع.", "• معدل التكلفة المباشرة: 62%", "• متوسط فترة التحصيل: 42 يوم"]
-                : ["• Total Revenue: 48,320 OMR", "• Direct Cost Ratio: 62%", "• Avg Collection Period: 42 Days"],
-            confidence: "94% Financial Accuracy",
-            processText: isAr
-                ? "تحليل الإيرادات ومخاطر التدفقات النقدية ونقاط التعادل والتنبؤ بعجز السيولة..."
-                : "Analyzing revenue drivers, cash flow volatility, break-even thresholds, and shortfall risks...",
-            outputs: isAr ? [
-                { title: "توقع عجز السيولة", tag: "تنبيه مخاطر", text: "رصد عجز سيولة متوقع بقيمة 4,200 ر.ع. في الربع القادم وتحديد خطة التدارك.", icon: "alert-triangle", color: "amber" },
-                { title: "حساب نقطة التعادل", tag: "مؤشر أداء", text: "نقطة التعادل المطلوبة لتغطية المصاريف الثابتة هي 32,100 ر.ع. شهرياً.", icon: "bar-chart-2", color: "indigo" },
-                { title: "تحسين هوامش الأرباح", tag: "توصية ربحية", text: "خفض مصاريف التشغيل بنسبة 3.5% لرفع صافي الأرباح بمقدار 2,150 ر.ع.", icon: "trending-up", color: "emerald" }
-            ] : [
-                { title: "Liquidity Shortfall Forecast", tag: "Risk Warning", text: "Projected 4,200 OMR cash deficit next quarter; mitigation plan initiated.", icon: "alert-triangle", color: "amber" },
-                { title: "Break-even Analysis", tag: "KPI Metric", text: "Monthly revenue required to cover fixed overheads is 32,100 OMR.", icon: "bar-chart-2", color: "indigo" },
-                { title: "Margin Optimization", tag: "Profit Insight", text: "Cut OPEX by 3.5% to boost net profit by +2,150 OMR.", icon: "trending-up", color: "emerald" }
-            ]
-        },
-        pricing: {
-            id: "pricing",
-            title: isAr ? "وكيل استراتيجية التسعير" : "Pricing Strategy Agent",
-            tag: isAr ? "التسعير والهوامش" : "Pricing & Margins",
-            icon: "tag",
-            badgeClass: "bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400",
-            coreColor: "bg-purple-600 shadow-purple-500/50",
-            inputRef: "#PRC-3021",
-            inputTitle: isAr ? "مصفوفة الأسعار والخصومات" : "Price Matrix & Discount Log",
-            inputFields: isAr
-                ? ["• متوسط قيمة الفاتورة: 37 ر.ع.", "• مرونة الطلب السعرية: -1.2", "• معدل الخصومات العشوائية: 8.5%"]
-                : ["• Average Order Value: 37 OMR", "• Price Elasticity: -1.2", "• Random Discount Rate: 8.5%"],
-            confidence: "91% Margin Precision",
-            processText: isAr
-                ? "دراسة مرونة الطلب السعرية، هندسة حزم المبيعات (Bundling)، وتعظيم الفاتورة..."
-                : "Evaluating price elasticity, designing promotional product bundles, and boosting AOV...",
-            outputs: isAr ? [
-                { title: "هندسة حزمة الترويج", tag: "زيادة المبيعات", text: "إنشاء حزمة تجميعية للخدمات ترفع متوسط الفاتورة من 37 ر.ع. إلى 45 ر.ع.", icon: "package", color: "purple" },
-                { title: "ضبط الخصومات", tag: "حماية الهامش", text: "إلغاء الخصومات العشوائية وتثبيت هامش ربح لا يقل عن 28% لكل عملية.", icon: "shield", color: "indigo" },
-                { title: "تعظيم متوسط الفاتورة AOV", tag: "عائد مرتفع", text: "تحقيق زيادة متوقعة في المبيعات بقيمة +18% دون رفع التكاليف التسويقية.", icon: "zap", color: "amber" }
-            ] : [
-                { title: "Bundle Engineering", tag: "Revenue Boost", text: "Designed a multi-item package raising Average Order Value from 37 OMR to 45 OMR.", icon: "package", color: "purple" },
-                { title: "Discount Governance", tag: "Margin Protection", text: "Eliminated uncoordinated discounts, securing a strict 28% minimum profit floor.", icon: "shield", color: "indigo" },
-                { title: "AOV Optimization", tag: "High Return", text: "Projected +18% sales growth without additional marketing spend.", icon: "zap", color: "amber" }
-            ]
-        },
-        market: {
-            id: "market",
-            title: isAr ? "ذكاء السوق والمنافسين" : "Market & Competitor Intelligence Agent",
-            tag: isAr ? "ذكاء السوق" : "Market Intelligence",
-            icon: "compass",
-            badgeClass: "bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400",
-            coreColor: "bg-amber-600 shadow-amber-500/50",
-            inputRef: "#MKT-9014",
-            inputTitle: isAr ? "مؤشرات المنافسين والطلب" : "Competitor Index & Demand Trends",
-            inputFields: isAr
-                ? ["• عدد المنافسين المتابعين: 8 شركات", "• معدل نمو القطاع: +14% سنويًا", "• الفجوة التسويقية المكتشفة: 32%"]
-                : ["• Tracked Competitors: 8 Companies", "• Sector YoY Growth: +14%", "• Identified Market Gap: 32%"],
-            confidence: "93% Market Intelligence",
-            processText: isAr
-                ? "قراءة اتجاهات السوق، رصد تحركات المنافسين، واقتناص الفرص الاستثمارية..."
-                : "Monitoring market signals, tracking competitor pricing, and identifying high-yield opportunities...",
-            outputs: isAr ? [
-                { title: "اقتناص فرصة غير مغطاة", tag: "توسع استراتيجي", text: "إطلاق خدمة مخصصة في منطقة جغرافية لا يقدم فيها المنافسون خيارات مرنة.", icon: "compass", color: "amber" },
-                { title: "مقارنة الأسعار والموقع", tag: "موقف تنافسي", text: "تعديل الموقف السعري ليكون أفضل بنسبة 6% مقارنة بمتوسط المنافسين.", icon: "sliders", color: "indigo" },
-                { title: "التنبؤ بموسم الطلب", tag: "توقع مستقبلي", text: "الاستعداد لارتفاع الطلب بنسبة 35% في الشهر القادم بناءً على بيانات الاتجاه.", icon: "pie-chart", color: "emerald" }
-            ] : [
-                { title: "Unmet Demand Opportunity", tag: "Strategic Expansion", text: "Launch tailored offering in underserved region where competitors lack flexibility.", icon: "compass", color: "amber" },
-                { title: "Competitive Positioning", tag: "Market Share", text: "Repositioned pricing to maintain a 6% advantage over market averages.", icon: "sliders", color: "indigo" },
-                { title: "Demand Spike Forecast", tag: "Predictive Insight", text: "Prepare inventory for a 35% seasonal demand surge next month.", icon: "pie-chart", color: "emerald" }
-            ]
-        },
-        supply: {
-            id: "supply",
-            title: isAr ? "وكيل سلاسل الإمداد" : "Supply Chain & Inventory Agent",
-            tag: isAr ? "المخزون والتوريد" : "Inventory & Procurement",
-            icon: "truck",
-            badgeClass: "bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400",
-            coreColor: "bg-blue-600 shadow-blue-500/50",
-            inputRef: "#SKU-8021",
-            inputTitle: isAr ? "سجل شحنات والمخزون" : "Shipment & Stock Log",
-            inputFields: isAr
-                ? ["• الصنف الراكد: المنتجات فئة (B)", "• رأس المال المجمد: 11,400 ر.ع.", "• معدل دوران المخزون: 0.4x"]
-                : ["• Deadstock Item: Category B Products", "• Locked Capital: 11,400 OMR", "• Inventory Turnover: 0.4x"],
-            confidence: "88% Stock Accuracy",
-            processText: isAr
-                ? "تتبع البضاعة الراكدة وحساب توقيت إعادة الطلب الأمثل لتفادي تجميد رأس المال..."
-                : "Tracking slow-moving items, calculating re-order points, and freeing up working capital...",
-            outputs: isAr ? [
-                { title: "إيقاف شراء الصنف B", tag: "تحرير السيولة", text: "توصية فورية بإيقاف شراء الصنف الراكد لتوفير 4,200 ر.ع. سيولة فورية.", icon: "stop-circle", color: "rose" },
-                { title: "نقطة إعادة الطلب Re-Order", tag: "كفاءة التوريد", text: "حساب التوقيت الأمثل لطلب الأصناف الأكثر مبيعاً لمنع الانقطاع.", icon: "refresh-cw", color: "blue" },
-                { title: "خفض رسوم التخزين", tag: "تقليل التكاليف", text: "تقليص مساحات المستودع المستغلة للصنف B وتوفير 350 ر.ع. إيجار شهري.", icon: "archive", color: "indigo" }
-            ] : [
-                { title: "Halt Procurement on SKU B", tag: "Capital Release", text: "Immediate freeze on purchasing slow SKU B, releasing 4,200 OMR in cash.", icon: "stop-circle", color: "rose" },
-                { title: "Optimal Re-Order Point", tag: "Supply Efficiency", text: "Calculated exact replenishment triggers for top sellers to prevent stockouts.", icon: "refresh-cw", color: "blue" },
-                { title: "Warehouse Holding Reduction", tag: "Cost Reduction", text: "Optimized storage layout for SKU B, saving 350 OMR in monthly holding fees.", icon: "archive", color: "indigo" }
-            ]
-        },
-        forensic: {
-            id: "forensic",
-            title: isAr ? "التدقيق والرقابة (الجنائي)" : "Forensic Audit & Governance Agent",
-            tag: isAr ? "التدقيق ومكافحة الهدر" : "Audit & Waste Control",
-            icon: "shield-check",
-            badgeClass: "bg-cyan-100 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400",
-            coreColor: "bg-cyan-600 shadow-cyan-500/50",
-            inputRef: "#AUD-7019",
-            inputTitle: isAr ? "سجل المعاملات والمصروفات" : "Transactions & Expense Ledger",
-            inputFields: isAr
-                ? ["• عدد الفواتير المفحوصة: 1,420 فاتورة", "• المصاريف غير الموثقة: 1,850 ر.ع.", "• نسبة الشذوذ المحاسبي: 1.8%"]
-                : ["• Scanned Invoices: 1,420 Invoices", "• Unbacked Expenses: 1,850 OMR", "• Anomaly Detection Rate: 1.8%"],
-            confidence: "96% Forensic Audit",
-            processText: isAr
-                ? "كشف الفواتير المكررة، المصاريف غير الموثقة، والشذوذ المحاسبي ومكافحة الهدر..."
-                : "Detecting duplicate billings, unverified expense claims, and accounting irregularities...",
-            outputs: isAr ? [
-                { title: "استرداد الفواتير المكررة", tag: "حماية الأموال", text: "رصد 3 فواتير مكررة واسترداد مبلغ 1,200 ر.ع. لصالح الشركة.", icon: "shield-alert", color: "cyan" },
-                { title: "إيقاف الاشتراكات المنسية", tag: "مكافحة الهدر", text: "إلغاء 4 خدمات رقمية غير مستغلة وتوفير 640 ر.ع. سنوياً.", icon: "x-circle", color: "rose" },
-                { title: "تقرير المطابقة والامتثال", tag: "رقابة مالية", text: "إصدار شهادة الامتثال المحاسبي وتأكيد خلو السجلات من الثغرات.", icon: "check-square", color: "emerald" }
-            ] : [
-                { title: "Duplicate Invoice Recovery", tag: "Asset Recovery", text: "Identified 3 duplicate supplier charges; recovered 1,200 OMR.", icon: "shield-alert", color: "cyan" },
-                { title: "Unused Subscriptions Cleanup", tag: "Waste Elimination", text: "Canceled 4 inactive SaaS subscriptions, saving 640 OMR annually.", icon: "x-circle", color: "rose" },
-                { title: "Compliance Verification", tag: "Financial Control", text: "Issued clean compliance report certifying books free of critical discrepancies.", icon: "check-square", color: "emerald" }
-            ]
-        },
-        retention: {
-            id: "retention",
-            title: isAr ? "استعادة العملاء" : "Customer Retention & LTV Agent",
-            tag: isAr ? "ولاء العملاء" : "Customer Loyalty",
-            icon: "heart",
-            badgeClass: "bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400",
-            coreColor: "bg-rose-600 shadow-rose-500/50",
-            inputRef: "#CRM-5012",
-            inputTitle: isAr ? "سلوك العملاء والتفاعل" : "Customer Behavior & Engagement",
-            inputFields: isAr
-                ? ["• معدل فقدان العملاء Churn: 2.1%", "• القيمة الدائمة LTV: 1,280 ر.ع.", "• العملاء المعرضون للانقطاع: 14 عميل"]
-                : ["• Churn Rate: 2.1%", "• Customer Lifetime Value (LTV): 1,280 OMR", "• High Churn Risk Accounts: 14 Accounts"],
-            confidence: "89% Retention Prediction",
-            processText: isAr
-                ? "رصد إشارات فقدان العملاء Churn، حساب القيمة الدائمة LTV، وتخطيط حملات الاستعادة..."
-                : "Identifying churn indicators, computing LTV metrics, and executing retention campaigns...",
-            outputs: isAr ? [
-                { title: "حملة استعادة مخصصة", tag: "استعادة العملاء", text: "إرسال حوافز استهدافية لـ 14 عميلاً معرضاً للانقطاع واستعادتهم بنسبة 80%.", icon: "heart", color: "rose" },
-                { title: "رفع القيمة الدائمة LTV", tag: "زيادة الولاء", text: "زيادة معدل تكرار شراء كبار العملاء بنسبة +15% عبر العروض الخاصة.", icon: "user-check", color: "indigo" },
-                { title: "نقاط مكافآت الولاء", tag: "حوافز ذكية", text: "تفعيل نظام نقاط تلقائي للعملاء لمنع المغادرة لصالح المنافسين.", icon: "award", color: "amber" }
-            ] : [
-                { title: "Win-back Campaign", tag: "Account Retention", text: "Triggered targeted retention offers to 14 high-churn-risk accounts; 80% recovery rate.", icon: "heart", color: "rose" },
-                { title: "LTV Optimization", tag: "Loyalty Growth", text: "Increased repeat purchase frequency among key clients by +15%.", icon: "user-check", color: "indigo" },
-                { title: "Automated Loyalty Rewards", tag: "Smart Incentives", text: "Activated automated loyalty tier points preventing customer defections.", icon: "award", color: "amber" }
-            ]
-        }
-    };
-
-    const modalAgentKeys = ["general", "financial", "pricing", "market", "supply", "forensic", "retention"];
-    let currentModalAgentIndex = 0;
-
-    function openAgentWorkflowModal(agentId) {
-        const index = modalAgentKeys.indexOf(agentId);
-        if (index !== -1) currentModalAgentIndex = index;
-        renderModalContent(modalAgentKeys[currentModalAgentIndex]);
-        const modal = document.getElementById('agentWorkflowModal');
-        if (modal) {
-            modal.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        }
-    }
-
-    function closeAgentWorkflowModal() {
-        const modal = document.getElementById('agentWorkflowModal');
-        if (modal) {
-            modal.classList.add('hidden');
-            document.body.style.overflow = '';
-        }
-    }
-
-    function navigateModalAgent(dir) {
-        currentModalAgentIndex = (currentModalAgentIndex + dir + modalAgentKeys.length) % modalAgentKeys.length;
-        renderModalContent(modalAgentKeys[currentModalAgentIndex]);
-    }
-
-    function renderModalContent(agentId) {
-        const data = agentWorkflowData[agentId];
-        if (!data) return;
-
-        document.getElementById('modalAgentTitle').innerText = data.title;
-        document.getElementById('modalRoleTag').innerText = data.tag;
-
-        const badgeContainer = document.getElementById('modalBadgeContainer');
-        badgeContainer.className = `h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm border border-slate-200 dark:border-slate-700 ${data.badgeClass}`;
-
-        const badgeIcon = document.getElementById('modalBadgeIcon');
-        badgeIcon.setAttribute('data-lucide', data.icon);
-
-        document.getElementById('modalInputRef').innerText = data.inputRef;
-        document.getElementById('modalInputTitle').innerText = data.inputTitle;
-
-        const fieldsContainer = document.getElementById('modalInputFields');
-        fieldsContainer.innerHTML = data.inputFields.map(f => `<p>${f}</p>`).join('');
-
-        document.getElementById('modalMetricBadge').innerText = data.confidence;
-        document.getElementById('modalProcessText').innerText = data.processText;
-
-        const coreNode = document.getElementById('modalCoreNode');
-        coreNode.className = `h-20 w-20 rounded-full flex items-center justify-center text-white shadow-2xl transition-all duration-500 animate-pulse relative z-10 ${data.coreColor}`;
-        document.getElementById('modalCoreIcon').setAttribute('data-lucide', data.icon);
-
-        const outputList = document.getElementById('modalOutputList');
-        outputList.innerHTML = data.outputs.map(out => `
-    <div class="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-800/80 shadow-xs hover:border-indigo-500/50 transition text-start">
-      <div class="flex items-center justify-between mb-1">
-        <div class="flex items-center gap-1.5 font-bold text-xs text-slate-800 dark:text-slate-100">
-          <i data-lucide="${out.icon}" class="h-4 w-4 text-${out.color}-500"></i>
-          <span>${out.title}</span>
-        </div>
-        <span class="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-${out.color}-100 dark:bg-${out.color}-950/60 text-${out.color}-600 dark:text-${out.color}-400">${out.tag}</span>
-      </div>
-      <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">${out.text}</p>
-    </div>
-  `).join('');
-
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-    }
-</script>
+<!-- رَصْد agents architecture: scoped styles -->
+<style>
+  .rasd-arch .diagram{width:100%;height:auto;display:block}
+  .rasd-arch .chip-name{font-size:15px;font-weight:800;fill:var(--ink,#1e1b4b)}
+  .rasd-arch .chip-act{font-size:12px;font-weight:700;fill:var(--glow,#7c6cf0)}
+  .rasd-arch .chip-box{fill:#ffffff;stroke:#e7e3fb;stroke-width:1}
+  .rasd-arch .port{fill:var(--glow,#7c6cf0);animation:raPort 2.6s ease-in-out infinite}
+  .rasd-arch .port-ring{fill:none;stroke:var(--glow,#7c6cf0);stroke-opacity:.3}
+  .rasd-arch .chip{transform-box:fill-box;transform-origin:center;transition:transform .3s cubic-bezier(.4,0,.2,1),filter .3s}
+  .rasd-arch .chip:hover{transform:translateY(-3px) scale(1.015);filter:drop-shadow(0 14px 22px rgba(43,36,112,.20))}
+  .rasd-arch .chip:hover .chip-box{stroke:var(--glow,#7c6cf0);stroke-opacity:.55}
+  .rasd-arch .chip:hover .port{r:5.5}
+  .rasd-arch .cring{transform-box:fill-box;transform-origin:center;animation:raSpin 30s linear infinite}
+  .rasd-arch .cring2{transform-box:fill-box;transform-origin:center;animation:raSpin 52s linear infinite reverse}
+  .rasd-arch .cglow{transform-box:fill-box;transform-origin:center;animation:raBreathe 6s ease-in-out infinite}
+  .rasd-arch #raCore,.rasd-arch #raIris{will-change:transform}
+  @keyframes raSpin{to{transform:rotate(360deg)}}
+  @keyframes raBreathe{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:.85;transform:scale(1.05)}}
+  @keyframes raPort{0%,100%{opacity:.55}50%{opacity:1}}
+  /* dark mode */
+  .dark .rasd-arch .chip-box{fill:rgba(30,27,75,.55);stroke:rgba(124,108,240,.28)}
+  .dark .rasd-arch .chip-name{fill:#ece9fb}
+  .dark .rasd-arch .core-lbl{fill:#c9bdf6}
+  @media (prefers-reduced-motion:reduce){
+    .rasd-arch .cring,.rasd-arch .cring2,.rasd-arch .cglow,.rasd-arch .port,
+    .rasd-arch .diagram animateMotion{animation:none}
+  }
+</style>
 {% endblock %}
