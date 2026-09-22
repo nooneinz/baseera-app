@@ -23,9 +23,9 @@
 
 <main class="mx-auto w-[min(1200px,calc(100%-2rem))] pb-20 pt-32 text-{{ trans.align }}">
 
-    <!-- HERO (dashboard-forward, floating cards) -->
+    <!-- HERO (staggered floating dashboard) -->
     <style>
-      /* light / neutral hero — keeps the site's existing background (no dark-blue block) */
+      /* light / neutral hero — keeps the site's background (no dark block) */
       .bh{position:relative;border-radius:28px;color:#1e1b4b;padding:34px 32px 40px;border:1px solid #ece9fb;
           background:
             radial-gradient(900px 500px at 84% -12%, rgba(124,108,240,.13), transparent 60%),
@@ -52,15 +52,16 @@
       .dark .bh-pill{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);color:#e7e2fb}
       .dark .bh-b2{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.28);color:#fff}
       .dark .bh-stats .n{color:#fff}.dark .bh-stats .l{color:#a9a3d6}
-      /* ===== floating cards ===== */
-      .bh-stage{position:relative;height:506px}
-      .bh-fc{position:absolute;background:#fff;border:1px solid #eee9fb;border-radius:18px;box-shadow:0 26px 54px -22px rgba(43,36,112,.38);padding:16px 18px}
+      /* ===== 3D stage + floating cards ===== */
+      .bh-stage{position:relative;height:506px;perspective:1300px}
+      .bh-deck{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .25s ease-out;will-change:transform}
+      .bh-fc{position:absolute;background:#fff;border:1px solid #eee9fb;border-radius:18px;box-shadow:0 26px 54px -22px rgba(43,36,112,.4);padding:16px 18px;will-change:transform,opacity}
       .dark .bh-fc{background:#171433;border-color:rgba(255,255,255,.08)}
       .bh-cap{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px}
       .bh-cap .lbl{font-size:12px;font-weight:800;color:#5b5776}
       .dark .bh-cap .lbl{color:#b9b4d6}
       .bh-chip{font-size:10px;font-weight:800;color:#7c6cf0;background:#f1eefc;border:1px solid #e5e0fb;padding:4px 9px;border-radius:999px;white-space:nowrap}
-      .bh-cg{left:14px;top:24px;width:534px;height:256px}
+      .bh-cg{left:14px;top:24px;width:534px;height:256px;--dz:0px}
       .bh-cg .cv{height:196px;position:relative}
       .bh-ck{width:258px;height:110px}
       .bh-ck .k{font-size:13px;color:#7b769b;font-weight:800}
@@ -69,54 +70,60 @@
       .dark .bh-ck .v{color:#fff}
       .bh-ck .v.up{color:#0f9d6b}
       .bh-ck .d{font-size:11px;color:#8a86a3;font-weight:700;margin-top:4px}
-      .bh-ci{left:290px;top:298px}
-      .bh-cn{left:14px;top:298px}
-      .bh-ca{left:14px;top:420px;width:534px;height:74px;display:flex;align-items:center;gap:12px;padding:14px 18px}
+      .bh-ci{left:290px;top:298px;--dz:46px}
+      .bh-cn{left:14px;top:298px;--dz:46px}
+      .bh-ca{left:14px;top:420px;width:534px;height:74px;display:flex;align-items:center;gap:12px;padding:14px 18px;--dz:24px}
       .bh-ca .ic{width:34px;height:34px;border-radius:10px;background:#fdecec;color:#e5484d;display:grid;place-items:center;font-weight:900;font-size:18px;flex:0 0 auto}
       .bh-ca .m{font-size:13px;color:#3a3556;line-height:1.5}
       .dark .bh-ca .m{color:#d7d3ea}
-      /* entrance from the right, staggered, then gentle float (so the hero feels alive) */
-      .bh-cg{animation:bhInR .8s cubic-bezier(.16,.84,.28,1) .1s both, bhFlo 6.5s ease-in-out 1.4s infinite}
-      .bh-ci{animation:bhInR .65s cubic-bezier(.16,.84,.28,1) .55s both, bhFlo 6.8s ease-in-out 1.9s infinite}
-      .bh-cn{animation:bhInR .65s cubic-bezier(.16,.84,.28,1) .7s both, bhFlo 7.1s ease-in-out 2.1s infinite}
-      .bh-ca{animation:bhInR .65s cubic-bezier(.16,.84,.28,1) .95s both, bhFlo 7.4s ease-in-out 2.4s infinite}
-      @keyframes bhInR{from{opacity:0;transform:translateX(54px)}to{opacity:1;transform:translateX(0)}}
-      @keyframes bhFlo{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-      @media (prefers-reduced-motion:reduce){.bh-fc{animation:none!important}}
+      /* 1) text reveals first (staggered slide-up) */
+      .bh-rev{animation:bhUpT .6s cubic-bezier(.16,.84,.28,1) var(--d,0s) both}
+      /* 2) then cards fly up into place, one by one, at layered depths */
+      .bh-cg{animation:bhUp .8s cubic-bezier(.16,.84,.28,1) .55s both, bhFlo 6.5s ease-in-out 1.9s infinite}
+      .bh-ci{animation:bhUp .7s cubic-bezier(.16,.84,.28,1) .78s both, bhFlo 6.9s ease-in-out 2.2s infinite}
+      .bh-cn{animation:bhUp .7s cubic-bezier(.16,.84,.28,1) .95s both, bhFlo 7.2s ease-in-out 2.5s infinite}
+      .bh-ca{animation:bhUp .7s cubic-bezier(.16,.84,.28,1) 1.15s both, bhFlo 7.5s ease-in-out 2.8s infinite}
+      @keyframes bhUp{from{opacity:0;transform:translateY(46px) translateZ(var(--dz,0))}to{opacity:1;transform:translateY(0) translateZ(var(--dz,0))}}
+      @keyframes bhFlo{0%,100%{transform:translateY(0) translateZ(var(--dz,0))}50%{transform:translateY(-8px) translateZ(var(--dz,0))}}
+      @keyframes bhUpT{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+      @media (prefers-reduced-motion:reduce){.bh-fc,.bh-rev{animation:none!important}.bh-deck{transform:none!important}}
       @media (max-width:860px){
         .bh{padding:24px 18px 28px}
         .bh-grid{grid-template-columns:1fr;gap:20px}
         .bh h1{font-size:29px}
-        .bh-copy{order:1}.bh-stage{order:2}
-        .bh-stage{position:static;height:auto;display:flex;flex-direction:column;gap:12px}
-        .bh-fc{position:static!important;width:auto!important;height:auto!important;animation:none!important}
+        .bh-copy{order:1}.bh-stage{order:2;perspective:none}
+        .bh-stage{position:static;height:auto}
+        .bh-deck{position:static;transform:none!important;display:flex;flex-direction:column;gap:12px}
+        .bh-fc{position:static!important;width:auto!important;height:auto!important}
       }
     </style>
 
-    <section class="relative animate-fade-up">
+    <section class="relative">
       <div class="bh">
         <div class="bh-grid">
-          <!-- floating dashboard cards -->
+          <!-- 3D floating dashboard deck -->
           <div class="bh-stage">
-            <div class="bh-fc bh-cg">
-              <div class="bh-cap"><span class="lbl">{% if trans.lang_code == 'ar' %}التدفّق النقدي — آخر ٨ أشهر{% else %}Cash flow — last 8 months{% endif %}</span><span class="bh-chip">{% if trans.lang_code == 'ar' %}رَصْد يحسب بايثون{% else %}Rasd computes in Python{% endif %}</span></div>
-              <div class="cv"><canvas id="heroChart"></canvas></div>
+            <div class="bh-deck">
+              <div class="bh-fc bh-cg">
+                <div class="bh-cap"><span class="lbl">{% if trans.lang_code == 'ar' %}التدفّق النقدي — آخر ٨ أشهر{% else %}Cash flow — last 8 months{% endif %}</span><span class="bh-chip">{% if trans.lang_code == 'ar' %}رَصْد يحسب بايثون{% else %}Rasd computes in Python{% endif %}</span></div>
+                <div class="cv"><canvas id="heroChart"></canvas></div>
+              </div>
+              <div class="bh-fc bh-ck bh-ci"><div class="k">{% if trans.lang_code == 'ar' %}الدخل{% else %}Income{% endif %}</div><div class="v up bh-count" data-num="48320" data-tpl="{% if trans.lang_code == 'ar' %}{n} ر.ع{% else %}OMR {n}{% endif %}">{% if trans.lang_code == 'ar' %}٤٨,٣٢٠ ر.ع{% else %}OMR 48,320{% endif %}</div><div class="d">{% if trans.lang_code == 'ar' %}هذا الشهر{% else %}this month{% endif %}</div></div>
+              <div class="bh-fc bh-ck bh-cn"><div class="k">{% if trans.lang_code == 'ar' %}صافي الربح{% else %}Net profit{% endif %}</div><div class="v up bh-count" data-num="17220" data-tpl="{% if trans.lang_code == 'ar' %}+{n} ر.ع{% else %}+OMR {n}{% endif %}">{% if trans.lang_code == 'ar' %}+١٧,٢٢٠ ر.ع{% else %}+OMR 17,220{% endif %}</div><div class="d">{% if trans.lang_code == 'ar' %}بعد كل المصاريف{% else %}after all costs{% endif %}</div></div>
+              <div class="bh-fc bh-ca"><div class="ic">!</div><div class="m">{% if trans.lang_code == 'ar' %}<b>أكبر تسريب:</b> اشتراكات مكرّرة — ٣٤٠ ر.ع/شهر يمكن إيقافها الآن.{% else %}<b>Biggest leak:</b> duplicate subscriptions — OMR 340/mo you can stop now.{% endif %}</div></div>
             </div>
-            <div class="bh-fc bh-ck bh-ci"><div class="k">{% if trans.lang_code == 'ar' %}الدخل{% else %}Income{% endif %}</div><div class="v up">{% if trans.lang_code == 'ar' %}٤٨,٣٢٠ ر.ع{% else %}OMR 48,320{% endif %}</div><div class="d">{% if trans.lang_code == 'ar' %}هذا الشهر{% else %}this month{% endif %}</div></div>
-            <div class="bh-fc bh-ck bh-cn"><div class="k">{% if trans.lang_code == 'ar' %}صافي الربح{% else %}Net profit{% endif %}</div><div class="v up">{% if trans.lang_code == 'ar' %}+١٧,٢٢٠ ر.ع{% else %}+OMR 17,220{% endif %}</div><div class="d">{% if trans.lang_code == 'ar' %}بعد كل المصاريف{% else %}after all costs{% endif %}</div></div>
-            <div class="bh-fc bh-ca"><div class="ic">!</div><div class="m">{% if trans.lang_code == 'ar' %}<b>أكبر تسريب:</b> اشتراكات مكرّرة — ٣٤٠ ر.ع/شهر يمكن إيقافها الآن.{% else %}<b>Biggest leak:</b> duplicate subscriptions — OMR 340/mo you can stop now.{% endif %}</div></div>
           </div>
 
-          <!-- copy -->
+          <!-- copy (reveals first) -->
           <div class="bh-copy">
-            <span class="bh-pill">{% if trans.lang_code == 'ar' %}منصة الذكاء المالي للمنشآت العُمانية{% else %}Financial intelligence for Omani businesses{% endif %}</span>
-            <h1>{{ trans.hero_title }} <span class="g">{{ trans.hero_title_sub }}</span></h1>
-            <p class="bh-desc">{{ trans.hero_desc }}</p>
-            <div class="bh-btns">
+            <span class="bh-pill bh-rev" style="--d:.05s">{% if trans.lang_code == 'ar' %}منصة الذكاء المالي للمنشآت العُمانية{% else %}Financial intelligence for Omani businesses{% endif %}</span>
+            <h1 class="bh-rev" style="--d:.14s">{{ trans.hero_title }} <span class="g">{{ trans.hero_title_sub }}</span></h1>
+            <p class="bh-desc bh-rev" style="--d:.24s">{{ trans.hero_desc }}</p>
+            <div class="bh-btns bh-rev" style="--d:.34s">
               <a href="{% url 'register' %}" class="bh-b1"><i data-lucide="upload" class="h-4 w-4"></i> {{ trans.register_today }}</a>
               <a href="{% url 'about' %}" class="bh-b2">{{ trans.learn_story }}</a>
             </div>
-            <div class="bh-stats">
+            <div class="bh-stats bh-rev" style="--d:.44s">
               <div><div class="n">{% if trans.lang_code == 'ar' %}٦{% else %}6{% endif %}</div><div class="l">{% if trans.lang_code == 'ar' %}وكلاء متخصّصون{% else %}specialized agents{% endif %}</div></div>
               <div><div class="n">{% if trans.lang_code == 'ar' %}٥ دقائق{% else %}5 min{% endif %}</div><div class="l">{% if trans.lang_code == 'ar' %}حتى أول قرار{% else %}to first decision{% endif %}</div></div>
               <div><div class="n">{% if trans.lang_code == 'ar' %}٪٠{% else %}0%{% endif %}</div><div class="l">{% if trans.lang_code == 'ar' %}هلوسة في الأرقام{% else %}hallucination in numbers{% endif %}</div></div>
@@ -125,6 +132,35 @@
         </div>
       </div>
     </section>
+    <script>
+    (function(){
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var isAr = document.documentElement.lang === 'ar' || document.documentElement.dir === 'rtl';
+      function toAr(s){ return isAr ? s.replace(/[0-9]/g, function(d){ return '٠١٢٣٤٥٦٧٨٩'[d]; }) : s; }
+      // 3) micro-interaction: KPI numbers count up on reveal
+      function countUp(el){
+        var num = parseInt(el.getAttribute('data-num'),10), tpl = el.getAttribute('data-tpl')||'{n}';
+        if(!num){ return; }
+        if(reduce){ el.textContent = tpl.replace('{n}', toAr(num.toLocaleString('en-US'))); return; }
+        var t0=null, dur=1400;
+        function step(t){ if(!t0)t0=t; var p=Math.min((t-t0)/dur,1); var e=1-Math.pow(1-p,4); /*easeOutQuart*/
+          var val=Math.round(num*e); el.textContent = tpl.replace('{n}', toAr(val.toLocaleString('en-US')));
+          if(p<1) requestAnimationFrame(step); }
+        requestAnimationFrame(step);
+      }
+      // 2) 3D tilt of the whole deck with the cursor (layered depth)
+      var stage=document.querySelector('.bh-stage'), deck=document.querySelector('.bh-deck');
+      if(stage && deck && !reduce && window.matchMedia('(min-width:861px)').matches){
+        var rx=0,ry=0,tx=0,ty=0,active=false;
+        stage.addEventListener('pointermove',function(e){var r=stage.getBoundingClientRect();tx=(e.clientX-(r.left+r.width/2))/(r.width/2);ty=(e.clientY-(r.top+r.height/2))/(r.height/2);active=true;},{passive:true});
+        stage.addEventListener('pointerleave',function(){tx=0;ty=0;});
+        (function loop(){rx+=((-ty*5)-rx)*0.09; ry+=((tx*6)-ry)*0.09; deck.style.transform='rotateX('+rx.toFixed(2)+'deg) rotateY('+ry.toFixed(2)+'deg)'; requestAnimationFrame(loop);})();
+      }
+      function start(){ document.querySelectorAll('.bh-count').forEach(countUp); }
+      // start the count-up as the KPI cards arrive (~0.9s into the stagger)
+      setTimeout(start, reduce ? 0 : 900);
+    })();
+    </script>
 
     <!-- HOW IT WORKS -->
     <section class="mt-24 animate-fade-up">
@@ -575,6 +611,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }]},
             options: {
                 responsive: true, maintainAspectRatio: false,
+                animation: { duration: 1600, easing: 'easeOutQuart' },
                 plugins: { legend: { display: false } },
                 scales: { x: { display: false }, y: { display: false, min: 0 } }
             }
