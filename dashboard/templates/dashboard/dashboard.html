@@ -887,6 +887,35 @@
         revenue = { labels: [], data: [] };
       }
 
+      // Continue a date axis forward by its own median step. Returns `steps`
+      // future "YYYY-MM-DD" strings, or an array of nulls when the labels are
+      // not parseable dates (so the caller keeps generic period labels).
+      function projectFutureDateLabels(labels, steps) {
+        try {
+          const times = (labels || []).map(l => {
+            const t = Date.parse(String(l).trim());
+            return isNaN(t) ? null : t;
+          }).filter(t => t !== null);
+          if (times.length < 2) return new Array(steps).fill(null);
+          let gaps = [];
+          for (let i = 1; i < times.length; i++) {
+            const g = times[i] - times[i - 1];
+            if (g > 0) gaps.push(g);
+          }
+          if (!gaps.length) return new Array(steps).fill(null);
+          gaps.sort((a, b) => a - b);
+          const stepMs = gaps[Math.floor(gaps.length / 2)]; // median gap (robust to outliers)
+          const last = times[times.length - 1];
+          const out = [];
+          for (let i = 1; i <= steps; i++) {
+            out.push(new Date(last + stepMs * i).toISOString().slice(0, 10));
+          }
+          return out;
+        } catch (e) {
+          return new Array(steps).fill(null);
+        }
+      }
+
       // 2. Forecast Curve Extrapolation
       let forecast = { actualLabels: [], actual: [], forecastLabels: [], forecast: [], confidence: null };
       if (revenue.data && revenue.data.length >= 2) {
@@ -901,8 +930,13 @@
         
         const lastLabel = revenue.labels[revenue.labels.length - 1] || (isAr ? 'الحالي' : 'Current');
         const fLabels = [lastLabel];
+        // When the x-axis is real dates, project REAL future dates by continuing
+        // the series at its own (median) step — so the forecast reads e.g.
+        // 2025-06-28 / 07-01 dynamically instead of a static "+فترة 1". Only when
+        // the axis isn't parseable dates do we fall back to generic period labels.
+        const futureDates = projectFutureDateLabels(revenue.labels, steps);
         for (let i = 1; i <= steps; i++) {
-          fLabels.push(isAr ? `+فترة ${i}` : `+Period ${i}`);
+          fLabels.push(futureDates[i - 1] || (isAr ? `+فترة ${i}` : `+Period ${i}`));
         }
 
         const lastActualVal = revenue.data[revenue.data.length - 1];
