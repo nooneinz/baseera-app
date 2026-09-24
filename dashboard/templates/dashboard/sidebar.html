@@ -149,6 +149,11 @@
             <span>{% if trans.lang_code == 'ar' %}التقارير{% else %}Reports{% endif %}</span>
         </a>
 
+        <a href="{% url 'credit_risk' %}" class="nav-item {% if active_page == 'credit_risk' %}active{% endif %} flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-medium {% if active_page == 'credit_risk' %}text-white{% else %}text-white/70{% endif %}">
+            <i data-lucide="shield-alert" class="h-4 w-4 text-sky-400"></i>
+            <span>{% if trans.lang_code == 'ar' %}مخاطر البيع بالآجل{% else %}Credit Risk{% endif %}</span>
+        </a>
+
         <a href="{% url 'chat_history' %}" class="nav-item {% if active_page == 'chat_history' %}active{% endif %} flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-medium {% if active_page == 'chat_history' %}text-white{% else %}text-white/70{% endif %}">
             <i data-lucide="history" class="h-4 w-4 text-sky-400"></i>
             <span>{% if trans.lang_code == 'ar' %}سجل المحادثات{% else %}Chat History{% endif %}</span>

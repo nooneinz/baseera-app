@@ -58,6 +58,8 @@ _TOOL_NAMES = {
     "draft_negotiation_message",
     # Safe natural-language data exploration (parameters only, no exec):
     "describe_dataset", "count_where",
+    # Early warning before a credit sale (deterministic signals, read-only):
+    "check_credit_risk",
 }
 
 # Latency gate: the pre-loop costs at least one extra live round trip
@@ -89,6 +91,9 @@ _REACT_TRIGGER_TERMS = [
     "رسالة تفاوض", "صيغ لي رسالة", "تفاوض مع", "negotiation message", "negotiate with",
     "كم عدد", "كم من", "عدد المعاملات", "كم معاملة", "كم عملية", "متوسط", "توزيع",
     "how many", "count of", "average of", "distribution of", "describe the data",
+    # Early warning before selling on credit:
+    "بالآجل", "بالاجل", "آجل", "اجل لـ", "أسلّف", "اسلف", "أبيع لـ", "ابيع ل", "مخاطر العميل", "هل أبيع",
+    "on credit", "credit risk", "extend credit", "sell to",
 ]
 
 
@@ -245,6 +250,31 @@ def _get_waste_summary_tool(user_id):
     except Exception as e:
         logger.info("get_waste_summary tool failed: %s", e)
         return "Could not compute waste summary."
+
+
+def _check_credit_risk_tool(user_id, customer_name, amount=None, terms_days=None):
+    """READ-ONLY: pre-sale credit check for one customer, from the user's own
+    rows + their own watchlist. Returns the computed signals (the model then
+    words the answer from these only)."""
+    try:
+        from dashboard.models import CreditWatchlistEntry
+        from dashboard.services.credit_risk_analyzer import check_customer, _template_alert
+        if not user_id:
+            return "No active user session."
+        if not (customer_name or "").strip():
+            return "Ask the user which customer they want to sell to on credit."
+        watch = list(CreditWatchlistEntry.objects.filter(user_id=user_id).values("customer_name", "reason"))
+        chk = check_customer(_rows_for(user_id), customer_name, watchlist=watch,
+                             proposed_amount=amount, proposed_terms_days=terms_days)
+        return json.dumps({
+            "customer": chk["customer"], "found_in_data": chk["found_in_data"],
+            "orders_in_data": chk["orders_in_data"], "risk_level": chk["risk_level"],
+            "signals": [{"title": x["title"], "detail": x["detail"], "severity": x["severity"]} for x in chk["signals"]],
+            "summary": _template_alert(chk),
+        }, ensure_ascii=False)
+    except Exception as e:
+        logger.info("check_credit_risk tool failed: %s", e)
+        return "Could not run the credit-risk check."
 
 
 def _get_recent_files_tool(user_id):
@@ -519,11 +549,33 @@ def build_agent_tools():
             "required": ["column", "op", "value"],
         },
     )
+    check_credit_risk_fd = types.FunctionDeclaration(
+        name="check_credit_risk",
+        description=(
+            "READ-ONLY. Early warning before selling ON CREDIT to a customer. "
+            "Returns risk signals computed from the user's own data and their own "
+            "watchlist: revenue concentration, a rising late-payment pattern, a "
+            "sudden order spike from a customer with a short history, unusual "
+            "credit terms, and whether the user flagged this customer. Use it when "
+            "the user asks whether to sell / extend credit to a named customer. "
+            "Word your answer ONLY from the returned signals; never add facts about "
+            "the customer from anywhere else."
+        ),
+        parameters_json_schema={
+            "type": "object",
+            "properties": {
+                "customer_name": {"type": "string", "description": "The customer's name as the user wrote it."},
+                "amount": {"type": "number", "description": "Optional: the credit sale amount being considered (OMR)."},
+                "terms_days": {"type": "number", "description": "Optional: the credit period being considered, in days."},
+            },
+            "required": ["customer_name"],
+        },
+    )
     return types.Tool(function_declarations=[
         create_notification_fd, save_memory_fd,
         get_runway_fd, get_cashflow_fd, get_benchmark_fd,
         get_waste_summary_fd, get_recent_files_fd, search_documents_fd, draft_negotiation_fd,
-        describe_dataset_fd, count_where_fd,
+        describe_dataset_fd, count_where_fd, check_credit_risk_fd,
     ])
 
 
@@ -617,6 +669,10 @@ def run_react_preloop(ai_service, prompt, user_id, model, lang="ar", on_state=No
             observation = _describe_dataset_tool(user_id)
         elif name == "count_where":
             observation = _count_where_tool(user_id, args.get("column", ""), args.get("op", ""), args.get("value", ""))
+        elif name == "check_credit_risk":
+            observation = _check_credit_risk_tool(
+                user_id, args.get("customer_name", ""), args.get("amount"), args.get("terms_days"),
+            )
         else:
             observation = "Tool not available."
 

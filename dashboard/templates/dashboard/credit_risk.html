@@ -1,0 +1,248 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}{% if trans.lang_code == 'ar' %}مخاطر البيع بالآجل{% else %}Credit Risk{% endif %}{% endblock %}
+
+{% block content %}
+<style>
+  .cr-badge { display:inline-flex; align-items:center; gap:.35rem; border-radius:999px; padding:.2rem .7rem; font-size:.72rem; font-weight:800; }
+  .cr-high { background:rgba(220,38,38,.10); color:#b91c1c; border:1px solid rgba(220,38,38,.25); }
+  .cr-medium { background:rgba(217,119,6,.10); color:#b45309; border:1px solid rgba(217,119,6,.25); }
+  .cr-low { background:rgba(22,163,74,.10); color:#15803d; border:1px solid rgba(22,163,74,.25); }
+  .cr-input { width:100%; border-radius:.9rem; border:1px solid rgba(124,108,240,.25); background:rgba(255,255,255,.85); padding:.6rem .9rem; font-size:.875rem; color:#1e1b4b; outline:none; transition:border-color .2s, box-shadow .2s; }
+  .cr-input:focus { border-color:var(--glow); box-shadow:0 0 0 3px rgba(124,108,240,.15); }
+  .cr-sig { border-inline-start:3px solid rgba(124,108,240,.45); }
+  .cr-sig.high { border-inline-start-color:#dc2626; }
+  .cr-sig.medium { border-inline-start-color:#d97706; }
+  #crResult[hidden] { display:none; }
+</style>
+
+<div class="flex flex-col lg:flex-row min-h-screen p-3 gap-3">
+    {% include 'dashboard/sidebar.html' with active_page='credit_risk' %}
+
+    <main class="flex-1 flex flex-col gap-3 min-w-0 text-{{ trans.align }}" dir="rtl">
+        {% include 'dashboard/topbar.html' %}
+
+        <!-- Header -->
+        <section class="rounded-3xl glass px-6 py-5 flex items-center justify-between flex-wrap gap-4 animate-fade-up">
+            <div class="flex items-center gap-3">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--lavender)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20">
+                    <i data-lucide="shield-alert" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-extrabold text-ink">الإنذار المبكر لمخاطرة البيع بالآجل</h1>
+                    <p class="text-sm text-gray-500">قبل ما تبيع بالآجل، اعرف إذا كان العميل يحمل مؤشرات مخاطرة من بياناتك أنت، قبل الخسارة لا بعدها.</p>
+                </div>
+            </div>
+            <span class="text-xs text-gray-500 rounded-full border border-[var(--glow)]/20 px-3 py-1.5">حساب حتمي من بياناتك، والوكيل يصوغ التنبيه فقط</span>
+        </section>
+
+        {% if not overview.customer_column %}
+        <section class="rounded-3xl glass px-6 py-4 text-sm text-amber-700 border border-amber-300/40 animate-fade-up">
+            لم نجد عمود «العميل» في بياناتك المرفوعة. لتعمل المؤشرات ارفع ملف مبيعات فيه: اسم العميل، قيمة الفاتورة، تاريخ الفاتورة،
+            ومدة الآجل أو تاريخ الاستحقاق وتاريخ السداد (أو أيام التأخير). ما زالت قائمة المخاطر التي تسجّلها تعمل بدون ملف.
+        </section>
+        {% endif %}
+
+        <div class="grid gap-3 xl:grid-cols-5">
+            <!-- Pre-sale check -->
+            <section class="xl:col-span-3 rounded-3xl glass-strong p-6 animate-fade-up" style="animation-delay:80ms">
+                <h2 class="text-lg font-extrabold text-ink mb-1">افحص عميلاً قبل البيع</h2>
+                <p class="text-xs text-gray-500 mb-4">اكتب اسم العميل، ويمكنك إضافة قيمة البيع ومدة الآجل المقترحة لمقارنتها بسجلّه.</p>
+                <form id="crForm" class="grid gap-3 sm:grid-cols-3" autocomplete="off">
+                    <label class="sm:col-span-3 text-xs font-bold text-gray-600">العميل
+                        <input id="crCustomer" class="cr-input mt-1" list="crCustomers" maxlength="200" required placeholder="مثال: مؤسسة النور للتجارة">
+                    </label>
+                    <datalist id="crCustomers">
+                        {% for n in overview.customer_names %}<option value="{{ n }}">{% endfor %}
+                    </datalist>
+                    <label class="text-xs font-bold text-gray-600">قيمة البيع (ر.ع) — اختياري
+                        <input id="crAmount" class="cr-input mt-1" type="number" min="0" step="0.001" inputmode="decimal">
+                    </label>
+                    <label class="text-xs font-bold text-gray-600">مدة الآجل (يوم) — اختياري
+                        <input id="crTerms" class="cr-input mt-1" type="number" min="0" step="1" inputmode="numeric">
+                    </label>
+                    <div class="flex items-end">
+                        <button id="crBtn" type="submit" class="w-full inline-flex justify-center items-center gap-2 rounded-full bg-gradient-to-r from-[var(--nile)] to-[var(--glow)] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:opacity-90 transition">
+                            <i data-lucide="search-check" class="h-4 w-4"></i> افحص المخاطر
+                        </button>
+                    </div>
+                </form>
+
+                <div id="crResult" class="mt-5 rounded-2xl border border-[var(--glow)]/15 bg-white/70 p-5" hidden>
+                    <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+                        <h3 id="crResName" class="font-extrabold text-ink"></h3>
+                        <span id="crResBadge" class="cr-badge"></span>
+                    </div>
+                    <p id="crResAlert" class="text-sm leading-7 text-gray-700 whitespace-pre-line"></p>
+                    <ul id="crResSignals" class="mt-4 grid gap-2"></ul>
+                    <p id="crResMeta" class="mt-3 text-[11px] text-gray-400"></p>
+                </div>
+                <p id="crError" class="mt-3 text-sm text-red-600" hidden></p>
+            </section>
+
+            <!-- Watchlist -->
+            <section class="xl:col-span-2 rounded-3xl glass-strong p-6 animate-fade-up" style="animation-delay:140ms">
+                <h2 class="text-lg font-extrabold text-ink mb-1">قائمة المخاطر الخاصة بك</h2>
+                <p class="text-xs text-gray-500 mb-4">عملاء تعرف أنت أنهم يشكّلون خطراً. تبقى القائمة في حسابك فقط، ولا نستخدم أي مصدر خارجي.</p>
+                <form id="wlForm" class="grid gap-2">
+                    <input id="wlName" class="cr-input" maxlength="200" required placeholder="اسم العميل">
+                    <input id="wlReason" class="cr-input" maxlength="300" placeholder="السبب (اختياري): شيك مرتجع، تعثّر سابق…">
+                    <button type="submit" class="inline-flex justify-center items-center gap-2 rounded-full border-2 border-[var(--glow)]/40 text-[var(--glow)] px-5 py-2 text-sm font-bold hover:bg-[var(--glow)]/5 transition">
+                        <i data-lucide="plus" class="h-4 w-4"></i> أضف للقائمة
+                    </button>
+                </form>
+                <p id="wlError" class="mt-2 text-xs text-red-600" hidden></p>
+                <ul id="wlList" class="mt-4 grid gap-2">
+                    {% for w in watchlist %}
+                    <li class="flex items-start justify-between gap-3 rounded-xl bg-white/70 border border-[var(--glow)]/10 px-3 py-2" data-id="{{ w.id }}">
+                        <div class="min-w-0">
+                            <div class="text-sm font-bold text-ink truncate">{{ w.customer_name }}</div>
+                            {% if w.reason %}<div class="text-xs text-gray-500">{{ w.reason }}</div>{% endif %}
+                        </div>
+                        <button type="button" class="wl-del text-xs text-gray-400 hover:text-red-600 shrink-0" aria-label="حذف">حذف</button>
+                    </li>
+                    {% empty %}
+                    <li id="wlEmpty" class="text-xs text-gray-400">القائمة فارغة.</li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </div>
+
+        <!-- Customers with signals -->
+        <section class="rounded-3xl glass-strong p-6 animate-fade-up" style="animation-delay:200ms">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+                <h2 class="text-lg font-extrabold text-ink">عملاء يحملون مؤشرات مخاطرة</h2>
+                <span class="text-xs text-gray-500">عدد العملاء في بياناتك: {{ overview.customers_count }}</span>
+            </div>
+            {% if overview.at_risk %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-xs text-gray-500 border-b border-[var(--glow)]/10">
+                            <th class="text-right font-bold py-2 px-2">العميل</th>
+                            <th class="text-right font-bold py-2 px-2">المستوى</th>
+                            <th class="text-right font-bold py-2 px-2">المبيعات (ر.ع)</th>
+                            <th class="text-right font-bold py-2 px-2">الإشارات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in overview.at_risk %}
+                        <tr class="border-b border-[var(--glow)]/5 align-top">
+                            <td class="py-3 px-2 font-bold text-ink whitespace-nowrap">{{ c.name }}</td>
+                            <td class="py-3 px-2"><span class="cr-badge cr-{{ c.risk_level }}">{% if c.risk_level == 'high' %}عالية{% else %}متوسطة{% endif %}</span></td>
+                            <td class="py-3 px-2 tabular-nums">{{ c.sales|floatformat:"0g" }}</td>
+                            <td class="py-3 px-2">
+                                <ul class="grid gap-1">
+                                    {% for s in c.signals %}
+                                    <li class="text-xs text-gray-600"><span class="font-bold text-ink">{{ s.title }}:</span> {{ s.detail }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-500">لا توجد مؤشرات مخاطرة على عملائك في البيانات الحالية.</p>
+            {% endif %}
+        </section>
+
+        <!-- Thresholds transparency -->
+        <section class="rounded-3xl glass px-6 py-4 animate-fade-up" style="animation-delay:260ms">
+            <h3 class="text-sm font-extrabold text-ink mb-2">العتبات الحالية <span class="text-xs font-bold text-amber-600">(قيد مراجعة المستشار)</span></h3>
+            <ul class="grid gap-1 sm:grid-cols-2 text-xs text-gray-600">
+                <li>تركّز الإيراد: عميل واحد فوق {% widthratio thresholds.concentration_share 1 100 %}٪ من المبيعات</li>
+                <li>تأخر السداد: آخر سداد متأخر {{ thresholds.late_days_over_terms }} يوماً فأكثر عن الموعد، مع تصاعد</li>
+                <li>قفزة الطلبات: طلب يعادل {{ thresholds.spike_multiplier }}× المعتاد من عميل له {{ thresholds.new_customer_max_prior_orders }} طلبات سابقة أو أقل</li>
+                <li>شروط الدفع: آجل أطول من المعتاد بـ{{ thresholds.terms_multiplier }}× وبـ{{ thresholds.terms_min_extra_days }} يوماً على الأقل</li>
+                <li>قائمة المخاطر: يسجّلها المستخدم بنفسه، بلا مصدر خارجي</li>
+            </ul>
+        </section>
+    </main>
+</div>
+
+<script>
+(function () {
+  // CSRF_COOKIE_HTTPONLY is on, so the token comes from the template, not the cookie.
+  var CSRF = '{{ csrf_token }}';
+  function csrf() { return CSRF; }
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+  var LEVEL = { high: 'مخاطرة عالية', medium: 'مخاطرة متوسطة', low: 'لا مؤشرات مخاطرة' };
+
+  async function post(url, body) {
+    var res = await fetch(url, { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() }, body: JSON.stringify(body || {}) });
+    var data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok || data.status !== 'success') throw new Error(data.message || 'تعذّر إكمال الطلب');
+    return data;
+  }
+
+  // Pre-sale check
+  var form = document.getElementById('crForm'), btn = document.getElementById('crBtn');
+  var box = document.getElementById('crResult'), err = document.getElementById('crError');
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    err.hidden = true; btn.disabled = true; btn.style.opacity = .6;
+    try {
+      var d = await post('{% url "api_credit_risk_check" %}', {
+        customer: document.getElementById('crCustomer').value,
+        amount: document.getElementById('crAmount').value || null,
+        terms_days: document.getElementById('crTerms').value || null
+      });
+      document.getElementById('crResName').textContent = d.customer;
+      var badge = document.getElementById('crResBadge');
+      badge.className = 'cr-badge cr-' + d.risk_level; badge.textContent = LEVEL[d.risk_level] || d.risk_level;
+      document.getElementById('crResAlert').textContent = d.alert;
+      var ul = document.getElementById('crResSignals'); ul.innerHTML = '';
+      (d.signals || []).forEach(function (s) {
+        var li = el('li', 'cr-sig ' + s.severity + ' rounded-lg bg-white px-3 py-2');
+        li.appendChild(el('div', 'text-xs font-extrabold text-ink', s.title));
+        li.appendChild(el('div', 'text-xs text-gray-600 mt-0.5', s.detail));
+        ul.appendChild(li);
+      });
+      document.getElementById('crResMeta').textContent =
+        (d.found_in_data ? ('مبني على ' + d.orders_in_data + ' عملية في بياناتك') : 'لا يوجد سجل لهذا العميل في بياناتك') +
+        (d.ai_used ? ' · صياغة الوكيل من الإشارات المحسوبة' : ' · صياغة ثابتة من الإشارات المحسوبة');
+      box.hidden = false;
+    } catch (ex) { err.textContent = ex.message; err.hidden = false; }
+    finally { btn.disabled = false; btn.style.opacity = 1; }
+  });
+
+  // Watchlist
+  var wlForm = document.getElementById('wlForm'), wlList = document.getElementById('wlList'), wlErr = document.getElementById('wlError');
+  function wlItem(w) {
+    var li = el('li', 'flex items-start justify-between gap-3 rounded-xl bg-white/70 border border-[var(--glow)]/10 px-3 py-2');
+    li.dataset.id = w.id;
+    var info = el('div', 'min-w-0');
+    info.appendChild(el('div', 'text-sm font-bold text-ink truncate', w.customer_name));
+    if (w.reason) info.appendChild(el('div', 'text-xs text-gray-500', w.reason));
+    var del = el('button', 'wl-del text-xs text-gray-400 hover:text-red-600 shrink-0', 'حذف');
+    del.type = 'button'; del.setAttribute('aria-label', 'حذف');
+    li.appendChild(info); li.appendChild(del);
+    return li;
+  }
+  wlForm.addEventListener('submit', async function (e) {
+    e.preventDefault(); wlErr.hidden = true;
+    try {
+      var d = await post('{% url "api_credit_watchlist" %}', {
+        customer_name: document.getElementById('wlName').value,
+        reason: document.getElementById('wlReason').value
+      });
+      var empty = document.getElementById('wlEmpty'); if (empty) empty.remove();
+      wlList.prepend(wlItem(d.entry));
+      wlForm.reset();
+    } catch (ex) { wlErr.textContent = ex.message; wlErr.hidden = false; }
+  });
+  wlList.addEventListener('click', async function (e) {
+    var b = e.target.closest('.wl-del'); if (!b) return;
+    var li = b.closest('li'), id = li.dataset.id;
+    try {
+      await post('{% url "api_credit_watchlist_delete" 0 %}'.replace('/0/', '/' + id + '/'));
+      li.remove();
+    } catch (ex) { wlErr.textContent = ex.message; wlErr.hidden = false; }
+  });
+})();
+</script>
+{% endblock %}

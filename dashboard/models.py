@@ -711,3 +711,31 @@ class AgentRunStep(models.Model):
 
     def __str__(self):
         return f"[{self.seq}] {self.message[:40]}"
+
+
+class CreditWatchlistEntry(models.Model):
+    """
+    A customer the owner has personally flagged as a credit risk — the fifth
+    early-warning signal. Deliberately user-maintained: no external credit
+    source or foreign analysis feeds this list.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="credit_watchlist")
+    customer_name = models.CharField(max_length=200, verbose_name="اسم العميل")
+    customer_key = models.CharField(max_length=200, db_index=True, editable=False)
+    reason = models.CharField(max_length=300, blank=True, default="", verbose_name="السبب")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "customer_key"], name="uniq_credit_watchlist_user_customer"),
+        ]
+        verbose_name = "Credit Watchlist Entry"
+
+    def save(self, *args, **kwargs):
+        from dashboard.services.credit_risk_analyzer import normalize_name
+        self.customer_key = normalize_name(self.customer_name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.customer_name} ({self.user_id})"
