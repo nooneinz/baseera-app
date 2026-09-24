@@ -3243,66 +3243,67 @@ def export_note_report(request):
     digest = WeeklyDigest.objects.filter(user=user).order_by('-created_at').first()
 
     if is_ar:
+        # Arabic note: section markers instead of "[1]" and bullets instead of
+        # "1." -- a leading number/bracket is a weak bidi character, which is
+        # what scrambled the order of every line when the file was opened.
+        rule, thin = "═" * 56, "─" * 56
         report_lines = [
-            "=" * 72,
-            "                    تقرير منصة بصيرة للذكاء المالي",
-            "                (Baseera Executive Intelligence Report)",
-            "=" * 72,
+            rule,
+            "تقرير منصة بصيرة للذكاء المالي",
+            "Baseera Executive Intelligence Report",
+            rule,
             f"تاريخ التقرير: {now_str}",
             f"المنشأة: {company_name}",
             f"المستخدم: {user.username}",
             f"نطاق التحليل: {filename_param}",
-            "-" * 72,
+            thin,
             "",
-            "[1] ملخص الأداء العام والمؤشرات المالية:",
-            "-" * 72,
+            "▌ ملخص الأداء العام والمؤشرات المالية",
+            thin,
             f"• إجمالي السجلات والمعاملات المفحوصة: {total_records:,} معاملة",
             f"• إجمالي الإيرادات المرصودة: {total_revenue:,.2f} ر.ع.",
-            f"• القطاعات والأنشطة المرتبطة: {', '.join(list(categories_set)[:5]) if categories_set else 'قطاعات عامة'}",
+            f"• القطاعات والأنشطة المرتبطة: {'، '.join(list(categories_set)[:5]) if categories_set else 'قطاعات عامة'}",
             "",
         ]
 
         if digest:
             report_lines.extend([
-                f"• تقييم نبض الأعمال:",
+                "• تقييم نبض الأعمال:",
                 f"  {digest.summary_text}",
                 "",
-                "-" * 72,
-                "[2] أبرز المخاطر والتنبيهات المكتشفة:",
-                "-" * 72,
+                "▌ أبرز المخاطر والتنبيهات المكتشفة",
+                thin,
             ])
-            for idx, risk in enumerate(digest.top_risks, 1):
-                report_lines.append(f"{idx}. {risk}")
+            for risk in digest.top_risks:
+                report_lines.append(f"• {risk}")
             if not digest.top_risks:
-                report_lines.append("لا توجد مخاطر حرجة مرصودة حالياً.")
+                report_lines.append("• لا توجد مخاطر حرجة مرصودة حالياً.")
 
             report_lines.extend([
                 "",
-                "-" * 72,
-                "[3] خطة العمل والتوصيات التنفيذية:",
-                "-" * 72,
+                "▌ خطة العمل والتوصيات التنفيذية",
+                thin,
             ])
-            for idx, act in enumerate(digest.action_plan, 1):
-                report_lines.append(f"{idx}. {act}")
+            for act in digest.action_plan:
+                report_lines.append(f"• {act}")
             if not digest.action_plan:
-                report_lines.append("العمليات مستقرة وتخضع للرقابة الدورية.")
+                report_lines.append("• العمليات مستقرة وتخضع للرقابة الدورية.")
         else:
             report_lines.extend([
                 "• تقييم نبض الأعمال: أظهر الفحص استقراراً في مؤشرات الأداء الأساسية.",
                 "",
-                "-" * 72,
-                "[2] التوصيات التنفيذية:",
-                "-" * 72,
-                "1. المتابعة المستمرة للمؤشرات المالية ومعدل دوران المخزون.",
-                "2. تحديث ومزامنة البيانات دورياً لتوليد تقارير استباقية.",
+                "▌ التوصيات التنفيذية",
+                thin,
+                "• المتابعة المستمرة للمؤشرات المالية ومعدل دوران المخزون.",
+                "• تحديث ومزامنة البيانات دورياً لتوليد تقارير استباقية.",
             ])
 
         report_lines.extend([
             "",
-            "=" * 72,
+            rule,
             "تم التوثيق بواسطة: منصة بصيرة للذكاء الاصطناعي وإدارة الأعمال (Baseera.om)",
             "جميع الحقوق محفوظة 2026 - وثيقة رسمية",
-            "=" * 72,
+            rule,
         ])
     else:
         report_lines = [
@@ -3367,12 +3368,23 @@ def export_note_report(request):
             "=" * 72,
         ])
 
-    full_text = "\n".join(report_lines)
+    if is_ar:
+        # Wrap each Arabic line in a right-to-left embedding (RLE ... PDF) so
+        # Notepad and browsers lay every line out right-to-left in the right
+        # order, instead of scattering the numbers, dates and bullets.
+        report_lines = [f"\u202b{ln}\u202c" if ln.strip() else ln for ln in report_lines]
+    # UTF-8 BOM + CRLF: Windows Notepad then detects the encoding and line
+    # breaks correctly on its own.
+    full_text = "\ufeff" + "\r\n".join(report_lines) + "\r\n"
     response = HttpResponse(full_text, content_type="text/plain; charset=utf-8")
-    
-    safe_ascii = re.sub(r'[^\w\s-]', '', filename_param or 'report').strip().replace(' ', '_')
-    encoded_name = urllib.parse.quote(f"{filename_param}_note.txt")
-    response['Content-Disposition'] = f'attachment; filename="{safe_ascii}_note.txt"; filename*=UTF-8\'\'{encoded_name}\''
+
+    # The plain filename= must be pure ASCII (Arabic here made Django
+    # MIME-encode the whole header), and the old header ended with a stray
+    # quote. Either broke it, so browsers showed the text inline instead of
+    # downloading it. The real (Arabic) name travels in filename*.
+    safe_ascii = re.sub(r'[^A-Za-z0-9_-]+', '_', filename_param or '').strip('_') or 'baseera_report'
+    encoded_name = urllib.parse.quote(f"{filename_param or 'baseera_report'}_note.txt")
+    response['Content-Disposition'] = f"attachment; filename=\"{safe_ascii}_note.txt\"; filename*=UTF-8''{encoded_name}"
     return response
 
 
