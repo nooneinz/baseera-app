@@ -1,5 +1,5 @@
 {% load static %}
-<header class="fixed top-0 inset-x-0 z-50 px-2 sm:px-4 py-2 sm:py-3 w-full flex justify-center pointer-events-none">
+<header class="bz-nav fixed top-0 inset-x-0 z-50 px-2 sm:px-4 py-2 sm:py-3 w-full flex justify-center pointer-events-none">
   <div class="glass pointer-events-auto flex w-[min(1200px,100%)] items-center justify-between rounded-full px-3 sm:px-6 py-2 sm:py-2.5 border border-white/60 dark:border-slate-800 shadow-xl shadow-indigo-500/5 backdrop-blur-xl bg-white/70 dark:bg-slate-900/80">
     <!-- Brand Logo / Name (Left aligned) -->
     <div class="flex flex-[0.5] sm:flex-1 items-center justify-start">
@@ -10,7 +10,7 @@
     </div>
     
     <!-- Navigation Links (Center aligned) -->
-    <nav class="hidden md:flex flex-1 items-center justify-center gap-7 text-sm font-extrabold text-slate-700 dark:text-slate-200">
+    <nav class="hidden md:flex flex-1 items-center justify-center gap-8 lg:gap-10 whitespace-nowrap text-sm font-extrabold text-slate-700 dark:text-slate-200">
       <a href="{% url 'welcome' %}" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">{{ trans.home }}</a>
       <a href="{% url 'welcome' %}#testimonials" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">{% if trans.lang_code == 'ar' %}عملاؤنا{% else %}Customers{% endif %}</a>
       <a href="{% url 'about' %}" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">{{ trans.about }}</a>
@@ -47,6 +47,13 @@
     </div>
   </div>
 </header>
+
+<style>
+  /* Header enters once on page open: fades in and slides down 20px (0.8s ease-out). */
+  .bz-nav{animation:bzNavIn .8s ease-out both}
+  @keyframes bzNavIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+  @media (prefers-reduced-motion:reduce){.bz-nav{animation:none}}
+</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
