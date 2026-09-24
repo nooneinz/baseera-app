@@ -56,6 +56,7 @@ class BuildAgentToolsHardConstraintTests(TestCase):
             "get_waste_summary", "get_recent_files", "search_documents",
             "draft_negotiation_message",
             "describe_dataset", "count_where",
+            "check_credit_risk",
         })
 
     def test_no_financial_or_decision_MUTATION_tool_names_are_present(self):

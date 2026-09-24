@@ -523,11 +523,13 @@ def _recent_file_context(user, max_rows=60):
 # "أبي أكلم وكيل الهدر" and get the audit/waste agent's persona instead of the
 # general assistant. Falls back to "general" when nothing specific is asked.
 _AGENT_KEYWORDS = (
+    ("financial", ("بالآجل", "بالاجل", "آجل", "اسلف", "أسلّف", "on credit")),
     ("audit", ("هدر", "تسريب", "تدقيق", "تالف", "منتهي", "احتيال", "waste", "audit", "fraud", "leak")),
     ("pricing", ("تسعير", "سعر", "هامش", "تسعيره", "pricing", "price", "margin")),
     ("supply_chain", ("مخزون", "سلاسل", "إمداد", "توريد", "جرد", "inventory", "supply", "stock")),
     ("retention", ("عملاء", "ولاء", "احتفاظ", "زبائن", "retention", "loyalty", "customer")),
-    ("financial", ("مالي", "ربح", "ربحية", "سيولة", "تدفق", "cfo", "financial", "profit", "cash")),
+    ("financial", ("مالي", "ربح", "ربحية", "سيولة", "تدفق", "بالآجل", "بالاجل", "آجل", "اسلف", "أسلّف",
+                   "cfo", "financial", "profit", "cash", "on credit")),
 )
 
 

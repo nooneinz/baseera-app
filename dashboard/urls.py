@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import api_views
+from . import credit_risk_views
 
 urlpatterns = [
     path("", views.welcome, name="welcome"),
@@ -30,6 +31,12 @@ urlpatterns = [
     path("export-note/", views.export_note_report, name="export_note_report"),
 
     path("reports/", views.reports, name="reports"),
+    # Early warning before selling on credit
+    path("credit-risk/", credit_risk_views.credit_risk_page, name="credit_risk"),
+    path("api/credit-risk/check/", credit_risk_views.api_credit_risk_check, name="api_credit_risk_check"),
+    path("api/credit-risk/overview/", credit_risk_views.api_credit_risk_overview, name="api_credit_risk_overview"),
+    path("api/credit-risk/watchlist/", credit_risk_views.api_credit_watchlist, name="api_credit_watchlist"),
+    path("api/credit-risk/watchlist/<int:entry_id>/delete/", credit_risk_views.api_credit_watchlist_delete, name="api_credit_watchlist_delete"),
     path("notifications/", views.notifications_view, name="notifications"),
     path("chat-history/", views.chat_history_view, name="chat_history"),
     path("settings/", views.user_settings, name="settings"),
