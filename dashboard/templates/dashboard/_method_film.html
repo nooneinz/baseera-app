@@ -1,0 +1,211 @@
+{% load static %}{% comment %}
+  Baseera method film: a self-playing, looping motion piece (HTML/CSS/SVG, no video file, no emoji).
+  Four scenes: scattered data -> the Baseera lens draws it in -> six agents analyse -> one decision.
+  Brand palette only (nile / glow / lavender / ink). Logo is the real Baseera mark.
+{% endcomment %}
+{% with ar=trans.lang_code %}
+<section id="method" class="scroll-mt-28 animate-fade-up" aria-labelledby="mf-title">
+  <style>
+    .mf{position:relative;border-radius:28px;border:1px solid #ece9fb;overflow:hidden;
+        background:radial-gradient(700px 420px at 50% 42%,rgba(124,108,240,.14),transparent 65%),linear-gradient(135deg,#fff 0%,#f6f4fd 100%);
+        box-shadow:0 30px 60px -34px rgba(43,36,112,.35)}
+    .dark .mf{background:radial-gradient(700px 420px at 50% 42%,rgba(124,108,240,.22),transparent 65%),linear-gradient(135deg,#1b1650 0%,#14103d 100%);border-color:rgba(255,255,255,.1)}
+    .mf-stage{position:relative;height:440px;direction:ltr}
+    .mf-grid{position:absolute;inset:0;opacity:.5;background-image:linear-gradient(rgba(124,108,240,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(124,108,240,.09) 1px,transparent 1px);background-size:38px 38px;
+        -webkit-mask-image:radial-gradient(closest-side,#000 40%,transparent 100%);mask-image:radial-gradient(closest-side,#000 40%,transparent 100%)}
+
+    /* lens = the Baseera logo */
+    .mf-lens{position:absolute;left:50%;top:50%;width:112px;height:112px;margin:-56px 0 0 -56px;z-index:5;border-radius:50%;background:#fff;display:grid;place-items:center;
+        box-shadow:0 18px 44px -10px rgba(124,108,240,.6),0 0 0 6px rgba(124,108,240,.12);transition:transform .9s cubic-bezier(.16,.84,.28,1)}
+    .mf-lens img{width:84px;height:84px;object-fit:contain;border-radius:50%}
+    .mf-lens::before,.mf-lens::after{content:"";position:absolute;inset:-14px;border-radius:50%;border:1.5px solid rgba(124,108,240,.45);opacity:0}
+    .mf[data-s="1"] .mf-lens::before,.mf[data-s="2"] .mf-lens::before{animation:mfRing 2.2s ease-out infinite}
+    .mf[data-s="1"] .mf-lens::after,.mf[data-s="2"] .mf-lens::after{animation:mfRing 2.2s ease-out .9s infinite}
+    .mf[data-s="1"] .mf-lens{transform:scale(1.12)}
+    .mf[data-s="3"] .mf-lens{transform:translateY(-118px) scale(.62)}
+    @keyframes mfRing{0%{transform:scale(.85);opacity:.8}100%{transform:scale(1.9);opacity:0}}
+
+    /* scattered data fragments */
+    .mf-frag{position:absolute;left:var(--x);top:var(--y);z-index:3;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:#fff;border:1px solid #e5e0fb;
+        font-size:12px;font-weight:700;color:#1e1b4b;white-space:nowrap;box-shadow:0 10px 24px -14px rgba(43,36,112,.45);
+        transform:translate(-50%,-50%) rotate(var(--r));
+        transition:left .9s cubic-bezier(.6,0,.2,1) var(--d),top .9s cubic-bezier(.6,0,.2,1) var(--d),transform .9s cubic-bezier(.6,0,.2,1) var(--d),opacity .6s ease var(--d)}
+    .dark .mf-frag{background:#241f66;border-color:rgba(255,255,255,.14);color:#ece9fb}
+    .mf-frag i{width:15px;height:15px;color:#7c6cf0}
+    .mf[data-s="0"] .mf-frag{animation:mfDrift 5s ease-in-out infinite alternate;animation-delay:var(--d)}
+    @keyframes mfDrift{from{margin-top:-5px}to{margin-top:6px}}
+    .mf:not([data-s="0"]) .mf-frag{left:50%;top:50%;transform:translate(-50%,-50%) rotate(0) scale(.15);opacity:0}
+
+    /* agents ring */
+    .mf-ag{position:absolute;left:var(--x);top:var(--y);z-index:4;transform:translate(-50%,-50%) scale(.6);opacity:0;padding:9px 14px;border-radius:14px;background:#fff;border:1px solid #d9d4f5;
+        font-size:12.5px;font-weight:800;color:#2b2470;white-space:nowrap;box-shadow:0 14px 28px -16px rgba(124,108,240,.6);transition:all .6s cubic-bezier(.16,.84,.28,1) var(--d)}
+    .dark .mf-ag{background:#241f66;border-color:rgba(185,166,242,.4);color:#ece9fb}
+    .mf-ag small{display:block;font-size:10.5px;font-weight:600;color:#7b769b;margin-top:1px}
+    .dark .mf-ag small{color:#b9a6f2}
+    .mf-ag::after{content:"";position:absolute;inset-inline:12px;bottom:5px;height:2px;border-radius:2px;background:linear-gradient(90deg,#7c6cf0,#b9a6f2);transform:scaleX(0);transform-origin:left}
+    .mf[data-s="2"] .mf-ag{opacity:1;transform:translate(-50%,-50%) scale(1)}
+    .mf[data-s="2"] .mf-ag::after{animation:mfScan 1.6s ease-in-out var(--d) infinite}
+    @keyframes mfScan{0%{transform:scaleX(0)}70%,100%{transform:scaleX(1)}}
+    .mf-beams{position:absolute;inset:0;z-index:2;width:100%;height:100%;opacity:0;transition:opacity .6s}
+    .mf[data-s="2"] .mf-beams{opacity:1}
+    .mf-beams line{stroke:#7c6cf0;stroke-width:1.4;stroke-dasharray:4 7;animation:mfDash 1.2s linear infinite}
+    @keyframes mfDash{to{stroke-dashoffset:-22}}
+
+    /* scene 3: structured result, scene 4: decision */
+    .mf-panel{position:absolute;left:50%;top:60%;z-index:4;width:min(470px,86%);transform:translate(-50%,-30%) scale(.94);opacity:0;pointer-events:none;
+        padding:18px 20px;border-radius:20px;background:#fff;border:1px solid #e5e0fb;box-shadow:0 26px 50px -24px rgba(43,36,112,.5);transition:all .7s cubic-bezier(.16,.84,.28,1)}
+    .dark .mf-panel{background:#241f66;border-color:rgba(255,255,255,.14)}
+    .mf[data-s="3"] .mf-panel{opacity:1;transform:translate(-50%,-50%) scale(1)}
+    .mf-row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12.5px;font-weight:700;color:#5b5776;padding:7px 0;border-bottom:1px dashed #e5e0fb}
+    .dark .mf-row{color:#cbc6ea;border-color:rgba(255,255,255,.12)}
+    .mf-row b{color:#1e1b4b;font-family:'Outfit',sans-serif}
+    .dark .mf-row b{color:#fff}
+    .mf-bars{display:flex;align-items:flex-end;gap:6px;height:64px;margin-bottom:8px}
+    .mf-bars span{flex:1;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,#7c6cf0,#b9a6f2);height:0;transition:height .8s cubic-bezier(.16,.84,.28,1)}
+    .mf[data-s="3"] .mf-bars span{height:var(--h)}
+    .mf-decide{position:absolute;left:50%;top:50%;z-index:6;width:min(430px,88%);transform:translate(-50%,-42%) scale(.92);opacity:0;pointer-events:none;padding:20px 22px;border-radius:22px;color:#fff;
+        background:linear-gradient(135deg,#2b2470 0%,#7c6cf0 100%);box-shadow:0 30px 60px -20px rgba(43,36,112,.7);transition:all .7s cubic-bezier(.16,.84,.28,1)}
+    .mf[data-s="4"] .mf-decide{opacity:1;transform:translate(-50%,-44%) scale(1)}
+    .mf[data-s="4"] .mf-lens{transform:translateY(-146px) scale(.46)}
+    .mf[data-s="4"] .mf-panel,.mf[data-s="4"] .mf-ag{opacity:0}
+    .mf-decide .k{font-size:11.5px;font-weight:800;color:#d9d1fa}
+    .mf-decide .v{font-size:30px;font-weight:900;font-family:'Outfit',sans-serif;margin:4px 0}
+    .mf-decide p{font-size:13.5px;line-height:1.8;color:#ece9fb;margin:0}
+    .mf-decide .ok{display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.16);font-size:12px;font-weight:800}
+
+    /* controls */
+    .mf-bar{display:flex;align-items:stretch;gap:10px;padding:14px;border-top:1px solid #ece9fb;background:rgba(255,255,255,.55);backdrop-filter:blur(14px)}
+    .dark .mf-bar{border-color:rgba(255,255,255,.1);background:rgba(20,16,61,.55)}
+    .mf-play{flex:none;width:44px;border-radius:14px;border:1px solid #d9d4f5;background:#fff;color:#2b2470;display:grid;place-items:center;cursor:pointer;transition:transform .2s,background .2s}
+    .mf-play:hover{transform:scale(1.05);background:#f7f6fd}
+    .dark .mf-play{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.2);color:#fff}
+    .mf-play i{width:18px;height:18px}
+    .mf-steps{flex:1;display:grid;grid-template-columns:repeat(5,1fr);gap:8px;min-width:0}
+    .mf-step{position:relative;text-align:start;padding:9px 12px 11px;border-radius:14px;border:1px solid transparent;background:transparent;cursor:pointer;overflow:hidden;color:#7b769b;transition:background .25s,color .25s}
+    .mf-step:hover{background:rgba(124,108,240,.07)}
+    .mf-step .n{font-size:10.5px;font-weight:800;letter-spacing:.04em;font-family:'Outfit',sans-serif}
+    .mf-step .t{display:block;font-size:12.5px;font-weight:800;margin-top:2px;line-height:1.35}
+    .mf-step::after{content:"";position:absolute;inset-inline-start:0;bottom:0;height:3px;width:100%;background:linear-gradient(90deg,#7c6cf0,#b9a6f2);transform:scaleX(0);transform-origin:left}
+    [dir="rtl"] .mf-step::after{transform-origin:right}
+    .mf-step.on{color:#2b2470;background:rgba(124,108,240,.1)}
+    .dark .mf-step.on{color:#fff}
+    .mf-step.on::after{transform:scaleX(1);transition:transform var(--dur,4.6s) linear}
+    .mf-cap{position:absolute;z-index:7;inset-inline:0;top:16px;text-align:center;pointer-events:none;direction:inherit}
+    .mf-cap span{display:inline-block;padding:6px 14px;border-radius:999px;font-size:12px;font-weight:800;color:#2b2470;background:#f1eefc;border:1px solid #e5e0fb;animation:mfCap .5s ease both}
+    .dark .mf-cap span{color:#ece9fb;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18)}
+    @keyframes mfCap{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    @media (max-width:760px){
+      .mf-stage{height:400px}
+      .mf-frag{font-size:10.5px;padding:6px 9px}
+      .mf-ag{font-size:10.5px;padding:7px 9px}.mf-ag small{display:none}
+      .mf-steps{grid-template-columns:repeat(5,minmax(0,1fr))}
+      .mf-step{padding:8px 6px}.mf-step .t{display:none}
+    }
+    @media (prefers-reduced-motion:reduce){.mf *{animation:none!important;transition-duration:.01s!important}}
+  </style>
+
+  <div class="mx-auto max-w-2xl text-center">
+    <h2 id="mf-title" class="text-2xl md:text-4xl font-black text-ink dark:text-white">
+      {% if ar == 'ar' %}شاهد كيف تتحول بياناتك المبعثرة إلى قرار{% else %}Watch scattered data become a decision{% endif %}
+    </h2>
+    <p class="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed">
+      {% if ar == 'ar' %}منهجية بصيرة في نصف دقيقة: ملفات متناثرة، ثم عدسة بصيرة، ثم وكلاء متخصصون، ثم خطوة تنفيذية واحدة.{% else %}The Baseera method in half a minute: scattered files, the Baseera lens, specialised agents, then one action.{% endif %}
+    </p>
+  </div>
+
+  <div class="mf mt-10" id="mfRoot" data-s="0" role="group" aria-label="{% if ar == 'ar' %}عرض متحرك لمنهجية بصيرة{% else %}Animated walkthrough of the Baseera method{% endif %}">
+    <div class="mf-stage">
+      <div class="mf-grid"></div>
+      <div class="mf-cap" aria-live="polite"><span id="mfCap"></span></div>
+
+      <!-- scene 1: scattered files -->
+      <div class="mf-frag" style="--x:14%;--y:30%;--r:-6deg;--d:0s"><i data-lucide="file-spreadsheet"></i>{% if ar == 'ar' %}مبيعات_يناير.xlsx{% else %}sales_jan.xlsx{% endif %}</div>
+      <div class="mf-frag" style="--x:82%;--y:26%;--r:5deg;--d:.08s"><i data-lucide="file-text"></i>{% if ar == 'ar' %}كشف_حساب_البنك.pdf{% else %}bank_statement.pdf{% endif %}</div>
+      <div class="mf-frag" style="--x:24%;--y:76%;--r:4deg;--d:.16s"><i data-lucide="image"></i>{% if ar == 'ar' %}صورة دفتر المصروفات{% else %}ledger_photo.jpg{% endif %}</div>
+      <div class="mf-frag" style="--x:78%;--y:74%;--r:-4deg;--d:.24s"><i data-lucide="message-circle"></i>{% if ar == 'ar' %}رسائل واتساب{% else %}whatsapp_chat{% endif %}</div>
+      <div class="mf-frag" style="--x:50%;--y:14%;--r:2deg;--d:.32s"><i data-lucide="receipt"></i>{% if ar == 'ar' %}فواتير_الموردين{% else %}supplier_invoices{% endif %}</div>
+      <div class="mf-frag" style="--x:9%;--y:54%;--r:-3deg;--d:.4s"><i data-lucide="table"></i>{% if ar == 'ar' %}مصروفات.csv{% else %}expenses.csv{% endif %}</div>
+      <div class="mf-frag" style="--x:91%;--y:50%;--r:6deg;--d:.48s"><i data-lucide="file-signature"></i>{% if ar == 'ar' %}عقد_الإيجار.pdf{% else %}lease.pdf{% endif %}</div>
+      <div class="mf-frag" style="--x:52%;--y:88%;--r:-2deg;--d:.56s"><i data-lucide="users"></i>{% if ar == 'ar' %}رواتب_الموظفين.xlsx{% else %}payroll.xlsx{% endif %}</div>
+
+      <!-- lens -->
+      <div class="mf-lens"><img src="{% static 'dashboard/img/logo.png' %}" alt="{% if ar == 'ar' %}شعار بصيرة{% else %}Baseera logo{% endif %}"></div>
+
+      <!-- scene 3: agents + beams -->
+      <svg class="mf-beams" viewBox="0 0 1000 440" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="500" y1="220" x2="170" y2="106"/><line x1="500" y1="220" x2="500" y2="75"/><line x1="500" y1="220" x2="830" y2="106"/>
+        <line x1="500" y1="220" x2="170" y2="343"/><line x1="500" y1="220" x2="500" y2="383"/><line x1="500" y1="220" x2="830" y2="343"/>
+      </svg>
+      <div class="mf-ag" style="--x:17%;--y:24%;--d:.0s">{% if ar == 'ar' %}الوكيل المالي<small>يرصد السيولة</small>{% else %}Financial Agent<small>Watches liquidity</small>{% endif %}</div>
+      <div class="mf-ag" style="--x:50%;--y:17%;--d:.12s">{% if ar == 'ar' %}التدقيق الجنائي<small>يكشف التلاعب</small>{% else %}Forensic Audit<small>Detects manipulation</small>{% endif %}</div>
+      <div class="mf-ag" style="--x:83%;--y:24%;--d:.24s">{% if ar == 'ar' %}وكيل التسعير<small>يضبط السعر</small>{% else %}Pricing Agent<small>Tunes prices</small>{% endif %}</div>
+      <div class="mf-ag" style="--x:17%;--y:78%;--d:.36s">{% if ar == 'ar' %}وكيل السوق<small>يقرأ المنافسين</small>{% else %}Market Agent<small>Reads competitors</small>{% endif %}</div>
+      <div class="mf-ag" style="--x:50%;--y:87%;--d:.48s">{% if ar == 'ar' %}وكيل الاحتفاظ<small>يحمي عملاءك</small>{% else %}Retention Agent<small>Protects customers</small>{% endif %}</div>
+      <div class="mf-ag" style="--x:83%;--y:78%;--d:.6s">{% if ar == 'ar' %}سلسلة التوريد<small>يتتبع التكلفة</small>{% else %}Supply Chain<small>Tracks cost</small>{% endif %}</div>
+
+      <!-- scene 4: organised result -->
+      <div class="mf-panel">
+        <div class="mf-bars" aria-hidden="true">
+          <span style="--h:38%"></span><span style="--h:52%"></span><span style="--h:46%"></span><span style="--h:70%"></span><span style="--h:62%"></span><span style="--h:84%"></span><span style="--h:76%"></span><span style="--h:100%"></span>
+        </div>
+        <div class="mf-row"><span>{% if ar == 'ar' %}الدخل هذا الشهر{% else %}Income this month{% endif %}</span><b>{% if ar == 'ar' %}48,320 ر.ع{% else %}OMR 48,320{% endif %}</b></div>
+        <div class="mf-row"><span>{% if ar == 'ar' %}صافي الربح{% else %}Net profit{% endif %}</span><b>{% if ar == 'ar' %}17,220 ر.ع{% else %}OMR 17,220{% endif %}</b></div>
+        <div class="mf-row" style="border:0"><span>{% if ar == 'ar' %}بنود مكررة مكتشفة{% else %}Duplicate items found{% endif %}</span><b>3</b></div>
+      </div>
+
+      <!-- scene 5: decision -->
+      <div class="mf-decide">
+        <div class="k">{% if ar == 'ar' %}أكبر تسريب مالي{% else %}Biggest financial leak{% endif %}</div>
+        <div class="v" dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}">{% if ar == 'ar' %}<bdi>340</bdi> ر.ع في الشهر{% else %}OMR 340 / month{% endif %}</div>
+        <p>{% if ar == 'ar' %}اشتراكات مكررة في ثلاثة أنظمة. أوقف اثنين منها اليوم وتوفر المبلغ كاملاً.{% else %}Duplicate subscriptions across three tools. Cancel two today and recover the full amount.{% endif %}</p>
+        <span class="ok"><i data-lucide="check" class="h-4 w-4"></i>{% if ar == 'ar' %}حُسب بالكود، لا تخمين{% else %}Computed in code, not guessed{% endif %}</span>
+      </div>
+    </div>
+
+    <div class="mf-bar">
+      <button type="button" class="mf-play" id="mfPlay" aria-label="{% if ar == 'ar' %}إيقاف مؤقت{% else %}Pause{% endif %}" data-pause="{% if ar == 'ar' %}إيقاف مؤقت{% else %}Pause{% endif %}" data-play="{% if ar == 'ar' %}تشغيل{% else %}Play{% endif %}"><i data-lucide="pause"></i></button>
+      <div class="mf-steps" role="tablist">
+        <button type="button" class="mf-step on" role="tab" data-i="0" data-cap="{% if ar == 'ar' %}بيانات مبعثرة في كل مكان{% else %}Data scattered everywhere{% endif %}"><span class="n">01</span><span class="t">{% if ar == 'ar' %}بيانات مبعثرة{% else %}Scattered data{% endif %}</span></button>
+        <button type="button" class="mf-step" role="tab" data-i="1" data-cap="{% if ar == 'ar' %}عدسة بصيرة تستقبل كل صيغة{% else %}The Baseera lens takes every format{% endif %}"><span class="n">02</span><span class="t">{% if ar == 'ar' %}عدسة بصيرة{% else %}Baseera lens{% endif %}</span></button>
+        <button type="button" class="mf-step" role="tab" data-i="2" data-cap="{% if ar == 'ar' %}ستة وكلاء يحللون بالتوازي{% else %}Six agents analyse in parallel{% endif %}"><span class="n">03</span><span class="t">{% if ar == 'ar' %}وكلاء متخصصون{% else %}Specialised agents{% endif %}</span></button>
+        <button type="button" class="mf-step" role="tab" data-i="3" data-cap="{% if ar == 'ar' %}أرقام منظمة بالدليل{% else %}Organised numbers, with evidence{% endif %}"><span class="n">04</span><span class="t">{% if ar == 'ar' %}أرقام منظمة{% else %}Organised numbers{% endif %}</span></button>
+        <button type="button" class="mf-step" role="tab" data-i="4" data-cap="{% if ar == 'ar' %}قرار واضح وخطوة واحدة{% else %}One clear decision and next step{% endif %}"><span class="n">05</span><span class="t">{% if ar == 'ar' %}القرار{% else %}The decision{% endif %}</span></button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    var root = document.getElementById('mfRoot'); if(!root) return;
+    var steps = [].slice.call(root.querySelectorAll('.mf-step'));
+    var cap = document.getElementById('mfCap'), btn = document.getElementById('mfPlay');
+    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var DUR = [3600, 3000, 4200, 3800, 4600], cur = 0, timer = null, playing = false, visible = false;
+    function show(i){
+      cur = i; root.dataset.s = i;
+      steps.forEach(function(s, k){
+        s.classList.remove('on'); s.removeAttribute('aria-selected');
+        if(k === i){ s.style.setProperty('--dur', (DUR[i]/1000)+'s'); void s.offsetWidth; s.classList.add('on'); s.setAttribute('aria-selected','true'); }
+      });
+      cap.textContent = steps[i].getAttribute('data-cap');
+      cap.style.animation = 'none'; void cap.offsetWidth; cap.style.animation = '';
+    }
+    function tick(){ clearTimeout(timer); if(!playing) return; timer = setTimeout(function(){ show((cur+1) % steps.length); tick(); }, DUR[cur]); }
+    function setPlaying(p){
+      playing = p; var ic = btn.querySelector('i,svg');
+      btn.setAttribute('aria-label', btn.getAttribute(p ? 'data-pause' : 'data-play'));
+      if(ic){ var n = document.createElement('i'); n.setAttribute('data-lucide', p ? 'pause' : 'play'); ic.replaceWith(n); if(window.lucide) lucide.createIcons(); }
+      if(p) tick(); else clearTimeout(timer);
+    }
+    steps.forEach(function(s, k){ s.addEventListener('click', function(){ show(k); if(playing) tick(); }); });
+    btn.addEventListener('click', function(){ setPlaying(!playing); });
+    show(0);
+    if(reduce || !('IntersectionObserver' in window)){ setPlaying(false); return; }
+    new IntersectionObserver(function(es){
+      es.forEach(function(e){ visible = e.isIntersecting; if(visible && !playing && !root.dataset.userPaused) setPlaying(true); if(!visible && playing) setPlaying(false); });
+    }, {threshold: .35}).observe(root);
+    btn.addEventListener('click', function(){ if(!playing) root.dataset.userPaused = '1'; else delete root.dataset.userPaused; });
+  })();
+  </script>
+</section>
+{% endwith %}
