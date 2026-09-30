@@ -26,7 +26,8 @@
               baseeraTeal: '#7c6cf0',
             },
             fontFamily: {
-              sans: ['IBM Plex Sans Arabic', 'Tajawal', 'ui-sans-serif', 'system-ui', 'sans-serif']
+              sans: ['Noto Sans Arabic', 'Noto Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+              display: ['Noto Naskh Arabic', 'Noto Serif', 'serif']
             },
             borderRadius: {
               '2xl': '20px',
@@ -37,10 +38,10 @@
       }
     </script>
     
-    <!-- Google Fonts: Tajawal, Cairo, Outfit & Plus Jakarta Sans -->
+    <!-- Google Fonts: Noto Naskh Arabic (display), Noto Sans Arabic + Noto Sans (body), Noto Serif (Latin display) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@500;600;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Tajawal:wght@400;500;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@500;600;700&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Noto+Sans:wght@400;500;600;700&family=Noto+Serif:wght@500;600;700&display=swap" rel="stylesheet">
     
     <!-- FontAwesome & Lucide Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -53,7 +54,7 @@
     <script>if (typeof Chart === 'undefined') { document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"><\/script>'); }</script>
     <script>
       if (typeof Chart !== 'undefined') {
-        Chart.defaults.font.family = "'IBM Plex Sans Arabic', 'Tajawal', system-ui, sans-serif";
+        Chart.defaults.font.family = "'Noto Sans Arabic', 'Noto Sans', system-ui, sans-serif";
         Chart.defaults.font.size = 12;
       }
     </script>
@@ -81,7 +82,8 @@
         --muted-foreground: #94a3b8;
         --ink: #f8fafc;
       }
-      * { font-family: 'IBM Plex Sans Arabic', 'Tajawal', ui-sans-serif, system-ui, sans-serif; }
+      :root { --font-display: 'Noto Naskh Arabic', 'Noto Serif', serif; --font-body: 'Noto Sans Arabic', 'Noto Sans', ui-sans-serif, system-ui, sans-serif; }
+      * { font-family: 'Noto Sans Arabic', 'Noto Sans', ui-sans-serif, system-ui, sans-serif; }
       
       /* إخفاء أيقونة العين الافتراضية للمتصفحات */
       input::-ms-reveal,
@@ -124,13 +126,14 @@
         font-variant-numeric: lining-nums tabular-nums;
       }
       [lang="ar"] * {
-        font-family: 'IBM Plex Sans Arabic', 'Tajawal', ui-sans-serif, system-ui, sans-serif;
+        font-family: 'Noto Sans Arabic', 'Noto Sans', ui-sans-serif, system-ui, sans-serif;
       }
+      html[lang] h1, html[lang] h2, html[lang] h3, .font-display { font-family: var(--font-display) !important; font-weight: 700; letter-spacing: 0; }
       [lang="ar"] *:not(input):not(textarea) {
         font-variant-numeric: lining-nums tabular-nums;
       }
       .num, [class*="stat"], [class*="value"], [class*="count"], [class*="amount"], [class*="price"], [class*="digit"], [id*="Display"], [id*="Count"], [id*="Val"] {
-        font-family: 'Outfit', 'Plus Jakarta Sans', 'Tajawal', sans-serif !important;
+        font-family: 'Noto Sans Arabic', 'Noto Sans', ui-sans-serif, system-ui, sans-serif !important;
         font-variant-numeric: lining-nums tabular-nums;
         font-feature-settings: "lnum" 1, "tnum" 1;
         unicode-bidi: plaintext;
