@@ -142,6 +142,7 @@ def translation_processor(request):
             "pricing_agent": "أخصائي التسعير",
             "audit_agent": "التدقيق ومكافحة الهدر",
             "retention_agent": "استعادة العملاء والولاء",
+            "sales_agent": "وكيل المبيعات والعملاء",
         },
         "en": {
             "dir": "ltr",
@@ -161,6 +162,7 @@ def translation_processor(request):
             "pricing_agent": "Pricing Strategist",
             "audit_agent": "Forensic Auditor",
             "retention_agent": "Customer Retention Agent",
+            "sales_agent": "Sales Leads Agent",
 
             # Navbar / Common
             "brand": "Baseera",

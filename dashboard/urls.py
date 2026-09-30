@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import api_views
 from . import credit_risk_views
+from . import lead_views
 
 urlpatterns = [
     path("", views.welcome, name="welcome"),
@@ -37,6 +38,12 @@ urlpatterns = [
     path("api/credit-risk/overview/", credit_risk_views.api_credit_risk_overview, name="api_credit_risk_overview"),
     path("api/credit-risk/watchlist/", credit_risk_views.api_credit_watchlist, name="api_credit_watchlist"),
     path("api/credit-risk/watchlist/<int:entry_id>/delete/", credit_risk_views.api_credit_watchlist_delete, name="api_credit_watchlist_delete"),
+    # Sales Leads agent (Google Maps buyers for the owner's products)
+    path("sales-leads/", lead_views.sales_leads_page, name="sales_leads"),
+    path("api/sales-leads/search/", lead_views.api_leads_search, name="api_leads_search"),
+    path("api/sales-leads/<int:lead_id>/update/", lead_views.api_lead_update, name="api_lead_update"),
+    path("api/sales-leads/<int:lead_id>/draft/", lead_views.api_lead_draft, name="api_lead_draft"),
+    path("api/sales-leads/<int:lead_id>/delete/", lead_views.api_lead_delete, name="api_lead_delete"),
     path("notifications/", views.notifications_view, name="notifications"),
     path("chat-history/", views.chat_history_view, name="chat_history"),
     path("settings/", views.user_settings, name="settings"),

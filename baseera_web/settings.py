@@ -23,6 +23,10 @@ except ImportError:
 load_dotenv(override=False)
 
 SENTRY_DSN = os.environ.get("SENTRY_DSN")
+
+# Google Maps Places API (New) key for the Sales Leads agent. Unset = the agent
+# page still loads but searches answer "not configured" instead of failing.
+GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 if SENTRY_DSN:
     sentry_sdk.init(
         dsn=SENTRY_DSN,
