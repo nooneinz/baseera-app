@@ -6,7 +6,7 @@
 {% endcomment %}
 {% with ar=trans.lang_code %}
 <style>
-  .cz-h1,.cz-h2{font-family:{% if ar == 'ar' %}'Noto Naskh Arabic','IBM Plex Sans Arabic',serif{% else %}'Plus Jakarta Sans','Outfit',sans-serif{% endif %} !important}
+  .cz-h1,.cz-h2{font-family:'Noto Naskh Arabic','Noto Serif',serif !important}
   .cz *{font-family:inherit}
   .cz{position:relative;isolation:isolate;overflow:hidden;border-radius:32px;color:#fff;min-height:min(94vh,860px);
       background:radial-gradient(900px 560px at 50% 108%,rgba(124,108,240,.55),transparent 62%),radial-gradient(700px 420px at 80% -10%,rgba(185,166,242,.18),transparent 60%),linear-gradient(180deg,#0b0826 0%,#15104a 58%,#2b2470 135%);
@@ -65,7 +65,7 @@
   .cz-w .live{width:7px;height:7px;border-radius:50%;background:#34d399;box-shadow:0 0 0 0 rgba(52,211,153,.6);animation:czLive 1.8s infinite}
   @keyframes czLive{70%{box-shadow:0 0 0 7px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
   .cz-trust{position:absolute;z-index:3;bottom:40px;font-size:12px;line-height:1.7;color:#b7b1dc;max-width:200px;text-align:start}
-  .cz-trust b{display:block;font-family:'Outfit',sans-serif;font-size:26px;color:#fff}
+  .cz-trust b{display:block;font-family: 'Noto Sans Arabic', 'Noto Sans', ui-sans-serif, system-ui, sans-serif;font-size:26px;color:#fff}
   .cz-trust.l{inset-inline-start:34px}.cz-trust.r{inset-inline-end:34px}
   .cz-story-btn{position:absolute;z-index:3;left:50%;bottom:176px;transform:translateX(-50%);padding:8px 18px;border-radius:999px;font-size:12.5px;font-weight:600;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(10px);transition:background .2s}
   .cz-story-btn:hover{background:rgba(255,255,255,.2)}
@@ -74,7 +74,7 @@
   .cs{position:relative;margin-top:14px;border-radius:32px;padding:clamp(28px,5vw,64px);color:#fff;overflow:hidden;
       background:radial-gradient(700px 400px at 100% 100%,rgba(124,108,240,.3),transparent 60%),linear-gradient(180deg,#15104a 0%,#0b0826 100%)}
   .cs-grid{display:grid;grid-template-columns:1.15fr 1fr;gap:34px;align-items:end}
-  .cs-p{font-family:{% if ar == 'ar' %}'Noto Naskh Arabic','IBM Plex Sans Arabic',serif{% else %}'Plus Jakarta Sans',sans-serif{% endif %};font-size:clamp(22px,3vw,36px);line-height:1.75;font-weight:600;margin:0}
+  .cs-p{font-family:'Noto Naskh Arabic','Noto Serif',serif;font-size:clamp(22px,3vw,36px);line-height:1.75;font-weight:600;margin:0}
   .cs-p span{opacity:.22;transition:opacity .35s ease}
   .cs-p span.on{opacity:1}
   .cs-acts{display:flex;gap:12px;margin-top:34px}
@@ -85,7 +85,7 @@
   .cs-card{position:relative;border-radius:22px;padding:18px;min-height:250px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);transition:transform .35s cubic-bezier(.16,.84,.28,1)}
   .cs-card:hover{transform:translateY(-6px)}
   .cs-card .k{font-size:11.5px;color:#b7b1dc;font-weight:600}
-  .cs-card .v{font-family:'Outfit',sans-serif;font-size:28px;font-weight:700;margin:4px 0 0;color:#fff}
+  .cs-card .v{font-family: 'Noto Sans Arabic', 'Noto Sans', ui-sans-serif, system-ui, sans-serif;font-size:24px;white-space:nowrap;font-weight:700;margin:4px 0 0;color:#fff}
   .cs-card .d{font-size:12px;color:#34d399;font-weight:700}
   .cs-bars{position:absolute;inset:18px 18px auto;height:120px;display:flex;align-items:flex-end;gap:6px}
   .cs-bars span{flex:1;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,#7c6cf0,#b9a6f2);height:var(--h);transform-origin:bottom;animation:csGrow 1s cubic-bezier(.16,.84,.28,1) both;animation-delay:var(--i)}
@@ -99,7 +99,7 @@
   .cc{position:relative;margin-top:24px;border-radius:32px;overflow:hidden;padding:clamp(22px,4vw,34px);
       background:radial-gradient(700px 380px at 50% 120%,rgba(124,108,240,.5),transparent 62%),linear-gradient(180deg,#0b0826,#15104a)}
   .cc-card{position:relative;display:grid;grid-template-columns:1.3fr 1fr;align-items:center;gap:20px;border-radius:26px;padding:clamp(24px,4vw,44px);overflow:hidden;background:rgba(255,255,255,.88);backdrop-filter:blur(24px);color:#1e1b4b}
-  .cc-card h2{font-family:{% if ar == 'ar' %}'Noto Naskh Arabic','IBM Plex Sans Arabic',serif{% else %}'Plus Jakarta Sans',sans-serif{% endif %};font-size:clamp(26px,3.6vw,42px);line-height:1.35;font-weight:700;margin:0}
+  .cc-card h2{font-family:'Noto Naskh Arabic','Noto Serif',serif;font-size:clamp(26px,3.6vw,42px);line-height:1.35;font-weight:700;margin:0}
   .cc-card h2 em{font-style:normal;color:#7b769b;display:block}
   .cc-card p{margin:14px 0 0;font-size:14px;line-height:1.9;color:#5b5776;max-width:440px}
   .cc-btn{display:inline-flex;align-items:center;gap:8px;margin-top:22px;padding:13px 24px;border-radius:999px;background:#15104a;color:#fff;font-size:14px;font-weight:700;box-shadow:0 14px 30px -10px rgba(21,16,74,.7);transition:transform .2s,filter .2s}
