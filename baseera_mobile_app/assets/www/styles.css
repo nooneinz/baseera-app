@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@500;600;700&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Noto+Sans:wght@400;500;600;700&family=Noto+Serif:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
 
 /* ===========================================================
    DESIGN TOKENS — one font system + one color palette for the
@@ -13,10 +13,10 @@
                     prices) — monospaced so digits align
    =========================================================== */
 :root {
-  --font-display: 'Noto Naskh Arabic', 'Noto Serif', serif;
-  --font-body: 'Noto Sans Arabic', 'Noto Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-ui: 'Noto Sans Arabic', 'Noto Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-data: 'Noto Sans Arabic', 'Noto Sans', 'Roboto Mono', 'Courier New', monospace;
+  --font-display: 'Aref Ruqaa', 'IBM Plex Sans Arabic', serif;
+  --font-body: 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
+  --font-ui: 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
+  --font-data: 'IBM Plex Sans Arabic', 'Roboto Mono', 'Courier New', monospace;
 
   --color-navy: #1E293B;      /* Deep Navy - primary text / brand */
   --color-brand: #1E293B;     /* Deep Navy */
