@@ -1,0 +1,216 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}{% if trans.lang_code == 'ar' %}وكيل المبيعات والعملاء{% else %}Sales Leads Agent{% endif %}{% endblock %}
+
+{% block content %}
+{% with ar=trans.lang_code %}
+<style>
+  .sl-input { width:100%; border-radius:.9rem; border:1px solid rgba(124,108,240,.25); background:rgba(255,255,255,.85); padding:.6rem .9rem; font-size:.875rem; color:#1e1b4b; outline:none; }
+  .dark .sl-input { background:rgba(255,255,255,.06); color:#f1efff; border-color:rgba(185,166,242,.3); }
+  .sl-input:focus { border-color:var(--glow); box-shadow:0 0 0 3px rgba(124,108,240,.15); }
+  .sl-chip { display:inline-flex; align-items:center; gap:.4rem; border-radius:999px; padding:.3rem .8rem; font-size:.75rem; font-weight:700; border:1px solid rgba(124,108,240,.25); background:rgba(124,108,240,.06); color:var(--nile); cursor:pointer; transition:transform .2s, background .2s; }
+  .dark .sl-chip { color:var(--lavender); }
+  .sl-chip:hover { transform:scale(1.03); background:rgba(124,108,240,.14); }
+  .sl-chip[aria-pressed="true"] { background:linear-gradient(135deg,#2b2470,#7c6cf0); color:#fff; border-color:transparent; }
+  .sl-score { display:inline-grid; place-items:center; min-width:2.6rem; height:2.6rem; border-radius:.9rem; font-weight:800; font-size:.95rem; color:#fff; background:linear-gradient(135deg,#2b2470,#7c6cf0); }
+  .sl-card { border:1px solid rgba(124,108,240,.15); border-radius:1.25rem; padding:1rem 1.1rem; background:rgba(255,255,255,.7); }
+  .dark .sl-card { background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.1); }
+  .sl-btn { display:inline-flex; align-items:center; gap:.4rem; border-radius:999px; padding:.4rem .9rem; font-size:.75rem; font-weight:700; border:1px solid rgba(124,108,240,.3); color:var(--nile); background:#fff; transition:transform .2s; }
+  .dark .sl-btn { background:rgba(255,255,255,.06); color:var(--lavender); }
+  .sl-btn:hover { transform:scale(1.03); }
+  .sl-btn.primary { background:linear-gradient(135deg,#2b2470,#7c6cf0); color:#fff; border-color:transparent; }
+  #slStatus[hidden], #slEmpty[hidden] { display:none; }
+</style>
+
+<div class="flex flex-col lg:flex-row min-h-screen p-3 gap-3">
+    {% include 'dashboard/sidebar.html' with active_page='sales_leads' %}
+
+    <main class="flex-1 flex flex-col gap-3 min-w-0 text-{{ trans.align }}">
+        {% include 'dashboard/topbar.html' %}
+
+        <section class="rounded-3xl glass px-6 py-5 flex items-center justify-between flex-wrap gap-4 animate-fade-up">
+            <div class="flex items-center gap-3">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--lavender)] to-[var(--glow)] text-white shadow-lg shadow-indigo-500/20">
+                    <i data-lucide="map-pinned" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl text-ink">{% if ar == 'ar' %}وكيل المبيعات والعملاء{% else %}Sales Leads Agent{% endif %}</h1>
+                    <p class="text-sm text-gray-500">{% if ar == 'ar' %}بعد أن تكشف بصيرة الهدر في منتجاتك، يبحث هذا الوكيل في خرائط Google عن أماكن تشتريها.{% else %}After Baseera finds the waste in your products, this agent searches Google Maps for places that buy them.{% endif %}</p>
+                </div>
+            </div>
+            <span class="text-xs text-gray-500 rounded-full border border-[var(--glow)]/20 px-3 py-1.5">{% if ar == 'ar' %}أنت تراجع الرسالة وترسلها بنفسك، والوكيل لا يتواصل مع أحد تلقائياً{% else %}You review and send every message yourself; the agent never contacts anyone on its own{% endif %}</span>
+        </section>
+
+        {% if not maps_enabled %}
+        <section class="rounded-3xl glass px-6 py-4 text-sm text-amber-700 border border-amber-300/40 animate-fade-up">
+            {% if ar == 'ar' %}خدمة خرائط Google غير مفعّلة بعد على هذا الخادم (المفتاح GOOGLE_MAPS_API_KEY غير مضبوط). ما زال بإمكانك مراجعة قائمتك، لكن البحث الجديد يتوقف حتى يضيف مسؤول النظام المفتاح.{% else %}Google Maps is not enabled on this server yet (GOOGLE_MAPS_API_KEY is not set). You can still review your list, but new searches are paused until an admin adds the key.{% endif %}
+        </section>
+        {% endif %}
+
+        <section class="rounded-3xl glass-strong p-6 animate-fade-up" style="animation-delay:80ms">
+            <h2 class="text-lg text-ink mb-1">{% if ar == 'ar' %}ابحث عن مشترين{% else %}Find buyers{% endif %}</h2>
+            <p class="text-xs text-gray-500 mb-4">{% if ar == 'ar' %}يخرج من بصيرة نوع المشتري والمدينة فقط إلى Google. لا تُرسل أسماء منتجاتك ولا أسعارك ولا أي أرقام مالية.{% else %}Only the buyer type and the city leave Baseera for Google. Your product names, prices and financial figures are never sent.{% endif %}</p>
+
+            <form id="slForm" class="grid gap-4" autocomplete="off">
+                <div>
+                    <div class="text-xs font-bold text-gray-600 mb-2">{% if ar == 'ar' %}المنتج{% else %}Product{% endif %}</div>
+                    <div id="slProducts" class="flex flex-wrap gap-2" role="group">
+                        {% for p in products %}
+                        <button type="button" class="sl-chip" data-product="{{ p.name }}" aria-pressed="false">{{ p.name }}{% if p.reason == 'dead_stock' %} <span class="opacity-70">· {% if ar == 'ar' %}مخزون راكد{% else %}dead stock{% endif %}</span>{% endif %}</button>
+                        {% endfor %}
+                    </div>
+                    <input id="slProduct" class="sl-input mt-2" maxlength="200" required placeholder="{% if ar == 'ar' %}أو اكتب اسم المنتج{% else %}Or type a product name{% endif %}">
+                </div>
+
+                <div>
+                    <div class="text-xs font-bold text-gray-600 mb-2">{% if ar == 'ar' %}من يشتري منك؟{% else %}Who buys from you?{% endif %}</div>
+                    <div id="slBuyers" class="flex flex-wrap gap-2" role="group">
+                        {% for b in buyer_presets %}
+                        <button type="button" class="sl-chip" data-buyer="{{ b.key }}" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}">{{ b.label }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="grid gap-3 sm:grid-cols-3">
+                    <label class="text-xs font-bold text-gray-600 sm:col-span-2">{% if ar == 'ar' %}المدينة{% else %}City{% endif %}
+                        <input id="slCity" class="sl-input mt-1" maxlength="120" value="{% if ar == 'ar' %}مسقط{% else %}Muscat{% endif %}">
+                    </label>
+                    <div class="flex items-end">
+                        <button id="slBtn" type="submit" class="w-full inline-flex justify-center items-center gap-2 rounded-full bg-gradient-to-r from-[var(--nile)] to-[var(--glow)] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 hover:scale-[1.02] transition disabled:opacity-60" {% if not maps_enabled %}disabled{% endif %}>
+                            <i data-lucide="search" class="h-4 w-4"></i> {% if ar == 'ar' %}ابحث في خرائط Google{% else %}Search Google Maps{% endif %}
+                        </button>
+                    </div>
+                </div>
+            </form>
+            <p id="slStatus" class="mt-3 text-sm" role="status" hidden></p>
+        </section>
+
+        <section class="rounded-3xl glass p-6 animate-fade-up" style="animation-delay:140ms">
+            <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+                <h2 class="text-lg text-ink">{% if ar == 'ar' %}قائمة المشترين المحتملين{% else %}Your buyer pipeline{% endif %}</h2>
+                <span id="slCount" class="text-xs text-gray-500"></span>
+            </div>
+            <p id="slEmpty" class="text-sm text-gray-500" {% if leads %}hidden{% endif %}>{% if ar == 'ar' %}لا يوجد مشترون بعد. اختر منتجاً ونوع مشترٍ ثم ابحث.{% else %}No buyers yet. Pick a product and a buyer type, then search.{% endif %}</p>
+            <div id="slList" class="grid gap-3 lg:grid-cols-2"></div>
+        </section>
+    </main>
+</div>
+
+{{ leads|json_script:"slInitial" }}
+{{ statuses|json_script:"slStatuses" }}
+<script>
+(function () {
+  var AR = '{{ ar }}' === 'ar';
+  var T = AR ? {
+    score: 'درجة الملاءمة', call: 'اتصال', site: 'الموقع', map: 'الخريطة', draft: 'جهّز رسالة', wa: 'واتساب',
+    offer: 'عرضك (اختياري): سعر أو كمية أو شرط توصيل', save: 'حفظ', remove: 'حذف', notes: 'ملاحظاتك',
+    searching: 'يبحث الوكيل في خرائط Google...', found: 'وُجد {n} مشترٍ محتمل.', none: 'لم يجد الوكيل نتائج مناسبة. جرّب نوع مشترٍ آخر.',
+    count: '{n} في القائمة', pickProduct: 'اختر المنتج أولاً.', reviews: 'تقييم', netErr: 'تعذّر الاتصال. حاول مرة أخرى.', confirmDel: 'حذف هذا المشتري من القائمة؟'
+  } : {
+    score: 'Fit score', call: 'Call', site: 'Website', map: 'Map', draft: 'Draft message', wa: 'WhatsApp',
+    offer: 'Your offer (optional): price, quantity or delivery terms', save: 'Save', remove: 'Delete', notes: 'Your notes',
+    searching: 'The agent is searching Google Maps...', found: '{n} potential buyers found.', none: 'No suitable results. Try another buyer type.',
+    count: '{n} in your list', pickProduct: 'Pick a product first.', reviews: 'reviews', netErr: 'Connection failed. Try again.', confirmDel: 'Delete this buyer from your list?'
+  };
+  var CSRF = '{{ csrf_token }}';
+  var statuses = JSON.parse(document.getElementById('slStatuses').textContent);
+  var leads = JSON.parse(document.getElementById('slInitial').textContent);
+  var list = document.getElementById('slList'), empty = document.getElementById('slEmpty'), count = document.getElementById('slCount');
+  var statusEl = document.getElementById('slStatus'), btn = document.getElementById('slBtn');
+
+  function post(url, body) {
+    return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF }, body: JSON.stringify(body || {}) })
+      .then(function (r) { return r.json().catch(function () { return { status: 'error', message: T.netErr }; }); });
+  }
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+  function link(href, label, cls) { var a = el('a', cls || 'sl-btn', label); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a; }
+  function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : ''; }
+  function say(msg, bad) { statusEl.hidden = !msg; statusEl.textContent = msg || ''; statusEl.style.color = bad ? '#b91c1c' : '#15803d'; }
+
+  function card(l) {
+    var c = el('article', 'sl-card'); c.dataset.id = l.id;
+    var head = el('div', 'flex items-start justify-between gap-3');
+    var left = el('div', 'min-w-0');
+    left.appendChild(el('h3', 'text-base font-bold text-ink', l.business_name));
+    left.appendChild(el('p', 'text-xs text-gray-500 mt-0.5', l.product + (l.address ? ' · ' + l.address : '')));
+    if (l.rating) left.appendChild(el('p', 'text-xs text-gray-500 mt-0.5', l.rating + ' / 5 · ' + l.reviews_count + ' ' + T.reviews));
+    var sc = el('div', 'sl-score', String(l.score)); sc.title = T.score;
+    head.appendChild(left); head.appendChild(sc); c.appendChild(head);
+
+    var acts = el('div', 'flex flex-wrap gap-2 mt-3');
+    if (l.phone) acts.appendChild(link('tel:' + l.phone.replace(/[^\d+]/g, ''), T.call));
+    if (safeUrl(l.website)) acts.appendChild(link(safeUrl(l.website), T.site));
+    if (safeUrl(l.maps_url)) acts.appendChild(link(safeUrl(l.maps_url), T.map));
+    c.appendChild(acts);
+
+    var sel = el('select', 'sl-input mt-3');
+    statuses.forEach(function (s) { var o = el('option', null, s.label); o.value = s.key; if (s.key === l.status) o.selected = true; sel.appendChild(o); });
+    sel.addEventListener('change', function () { post('/api/sales-leads/' + l.id + '/update/', { status: sel.value }); });
+    c.appendChild(sel);
+
+    var notes = el('input', 'sl-input mt-2'); notes.maxLength = 1000; notes.placeholder = T.notes; notes.value = l.notes || '';
+    notes.addEventListener('change', function () { post('/api/sales-leads/' + l.id + '/update/', { notes: notes.value }); });
+    c.appendChild(notes);
+
+    var offer = el('input', 'sl-input mt-2'); offer.maxLength = 400; offer.placeholder = T.offer;
+    var out = el('textarea', 'sl-input mt-2'); out.rows = 4; out.value = l.draft_message || ''; out.hidden = !l.draft_message;
+    var row = el('div', 'flex flex-wrap gap-2 mt-2');
+    var draftBtn = el('button', 'sl-btn primary', T.draft); draftBtn.type = 'button';
+    var wa = el('a', 'sl-btn', T.wa); wa.target = '_blank'; wa.rel = 'noopener noreferrer'; wa.hidden = !l.whatsapp_url; if (l.whatsapp_url) wa.href = l.whatsapp_url;
+    var del = el('button', 'sl-btn', T.remove); del.type = 'button';
+    draftBtn.addEventListener('click', function () {
+      post('/api/sales-leads/' + l.id + '/draft/', { offer: offer.value }).then(function (d) {
+        if (d.status !== 'success') return say(d.message || T.netErr, true);
+        out.value = d.lead.draft_message; out.hidden = false;
+        if (d.lead.whatsapp_url) { wa.href = d.lead.whatsapp_url; wa.hidden = false; }
+      });
+    });
+    out.addEventListener('input', function () { if (wa.href) { var base = wa.href.split('?')[0]; wa.href = base + '?text=' + encodeURIComponent(out.value); } });
+    del.addEventListener('click', function () {
+      if (!confirm(T.confirmDel)) return;
+      post('/api/sales-leads/' + l.id + '/delete/').then(function (d) { if (d.status === 'success') { leads = leads.filter(function (x) { return x.id !== l.id; }); render(); } });
+    });
+    row.appendChild(draftBtn); row.appendChild(wa); row.appendChild(del);
+    c.appendChild(offer); c.appendChild(row); c.appendChild(out);
+    return c;
+  }
+
+  function render() {
+    list.textContent = '';
+    leads.slice().sort(function (a, b) { return b.score - a.score; }).forEach(function (l) { list.appendChild(card(l)); });
+    empty.hidden = leads.length > 0;
+    count.textContent = leads.length ? T.count.replace('{n}', leads.length) : '';
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function pressSingle(group, target) { [].forEach.call(group.children, function (b) { b.setAttribute('aria-pressed', b === target ? 'true' : 'false'); }); }
+  var productInput = document.getElementById('slProduct');
+  document.getElementById('slProducts').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-product]'); if (!b) return;
+    productInput.value = b.dataset.product; pressSingle(this, b);
+  });
+  var buyers = document.getElementById('slBuyers');
+  buyers.addEventListener('click', function (e) { var b = e.target.closest('[data-buyer]'); if (b) pressSingle(buyers, b); });
+
+  document.getElementById('slForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var product = productInput.value.trim();
+    if (!product) return say(T.pickProduct, true);
+    var pressed = buyers.querySelector('[aria-pressed="true"]');
+    btn.disabled = true; say(T.searching, false);
+    post('/api/sales-leads/search/', { product: product, buyer_type: pressed ? pressed.dataset.buyer : '', city: document.getElementById('slCity').value })
+      .then(function (d) {
+        if (d.status !== 'success') return say(d.message || T.netErr, true);
+        var byId = {}; leads.forEach(function (l) { byId[l.id] = true; });
+        d.leads.forEach(function (l) { if (!byId[l.id]) leads.push(l); });
+        render(); say(d.count ? T.found.replace('{n}', d.count) : T.none, !d.count);
+      })
+      .catch(function () { say(T.netErr, true); })
+      .then(function () { btn.disabled = false; });
+  });
+
+  render();
+})();
+</script>
+{% endwith %}
+{% endblock %}

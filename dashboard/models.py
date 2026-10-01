@@ -739,3 +739,55 @@ class CreditWatchlistEntry(models.Model):
 
     def __str__(self):
         return f"{self.customer_name} ({self.user_id})"
+
+
+class SalesLead(models.Model):
+    """
+    A prospective buyer found by the Sales Leads agent (Google Maps Places) for
+    one of the owner's own products, plus the owner's pipeline state for it.
+
+    Only public business listing data lives here (name, address, public phone,
+    maps link). Nothing is ever sent to the lead automatically: the outreach
+    text is a draft the owner reviews and sends themselves.
+    """
+    STATUS_NEW = "new"
+    STATUS_CONTACTED = "contacted"
+    STATUS_NEGOTIATING = "negotiating"
+    STATUS_WON = "won"
+    STATUS_LOST = "lost"
+    STATUS_CHOICES = [
+        (STATUS_NEW, "جديد"),
+        (STATUS_CONTACTED, "تم التواصل"),
+        (STATUS_NEGOTIATING, "قيد التفاوض"),
+        (STATUS_WON, "تمت الصفقة"),
+        (STATUS_LOST, "لم تتم"),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sales_leads")
+    product = models.CharField(max_length=200, verbose_name="المنتج")
+    buyer_type = models.CharField(max_length=120, blank=True, default="", verbose_name="نوع المشتري")
+    city = models.CharField(max_length=120, blank=True, default="", verbose_name="المدينة")
+    place_id = models.CharField(max_length=200, db_index=True)
+    business_name = models.CharField(max_length=300)
+    address = models.CharField(max_length=500, blank=True, default="")
+    phone = models.CharField(max_length=60, blank=True, default="")
+    website = models.URLField(max_length=500, blank=True, default="")
+    maps_url = models.URLField(max_length=500, blank=True, default="")
+    rating = models.FloatField(null=True, blank=True)
+    reviews_count = models.PositiveIntegerField(default=0)
+    score = models.PositiveSmallIntegerField(default=0, db_index=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_NEW, db_index=True)
+    notes = models.CharField(max_length=1000, blank=True, default="")
+    draft_message = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-score", "-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "place_id", "product"], name="uniq_sales_lead_user_place_product"),
+        ]
+        verbose_name = "Sales Lead"
+
+    def __str__(self):
+        return f"{self.business_name} / {self.product} ({self.user_id})"

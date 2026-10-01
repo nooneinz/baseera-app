@@ -31,6 +31,8 @@ services:
     # workers on the same 512MB.
     startCommand: "gunicorn baseera_web.wsgi:application --workers 2 --worker-class gthread --threads 4 --timeout 120"
     envVars:
+      - key: GOOGLE_MAPS_API_KEY   # Sales Leads agent (Places API New); optional, agent searches pause without it
+        sync: false
       - key: DATABASE_URL
         fromDatabase:
           name: baseera-db

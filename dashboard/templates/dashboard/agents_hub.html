@@ -207,6 +207,32 @@
                         </div>
                     </a>
 
+                    <!-- Sales Leads Agent -->
+                    <a href="{% url 'sales_leads' %}" class="block group">
+                        <div class="glass p-6 rounded-3xl border border-white/80 hover:border-emerald-400/60 transition-all duration-300 flex flex-col justify-between h-full hover:-translate-y-1.5 shadow-sm hover:shadow-xl hover:shadow-emerald-500/15">
+                            <div>
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white grid place-items-center shadow-lg shadow-emerald-500/30 group-hover:scale-110 transition-transform shrink-0">
+                                        <i data-lucide="map-pinned" class="h-7 w-7"></i>
+                                    </div>
+                                    <div class="h-9 w-9 rounded-full bg-white/70 dark:bg-slate-800/80 border border-white/80 grid place-items-center text-slate-400 group-hover:text-emerald-500 group-hover:bg-emerald-50 transition-colors shadow-sm">
+                                        <i data-lucide="arrow-{% if trans.lang_code == 'ar' %}left{% else %}right{% endif %}" class="h-4 w-4"></i>
+                                    </div>
+                                </div>
+                                <span class="text-xs uppercase font-extrabold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-100 dark:border-emerald-900/40">{% if trans.lang_code == 'ar' %}المبيعات والعملاء{% else %}Sales & Leads{% endif %}</span>
+                                <h3 class="text-lg font-black text-slate-800 dark:text-white mt-2.5 mb-2 leading-snug group-hover:text-emerald-600 transition-colors">{% if trans.lang_code == 'ar' %}وكيل المبيعات والعملاء{% else %}Sales Leads Agent{% endif %}</h3>
+                                <div class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-4 space-y-2">
+                                    <p><strong>{% if trans.lang_code == 'ar' %}مصدر البيانات:{% else %}Data Source:{% endif %}</strong> {% if trans.lang_code == 'ar' %}المنتجات التي كشف تحليل الهدر أنها راكدة أو ضعيفة الهامش، وخرائط Google.{% else %}Products your waste analysis flagged as stuck or thin-margin, plus Google Maps.{% endif %}</p>
+                                    <p><strong>{% if trans.lang_code == 'ar' %}المهام التشغيلية:{% else %}Operational Tasks:{% endif %}</strong> {% if trans.lang_code == 'ar' %}يبحث عن أماكن تشتري منتجاتك، يرتّبها بدرجة ملاءمة، يجهّز رسالة التواصل، ويتابع الصفقة معك.{% else %}Finds places that buy your products, ranks them by fit, drafts the outreach message and tracks each deal with you.{% endif %}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800/60 text-xs font-bold text-emerald-600 group-hover:translate-x-[-2px] transition-transform">
+                                <span>{% if trans.lang_code == 'ar' %}ابحث عن مشترين{% else %}Find buyers{% endif %}</span>
+                                <i data-lucide="sparkles" class="h-4 w-4"></i>
+                            </div>
+                        </div>
+                    </a>
+
                     <!-- 5. Financial Audit -->
                     <a href="{% url 'ask_basira' %}?agent_id=audit" class="block group">
                         <div class="glass p-6 rounded-3xl border border-white/80 hover:border-cyan-400/60 transition-all duration-300 flex flex-col justify-between h-full hover:-translate-y-1.5 shadow-sm hover:shadow-xl hover:shadow-cyan-500/15">
