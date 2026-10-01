@@ -90,6 +90,69 @@ class LeadFinderUnitTests(TestCase):
         self.assertEqual(lead_finder.whatsapp_link("12"), "")
 
 
+def _serp(pid="ChIJabc", title="كافيه الواحة", rating=4.5, reviews=210, phone="+968 9111 2222", website="https://cafe.om", **extra):
+    return {"title": title, "place_id": pid, "address": "مسقط", "phone": phone, "website": website,
+            "rating": rating, "reviews": reviews, **extra}
+
+
+class _Resp:
+    def __init__(self, payload): self.payload = payload
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def read(self): return json.dumps(self.payload).encode()
+
+
+class SerpApiTests(TestCase):
+    def _run(self, payload, city="مسقط", key="serp-key"):
+        seen = {}
+
+        def opener(req, timeout=None):
+            seen["url"] = req.full_url
+            return _Resp(payload)
+
+        return seen, lead_finder.find_leads("تمر خلاص", "cafes", city, provider="serpapi", api_key=key, opener=opener)
+
+    def test_request_is_a_google_maps_search_with_city_coordinates_only(self):
+        seen, out = self._run({"local_results": [_serp()]})
+        url = seen["url"]
+        self.assertTrue(url.startswith("https://serpapi.com/search.json?"))
+        self.assertIn("engine=google_maps", url)
+        self.assertIn("ll=@23.588,58.3829,12z", url)
+        self.assertIn("hl=ar", url)
+        self.assertNotIn("%D8%AA%D9%85%D8%B1", url)            # the product never leaves the platform
+        self.assertEqual(out["leads"][0]["business_name"], "كافيه الواحة")
+        self.assertTrue(out["leads"][0]["maps_url"].endswith("place_id:ChIJabc"))
+
+    def test_unknown_city_is_searched_by_name_without_ll(self):
+        seen, _ = self._run({"local_results": []}, city="خصب")
+        self.assertNotIn("ll=", seen["url"])
+
+    def test_results_are_ranked_and_closed_or_nameless_dropped(self):
+        payload = {"local_results": [
+            _serp("ChI1", rating=3.3, reviews=4, phone="", website=""), _serp("ChI2"),
+            _serp("ChI3", permanently_closed=True), _serp("ChI4", title="")]}
+        _, out = self._run(payload)
+        self.assertEqual([l["place_id"] for l in out["leads"]], ["ChI2", "ChI1"])
+
+    def test_no_results_message_is_an_empty_list_not_an_error(self):
+        _, out = self._run({"error": "Google Maps hasn't returned any results for this query."})
+        self.assertEqual(out["leads"], [])
+
+    def test_other_serpapi_errors_raise_a_safe_message_without_the_key(self):
+        with self.assertRaises(lead_finder.LeadSearchError) as ctx:
+            self._run({"error": "Invalid API key. serp-key"})
+        self.assertNotIn("serp-key", str(ctx.exception))
+
+    def test_provider_preference_serpapi_then_google(self):
+        with override_settings(SERPAPI_API_KEY="s", GOOGLE_MAPS_API_KEY="g"):
+            self.assertEqual(lead_finder.get_provider(), "serpapi")
+        with override_settings(SERPAPI_API_KEY="", GOOGLE_MAPS_API_KEY="g"):
+            self.assertEqual(lead_finder.get_provider(), "google")
+        with override_settings(SERPAPI_API_KEY="", GOOGLE_MAPS_API_KEY=""):
+            self.assertEqual(lead_finder.get_provider(), "")
+            self.assertFalse(lead_finder.is_enabled())
+
+
 @override_settings(DISABLE_RATE_LIMIT=True, GOOGLE_MAPS_API_KEY="test-key")
 class LeadViewsTests(TestCase):
     def setUp(self):
@@ -120,8 +183,16 @@ class LeadViewsTests(TestCase):
             self._search(); self._search()
         self.assertEqual(SalesLead.objects.filter(user=self.owner).count(), 1)
 
+    def test_search_uses_serpapi_when_its_key_is_set(self):
+        with override_settings(SERPAPI_API_KEY="serp-key"):
+            with mock.patch.object(lead_finder, "search_serpapi", return_value=[_serp()]) as m:
+                res = self._search()
+        self.assertEqual(res.status_code, 200)
+        m.assert_called_once()
+        self.assertEqual(SalesLead.objects.get(user=self.owner).business_name, "كافيه الواحة")
+
     def test_search_without_key_is_a_clear_503(self):
-        with override_settings(GOOGLE_MAPS_API_KEY=""):
+        with override_settings(GOOGLE_MAPS_API_KEY="", SERPAPI_API_KEY=""):
             res = self._search()
         self.assertEqual(res.status_code, 503)
         self.assertEqual(res.json()["code"], "maps_not_configured")

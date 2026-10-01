@@ -5,10 +5,11 @@ Pipeline (same boundary as the rest of Baseera: numbers are computed here, the
 LLM only words things):
   1. pick_products_to_push(rows)  -- deterministic choice of which products to
      sell, from the waste engine's own evidence (dead stock first).
-  2. search_places(...)           -- Google Places API (New) text search for
-     buyer types in a city ("مطاعم في مسقط"). Only a buyer type and a city
+  2. search_leads(...)            -- Google Maps search for buyer types in a
+     city ("مطاعم في مسقط"), through SerpApi (preferred, one key) or the
+     Google Places API (New). Only a buyer type, a city and its coordinates
      leave the platform: no product names, prices, costs or any other user
-     data are sent to Google.
+     data are sent to either provider.
   3. score_place(...)            -- deterministic 0-100 lead score.
   4. draft_outreach(...)         -- a short message the owner reviews and sends
      themselves. Nothing is ever sent automatically, and the draft never
@@ -19,12 +20,14 @@ import logging
 import math
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
+SERPAPI_URL = "https://serpapi.com/search.json"
 PLACES_URL = "https://places.googleapis.com/v1/places:searchText"
 FIELD_MASK = ",".join([
     "places.id", "places.displayName", "places.formattedAddress",
@@ -45,12 +48,49 @@ BUYER_PRESETS = {
 }
 
 
+# Centre points (lat, lng) for SerpApi's `ll` parameter, so results stay local.
+# A city not listed here is still searched by name only ("... في صحار").
+CITY_COORDS = {
+    "مسقط": (23.5880, 58.3829), "muscat": (23.5880, 58.3829),
+    "السيب": (23.6703, 58.1891), "seeb": (23.6703, 58.1891),
+    "بوشر": (23.5859, 58.4059), "bawshar": (23.5859, 58.4059),
+    "مطرح": (23.6139, 58.5922), "muttrah": (23.6139, 58.5922),
+    "صلالة": (17.0151, 54.0924), "salalah": (17.0151, 54.0924),
+    "صحار": (24.3476, 56.7093), "sohar": (24.3476, 56.7093),
+    "نزوى": (22.9333, 57.5333), "nizwa": (22.9333, 57.5333),
+    "صور": (22.5667, 59.5289), "sur": (22.5667, 59.5289),
+    "بركاء": (23.6793, 57.8890), "barka": (23.6793, 57.8890),
+    "الرستاق": (23.3908, 57.4244), "rustaq": (23.3908, 57.4244),
+    "عبري": (23.2254, 56.5156), "ibri": (23.2254, 56.5156),
+    "الخابورة": (23.9667, 57.0833), "khaburah": (23.9667, 57.0833),
+    "بهلاء": (22.9667, 57.3000), "bahla": (22.9667, 57.3000),
+}
+CITY_ZOOM = 12
+
+
 class LeadSearchError(Exception):
     """Raised with a user-safe message when the Places lookup cannot run."""
 
 
 def get_api_key():
     return getattr(settings, "GOOGLE_MAPS_API_KEY", "") or ""
+
+
+def get_serpapi_key():
+    return getattr(settings, "SERPAPI_API_KEY", "") or ""
+
+
+def get_provider():
+    """'serpapi' when its key is set (preferred), else 'google', else ''."""
+    if get_serpapi_key():
+        return "serpapi"
+    if get_api_key():
+        return "google"
+    return ""
+
+
+def is_enabled():
+    return bool(get_provider())
 
 
 def pick_products_to_push(rows, limit=5):
@@ -127,6 +167,73 @@ def search_places(query, api_key=None, region="OM", language="ar", max_results=M
     return payload.get("places", []) or []
 
 
+def city_ll(city):
+    """SerpApi `ll` value ("@lat,lng,zoomz") for a known city, else ''."""
+    coords = CITY_COORDS.get(str(city or "").strip().lower())
+    return f"@{coords[0]},{coords[1]},{CITY_ZOOM}z" if coords else ""
+
+
+def search_serpapi(query, city="", api_key=None, language="ar", opener=None):
+    """
+    One SerpApi `google_maps` search. Returns SerpApi's raw `local_results`.
+    Sent to SerpApi: the query text, the city's coordinates and the language.
+    """
+    key = api_key or get_serpapi_key()
+    if not key:
+        raise LeadSearchError("خدمة البحث في الخرائط غير مفعّلة بعد (مفتاح SERPAPI_API_KEY غير مضبوط).")
+    params = {"engine": "google_maps", "type": "search", "q": query, "hl": language, "api_key": key}
+    ll = city_ll(city)
+    if ll:
+        params["ll"] = ll
+    url = SERPAPI_URL + "?" + urllib.parse.urlencode(params, safe="@,")
+    req = urllib.request.Request(url, method="GET", headers={"Accept": "application/json"})
+    try:
+        with (opener or urllib.request.urlopen)(req, timeout=TIMEOUT_SECONDS) as resp:
+            payload = json.loads(resp.read().decode("utf-8") or "{}")
+    except urllib.error.HTTPError as exc:
+        logger.warning("SerpApi search failed: HTTP %s", exc.code)    # never log the URL: it carries the key
+        raise LeadSearchError("تعذّر البحث في الخرائط الآن. حاول لاحقاً.") from exc
+    except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+        logger.warning("SerpApi search failed: %s", type(exc).__name__)
+        raise LeadSearchError("تعذّر الاتصال بخدمة الخرائط الآن. حاول لاحقاً.") from exc
+    error = payload.get("error")
+    if error:
+        if "hasn't returned any results" in str(error):
+            return []
+        logger.warning("SerpApi returned an error")
+        raise LeadSearchError("تعذّر البحث في الخرائط الآن. حاول لاحقاً.")
+    results = payload.get("local_results")
+    if results is None and isinstance(payload.get("place_results"), dict):
+        results = [payload["place_results"]]
+    return results or []
+
+
+def normalize_serp_result(r):
+    """SerpApi local result -> the same lead dict the Google path produces."""
+    pid = r.get("place_id") or r.get("data_id") or ""
+    phone = r.get("phone") or ""
+    website = r.get("website") or ""
+    rating = r.get("rating")
+    reviews = int(r.get("reviews") or 0)
+    status = "CLOSED_PERMANENTLY" if r.get("permanently_closed") else (
+        "CLOSED_TEMPORARILY" if r.get("temporarily_closed") else "OPERATIONAL")
+    score = score_place({
+        "businessStatus": status, "rating": rating, "userRatingCount": reviews,
+        "internationalPhoneNumber": phone, "websiteUri": website,
+    })
+    return {
+        "place_id": pid,
+        "business_name": str(r.get("title") or "").strip(),
+        "address": r.get("address", "") or "",
+        "phone": phone,
+        "website": website,
+        "maps_url": f"https://www.google.com/maps/place/?q=place_id:{pid}" if str(pid).startswith("ChI") else "",
+        "rating": rating,
+        "reviews_count": reviews,
+        "score": score,
+    }
+
+
 def score_place(place):
     """Deterministic 0-100 lead score: reachability and proof of a live business."""
     if place.get("businessStatus") not in (None, "OPERATIONAL"):
@@ -159,11 +266,17 @@ def normalize_place(place):
     }
 
 
-def find_leads(product, buyer_type, city, lang="ar", api_key=None, opener=None):
+def find_leads(product, buyer_type, city, lang="ar", api_key=None, opener=None, provider=None):
     """Search + normalise + rank. Dropped: unnamed, closed, or score-zero places."""
     query = build_query(buyer_type, city, lang)
-    places = search_places(query, api_key=api_key, language=lang if lang in ("ar", "en") else "ar", opener=opener)
-    leads = [normalize_place(p) for p in places]
+    language = lang if lang in ("ar", "en") else "ar"
+    provider = provider or get_provider()
+    if provider == "serpapi":
+        raw = search_serpapi(query, city=city, api_key=api_key, language=language, opener=opener)
+        leads = [normalize_serp_result(r) for r in raw]
+    else:
+        places = search_places(query, api_key=api_key, language=language, opener=opener)
+        leads = [normalize_place(p) for p in places]
     leads = [l for l in leads if l["place_id"] and l["business_name"] and l["score"] > 0]
     leads.sort(key=lambda l: -l["score"])
     return {"query": query, "product": product, "leads": leads}
