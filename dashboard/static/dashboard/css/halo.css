@@ -85,7 +85,7 @@ html[lang] h3 { font-weight: 700; }
 .hw-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; flex-wrap: wrap; margin-bottom: clamp(2rem, 5vw, 4rem); }
 
 /* ---------- Buttons (square, flat; accent button uses INK text for contrast) ---------- */
-.hw-btn { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; padding: .95rem 1.6rem; border: 0; border-radius: var(--hw-r); cursor: pointer;
+.hw-btn { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: .6rem; padding: .95rem 1.6rem; border: 0; border-radius: var(--hw-r); cursor: pointer;
   font-family: inherit; font-size: .95rem; font-weight: 700; text-decoration: none; transition: background-color .25s var(--hw-ease), color .25s var(--hw-ease), transform .2s var(--hw-ease); }
 .hw-btn:active { transform: scale(.98); }
 .hw-btn--ink { background: var(--hw-ink); color: var(--hw-bg); }

@@ -76,7 +76,7 @@
   function initCounters() {
     var els = $$('[data-hw-count]'); if (!els.length) return;
     function toAr(s) { return isAr ? s.replace(/[0-9]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'[d]; }) : s; }
-    function paint(el, v) { el.textContent = (el.getAttribute('data-prefix') || '') + toAr(String(v)) + (el.getAttribute('data-suffix') || ''); }
+    function paint(el, v) { el.textContent = (el.getAttribute('data-prefix') || '') + toAr(Number(v).toLocaleString('en-US')) + (el.getAttribute('data-suffix') || ''); }
     function run(el) {
       var to = parseFloat(el.getAttribute('data-hw-count')) || 0;
       if (reduce) { paint(el, to); return; }
@@ -98,5 +98,17 @@
     if (x) x.addEventListener('click', function () { f.remove(); try { sessionStorage.setItem('hwFloatClosed', '1'); } catch (e) { } });
   }
 
-  ready(function () { initReveal(); initNav(); initRows(); initAccordions(); initCounters(); initFloat(); if (window.lucide) lucide.createIcons(); });
+  /* 7) Card spotlight: a soft violet light follows the pointer over bento cards */
+  function initSpotlight() {
+    if (reduce) return;
+    $$('[data-sc-spot] .sc-card').forEach(function (card) {
+      card.addEventListener('pointermove', function (e) {
+        var r = card.getBoundingClientRect();
+        card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+        card.style.setProperty('--my', (e.clientY - r.top) + 'px');
+      });
+    });
+  }
+
+  ready(function () { initReveal(); initSpotlight(); initNav(); initRows(); initAccordions(); initCounters(); initFloat(); if (window.lucide) lucide.createIcons(); });
 })();
