@@ -59,3 +59,14 @@ Applies only to the home page; every other page keeps the Halo light system abov
 - Next section: badge, gradient headline, one sentence, one button, then a three-up grid of cards. Each card is a mini interface (area chart, runway gauge, buyers list, reports, customer risk, WhatsApp), a title, one sentence and a ghost "Learn more" button.
 - Type on the landing is thin, small and simple in Arabic and English: IBM Plex Sans Arabic 300 for everything (200 available), headlines `clamp(1.8rem, 3.6-4.2vw, 2.7-3.2rem)`, body .8-.9rem. No calligraphic or serif accent anymore; `.sc-accent` is just the dimmer second half of a headline.
 - Heavy display weights (Alexandria 800) remain only on the light pages.
+
+## Landing page v4: monochrome (supersedes the violet-aurora looks above)
+Home page only, scoped under `.sc` in `landing.css`. Reference mood: a dark marketing site with silver arcs, frosted glass and white buttons.
+- **Palette:** near-black `#060608` with neutral grays (`#121214`, `#18181b`, `#2a2a2e`), text `#f4f4f6`, muted `#a1a1aa` (7.6:1). Primary button is WHITE with ink text; secondary is translucent with a hairline. Brand violet `#7c6cf0` survives only as the live dot; the logo image is untouched.
+- **Hero:** badge, two-line gradient headline (white to 66%, second line 72% to 50% so it stays above 4.5:1), white button, two huge silver crescents (CSS spheres with a bright rim) framing the headline, then an app window (icon rail, filters, three KPIs that count up, a line that draws itself) faded at the bottom.
+- **Services:** large thin start-aligned heading with round prev/next arrows and a scroll-snap carousel of six cards (icon in a circle, title, sentence, "Learn more").
+- **Agents:** vertical tab list, a visual panel (white icon disc with rings) and the agent text with pills; arrow keys move between tabs.
+- **Pricing:** a giant word fading out behind three frosted-glass cards (blur 22px, 28px radius), check-in-circle lists, pill buttons; the middle plan has the white button. No yearly toggle (there is no yearly price).
+- **Voices:** heading and hairline on one side, three stacked quote cards on the other (customer logo, a neutral person icon, an outcomes list), plus a faint ribbon curve behind. No invented photos or people.
+- **Method film:** recolored from indigo to the same grays.
+- **Type:** IBM Plex Sans Arabic 300, small (body .8-.9rem); section headings `clamp(1.9rem, 4.4vw, 3.4rem)`, uppercase in English only.

@@ -1,336 +1,178 @@
 {% load static %}{% comment %}
-  Landing page, dark product look (see static/dashboard/css/landing.css). Motion: halo.js.
-  Real content only: plans from the pricing page, the Center Motor quote, the real agents and
-  features. Figures inside the interface mockups are labelled as illustrative examples.
+  Landing page: monochrome dark look (silver arcs, glass cards, white buttons). See static/dashboard/css/landing.css.
+  Real content only; figures inside mock interfaces are labelled as illustrative examples.
 {% endcomment %}{% with ar=trans.lang_code %}
-<style>
-/* plans */
-  .hw-plan { padding: clamp(1.6rem, 3vw, 2.4rem); display: flex; flex-direction: column; gap: 1.4rem; }
-  .hw-plan h3 { margin: 0; font-size: 1rem; font-weight: 700; text-transform: uppercase; }
-  .hw-plan p.d { margin: 0; color: var(--hw-muted); line-height: 1.8; font-size: .95rem; }
-  .hw-plan--dark p.d { color: var(--hw-on-dark-muted); }
-  .hw-price { font-family: var(--hw-display); font-weight: 800; font-size: clamp(2.8rem, 6vw, 4.4rem); line-height: 1; }
-  .hw-price small { font-size: .3em; font-weight: 600; margin-inline-start: .4rem; opacity: .75; }
-  .hw-plan ul { margin: 0; padding: 0; list-style: none; display: grid; gap: .7rem; font-size: .95rem; }
-  .hw-plan li { display: flex; gap: .7rem; align-items: flex-start; }
-  .hw-plan li::before { content: ""; flex: none; width: .45rem; height: .45rem; margin-top: .6em; background: currentColor; border-radius: 50%; opacity: .55; }
-  .hw-plan .hw-btn { margin-top: auto; }
-  .hw-trial { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 1.1rem 0; margin-bottom: 1rem; border-block: 1px solid var(--hw-hair); font-weight: 600; }
 
-  /* testimonial trio */
-  .hw-trio { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 1rem; align-items: stretch; }
-  .hw-trio > div { padding: clamp(1.4rem, 3vw, 2.2rem); display: flex; flex-direction: column; justify-content: space-between; gap: 2rem; min-height: 26rem; }
-  .hw-trio ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .9rem; font-weight: 600; }
-  .hw-trio li { display: flex; gap: .7rem; align-items: center; }
-  .hw-trio li svg { width: 1.1rem; height: 1.1rem; color: var(--hw-accent-ink); flex: none; }
-  .hw-trio blockquote { margin: 0; font-size: clamp(1.05rem, 1.7vw, 1.3rem); line-height: 1.85; font-weight: 500; }
-  .hw-logo-tile { align-self: flex-start; width: 8.5rem; height: 5.4rem; background: #fff; border-radius: var(--hw-r); display: grid; place-items: center; }
-  .hw-logo-tile img { max-width: 86%; max-height: 80%; object-fit: contain; }
-  .hw-who { display: flex; flex-direction: column; gap: .2rem; }
-  .hw-who b { font-family: var(--hw-display); font-weight: 800; }
-  .hw-who span { color: var(--hw-muted); font-size: .9rem; }
-  .hw-panel--dark .hw-who span { color: var(--hw-on-dark-muted); }
-  @media (max-width: 900px) { .hw-trio { grid-template-columns: 1fr; } .hw-trio > div { min-height: 0; } }
-  .hs-form button span { display: none; } }
-  </style>
+<!-- ============================ HERO ============================ -->
+<section class="zn-hero hw-wrap" aria-label="{{ trans.brand }}">
+  <i class="zn-arc zn-arc--l" aria-hidden="true"></i><i class="zn-arc zn-arc--r" aria-hidden="true"></i>
+  <span class="zn-badge" data-hw-reveal><i data-lucide="sparkles"></i>{% if ar == 'ar' %}خدمة ذكاء مالي لمنشآت عُمان{% else %}Financial intelligence for Omani businesses{% endif %}</span>
+  <h1 class="zn-h1" data-hw-reveal style="--hw-d:.08s"><span>{{ trans.hero_title }}</span> <span class="zn-dim">{{ trans.hero_title_sub }}</span></h1>
+  <p class="zn-sub" data-hw-reveal style="--hw-d:.16s">{% if ar == 'ar' %}ارفع ملفك أو صوّر دفترك، وخلال دقائق تشوف أكبر تسريب مالي في مشروعك وخطوة واحدة لإيقافه.{% else %}Upload a file or photograph your ledger, and within minutes see your biggest financial leak and one step to stop it.{% endif %}</p>
+  <a href="{% url 'register' %}" class="zn-btn zn-btn--white" data-hw-reveal style="--hw-d:.24s">{% if ar == 'ar' %}ابدأ مجاناً{% else %}Start free{% endif %}</a>
 
-<!-- ============================ HERO (Dataly-style) ============================ -->
-<section class="sd-hero hw-wrap" aria-label="{{ trans.brand }}">
-  <div class="sd-stars" aria-hidden="true"><i class="sd-stars__a"></i><i class="sd-stars__b"></i></div>
-  <div class="sd-glow" aria-hidden="true"></div>
-
-  <span class="sd-badge" data-hw-reveal><img src="{% static 'dashboard/img/logo.png' %}" alt="">{% if ar == 'ar' %}بصيرة، ذكاء مالي لمنشآت عُمان{% else %}Baseera, financial intelligence for Omani businesses{% endif %}</span>
-  <h1 class="sd-h1" data-hw-reveal style="--hw-d:.08s"><span>{{ trans.hero_title }}</span> <em class="sc-accent">{{ trans.hero_title_sub }}</em></h1>
-  <p class="sd-sub" data-hw-reveal style="--hw-d:.16s">{% if ar == 'ar' %}ارفع ملفك أو صوّر دفترك، وخلال دقائق تشوف أكبر تسريب مالي في مشروعك وخطوة واحدة لإيقافه.{% else %}Upload a file or photograph your ledger, and within minutes see your biggest financial leak and one step to stop it.{% endif %}</p>
-  <div class="sd-cta" data-hw-reveal style="--hw-d:.24s">
-    <a href="#method" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
-    <a href="{% url 'register' %}" class="sd-btn sd-btn--glow">{% if ar == 'ar' %}ابدأ مجاناً{% else %}Get started{% endif %}</a>
-  </div>
-
-  <div class="sd-stage" data-hw-reveal style="--hw-d:.12s" role="img" aria-label="{% if ar == 'ar' %}واجهة بصيرة: رفع الملف ولوحة القرارات{% else %}Baseera interface: file upload and the decision dashboard{% endif %}">
-    <span class="sd-chip sd-chip--1"><i data-lucide="check"></i>{% if ar == 'ar' %}أصحاب المنشآت{% else %}Business owners{% endif %}</span>
-    <span class="sd-chip sd-chip--2"><i data-lucide="check"></i>{% if ar == 'ar' %}المحاسبون{% else %}Accountants{% endif %}</span>
-    <span class="sd-chip sd-chip--3"><i data-lucide="check"></i>{% if ar == 'ar' %}فرق المبيعات{% else %}Sales teams{% endif %}</span>
-
-    <div class="sd-fade">
-    <div class="sd-panel sd-upload">
-      <div class="sd-panel__brand"><img src="{% static 'dashboard/img/logo.png' %}" alt=""><span>{{ trans.brand }}</span></div>
-      <h3>{% if ar == 'ar' %}ابدأ مع بصيرة{% else %}Get started with Baseera{% endif %}</h3>
-      <div class="sd-drop"><i data-lucide="upload"></i><span>{% if ar == 'ar' %}اسحب ملفك هنا أو اضغط للاختيار{% else %}Drop your file here or click to choose{% endif %}</span><small>Excel · CSV · PDF · {% if ar == 'ar' %}صورة{% else %}Image{% endif %}</small></div>
-      <div class="sd-files"><span><i data-lucide="file-spreadsheet"></i>{% if ar == 'ar' %}مبيعات_يناير.xlsx{% else %}sales_jan.xlsx{% endif %}</span><span><i data-lucide="file-text"></i>{% if ar == 'ar' %}كشف_حساب.pdf{% else %}statement.pdf{% endif %}</span></div>
-      <div class="sd-prog"><small>{% if ar == 'ar' %}جارٍ التحليل{% else %}Analysing{% endif %}<b data-hw-count="87" data-suffix="%">87%</b></small><i style="--w:87%"></i></div>
-    </div>
-
-    <div class="sd-panel sd-app">
-      <aside>
-        <div class="sd-panel__brand"><img src="{% static 'dashboard/img/logo.png' %}" alt=""><span>{{ trans.brand }}</span></div>
-        <ul>
-          <li class="on"><i data-lucide="layout-grid"></i>{% if ar == 'ar' %}منصة القرارات{% else %}Decisions{% endif %}</li>
-          <li><i data-lucide="message-circle"></i>{% if ar == 'ar' %}اسأل بصيرة{% else %}Ask Baseera{% endif %}</li>
-          <li><i data-lucide="file-text"></i>{% if ar == 'ar' %}المستندات{% else %}Documents{% endif %}</li>
-          <li><i data-lucide="bar-chart-3"></i>{% if ar == 'ar' %}التقارير{% else %}Reports{% endif %}</li>
-          <li><i data-lucide="users"></i>{% if ar == 'ar' %}الوكلاء{% else %}Agents{% endif %}</li>
-        </ul>
-      </aside>
-      <div class="sd-app__main">
-        <h4>{% if ar == 'ar' %}نظرة عامة{% else %}Overview{% endif %}</h4>
-        <div class="sd-kpi"><small>{% if ar == 'ar' %}صافي الربح{% else %}Net profit{% endif %}</small><strong dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="17220">{% if ar == 'ar' %}١٧٬٢٢٠{% else %}17,220{% endif %}</span> {% if ar == 'ar' %}ر.ع{% else %}OMR{% endif %}</strong></div>
-        <div class="sd-kpi"><small>{% if ar == 'ar' %}الدخل{% else %}Income{% endif %}</small><strong dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="48320">{% if ar == 'ar' %}٤٨٬٣٢٠{% else %}48,320{% endif %}</span> {% if ar == 'ar' %}ر.ع{% else %}OMR{% endif %}</strong></div>
-        <div class="sd-kpi sd-kpi--warn"><small>{% if ar == 'ar' %}أكبر تسريب{% else %}Biggest leak{% endif %}</small><strong dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="340">{% if ar == 'ar' %}٣٤٠{% else %}340{% endif %}</span> {% if ar == 'ar' %}ر.ع{% else %}OMR{% endif %}</strong></div>
+  <div class="zn-app" data-hw-reveal style="--hw-d:.12s" role="img" aria-label="{% if ar == 'ar' %}نافذة بصيرة: النتائج والمؤشرات{% else %}Baseera window: results and KPIs{% endif %}">
+    <aside class="zn-rail" aria-hidden="true"><i class="on" data-lucide="home"></i><i data-lucide="folder"></i><i data-lucide="file-text"></i><i data-lucide="bar-chart-3"></i><i data-lucide="users"></i><i data-lucide="search"></i></aside>
+    <div class="zn-app__main">
+      <div class="zn-app__top"><h4>{% if ar == 'ar' %}النتائج{% else %}Results{% endif %}</h4><div class="zn-app__tools"><span class="zn-pillbtn"><i data-lucide="circle-help"></i>{% if ar == 'ar' %}هل تحتاج مساعدة؟{% else %}Need help?{% endif %}</span><span class="zn-bell"><i data-lucide="bell"></i><b></b></span></div></div>
+      <div class="zn-filters"><span><i data-lucide="arrow-up-down"></i>{% if ar == 'ar' %}ترتيب حسب{% else %}Sort by{% endif %}</span><span><i data-lucide="calendar"></i>{% if ar == 'ar' %}آخر ١٢ شهراً{% else %}Last 12 months{% endif %}</span><span><i data-lucide="list"></i>{% if ar == 'ar' %}عرض قائمة{% else %}List view{% endif %}</span><span class="zn-search"><i data-lucide="search"></i>{% if ar == 'ar' %}ابحث في بياناتك{% else %}Search your data{% endif %}</span></div>
+      <div class="zn-kpis">
+        <div class="zn-kpi"><small>{% if ar == 'ar' %}إجمالي الدخل{% else %}Total income{% endif %}</small><strong dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="48320">{% if ar == 'ar' %}٤٨٬٣٢٠{% else %}48,320{% endif %}</span> {% if ar == 'ar' %}ر.ع{% else %}OMR{% endif %}</strong><i data-lucide="wallet"></i></div>
+        <div class="zn-kpi"><small>{% if ar == 'ar' %}صافي الربح{% else %}Net profit{% endif %}</small><strong dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="17220">{% if ar == 'ar' %}١٧٬٢٢٠{% else %}17,220{% endif %}</span> {% if ar == 'ar' %}ر.ع{% else %}OMR{% endif %}</strong><i data-lucide="trending-up"></i></div>
+        <div class="zn-kpi"><small>{% if ar == 'ar' %}أكبر تسريب{% else %}Biggest leak{% endif %}</small><strong dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="340">{% if ar == 'ar' %}٣٤٠{% else %}340{% endif %}</span> {% if ar == 'ar' %}ر.ع{% else %}OMR{% endif %}</strong><i data-lucide="shield-alert"></i></div>
       </div>
+      <svg class="zn-spark sc-chart" viewBox="0 0 800 120" preserveAspectRatio="none" aria-hidden="true"><path class="ln" pathLength="1000" d="M0,90 C80,80 120,40 200,52 C280,64 320,98 400,80 C480,62 520,24 600,34 C680,44 740,70 800,50"/></svg>
     </div>
-    </div>
-    <span class="sd-ex">{% if ar == 'ar' %}مثال توضيحي{% else %}Illustrative example{% endif %}</span>
+    <span class="zn-ex">{% if ar == 'ar' %}مثال توضيحي{% else %}Illustrative example{% endif %}</span>
   </div>
 </section>
 
-<!-- ============================ PRODUCT (three-up cards) ============================ -->
-<section class="sd-sec hw-wrap" id="product">
-  <div class="sd-head">
-    <span class="sd-badge" data-hw-reveal><img src="{% static 'dashboard/img/logo.png' %}" alt="">{% if ar == 'ar' %}المنتج{% else %}Product{% endif %}</span>
-    <h2 class="sd-h2" data-hw-reveal style="--hw-d:.08s">{% if ar == 'ar' %}اعرف ما يهمّ{% else %}Know what matters to{% endif %} <em class="sc-accent">{% if ar == 'ar' %}مشروعك فعلاً{% else %}your business{% endif %}</em></h2>
-    <p class="sd-sub" data-hw-reveal style="--hw-d:.16s">{% if ar == 'ar' %}من رفع الملف إلى التقرير والقرار، كل شيء في مكان واحد. الأرقام في الواجهات أمثلة توضيحية.{% else %}From the uploaded file to the report and the decision, all in one place. Figures in the interfaces are illustrative examples.{% endif %}</p>
-    <div class="sd-cta" data-hw-reveal style="--hw-d:.22s"><a href="{% url 'register' %}" class="sd-btn sd-btn--glow">{% if ar == 'ar' %}ابدأ مجاناً{% else %}Get started{% endif %}</a></div>
+<!-- ============================ SERVICES (carousel) ============================ -->
+<section class="zn-sec hw-wrap" id="product" data-zn-carousel>
+  <div class="zn-head">
+    <h2 class="zn-h2" data-hw-reveal>{% if ar == 'ar' %}ماذا تقدّم بصيرة{% else %}What Baseera does{% endif %}</h2>
+    <div class="zn-arrows" data-hw-reveal><button type="button" data-zn-prev aria-label="{% if ar == 'ar' %}السابق{% else %}Previous{% endif %}"><i data-lucide="chevron-right" class="rtl-only"></i><i data-lucide="chevron-left" class="ltr-only"></i></button><button type="button" data-zn-next aria-label="{% if ar == 'ar' %}التالي{% else %}Next{% endif %}"><i data-lucide="chevron-left" class="rtl-only"></i><i data-lucide="chevron-right" class="ltr-only"></i></button></div>
   </div>
-
-  <div class="sd-cards" data-hw-stagger>
-    <article class="sd-card" data-hw-reveal>
-      <div class="sd-vis">
-        <div class="sd-vis__top"><b>{% if ar == 'ar' %}الهدر هذا الشهر{% else %}Waste this month{% endif %}</b><span class="sd-mini">{% if ar == 'ar' %}عرض التقرير{% else %}View report{% endif %}</span></div>
-        <div class="sd-stats"><div><small>{% if ar == 'ar' %}إجمالي التسريب{% else %}Total leak{% endif %}</small><strong dir="ltr">340</strong></div><div><small>{% if ar == 'ar' %}بنود مكررة{% else %}Duplicates{% endif %}</small><strong>{% if ar == 'ar' %}٣{% else %}3{% endif %}</strong></div><div><small>{% if ar == 'ar' %}أنظمة{% else %}Tools{% endif %}</small><strong>{% if ar == 'ar' %}٣{% else %}3{% endif %}</strong></div></div>
-        <svg class="sc-chart sd-chart" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="sdg1" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7c6cf0" stop-opacity=".5"/><stop offset="1" stop-color="#7c6cf0" stop-opacity="0"/></linearGradient></defs><path class="fl" d="M0,40 L60,40 L60,52 L120,52 L120,38 L180,38 L180,86 L240,86 L240,96 L300,96 L300,66 L360,66 L360,70 L400,70 L400,120 L0,120 Z" fill="url(#sdg1)"/><path class="ln" pathLength="1000" d="M0,40 L60,40 L60,52 L120,52 L120,38 L180,38 L180,86 L240,86 L240,96 L300,96 L300,66 L360,66 L360,70 L400,70"/></svg>
-      </div>
-      <h3>{% if ar == 'ar' %}كشف الهدر المالي{% else %}Financial leak detection{% endif %}</h3>
-      <p>{% if ar == 'ar' %}يحسب بصيرة الهدر من بياناتك بالكود، ويعرض أكبر تسريب بالرقم والدليل.{% else %}Baseera computes waste from your data in code and shows the biggest leak with the number and the proof.{% endif %}</p>
-      <a href="#why" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
-    </article>
-
-    <article class="sd-card" data-hw-reveal>
-      <div class="sd-vis">
-        <div class="sd-vis__top"><b>{% if ar == 'ar' %}كفاية السيولة{% else %}Cash runway{% endif %}</b></div>
-        <svg class="sd-gauge" viewBox="0 0 200 110" aria-hidden="true"><path d="M20,100 A80,80 0 0 1 180,100" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="14" stroke-linecap="round"/><path class="g" pathLength="100" d="M20,100 A80,80 0 0 1 180,100" fill="none" stroke="#7c6cf0" stroke-width="14" stroke-linecap="round" style="--p:80"/><text x="100" y="92" text-anchor="middle" fill="#f4f2ff" font-size="30" font-weight="300">{% if ar == 'ar' %}٨٠٪{% else %}80%{% endif %}</text></svg>
-        <div class="sd-tabs"><span class="on">{% if ar == 'ar' %}المبيعات{% else %}Sales{% endif %}</span><span>{% if ar == 'ar' %}المصروفات{% else %}Expenses{% endif %}</span><span>{% if ar == 'ar' %}الأرباح{% else %}Profit{% endif %}</span></div>
-      </div>
-      <h3>{% if ar == 'ar' %}توقّع السيولة{% else %}Runway forecast{% endif %}</h3>
-      <p>{% if ar == 'ar' %}اعرف كم شهراً تكفيك السيولة الحالية قبل أن تنفد، وما الذي يسرّع نفادها.{% else %}See how many months your cash lasts before it runs out, and what speeds it up.{% endif %}</p>
-      <a href="#agents" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
-    </article>
-
-    <article class="sd-card" data-hw-reveal>
-      <div class="sd-vis">
-        <div class="sd-vis__top"><b>{% if ar == 'ar' %}المشترون المحتملون{% else %}Potential buyers{% endif %}</b></div>
-        <div class="sd-big"><strong data-hw-count="12">{% if ar == 'ar' %}١٢{% else %}12{% endif %}</strong><small>{% if ar == 'ar' %}مشترياً من خرائط Google{% else %}buyers from Google Maps{% endif %}</small></div>
-        <ul class="sd-rows"><li><span>{% if ar == 'ar' %}مطعم في مسقط{% else %}Restaurant in Muscat{% endif %}</span><b>92</b></li><li><span>{% if ar == 'ar' %}مقهى في السيب{% else %}Cafe in Seeb{% endif %}</span><b>81</b></li><li><span>{% if ar == 'ar' %}سوبرماركت في بوشر{% else %}Supermarket in Bawshar{% endif %}</span><b>74</b></li></ul>
-      </div>
-      <h3>{% if ar == 'ar' %}مشترون من خرائط Google{% else %}Buyers from Google Maps{% endif %}</h3>
-      <p>{% if ar == 'ar' %}بعد كشف الهدر، يبحث وكيل المبيعات عمّن يشتري منتجاتك ويجهّز لك رسالة التواصل.{% else %}After finding waste, the Sales agent searches for who buys your products and drafts the message for you.{% endif %}</p>
-      <a href="#agents" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
-    </article>
-
-    <article class="sd-card" data-hw-reveal>
-      <div class="sd-vis">
-        <div class="sd-vis__top"><b>{% if ar == 'ar' %}التقارير{% else %}Reports{% endif %}</b></div>
-        <ul class="sd-rows sd-rows--files"><li><span><i data-lucide="download"></i>{% if ar == 'ar' %}تقرير_المبيعات_يناير.pdf{% else %}sales_report_jan.pdf{% endif %}</span><b>PDF</b></li><li><span><i data-lucide="download"></i>{% if ar == 'ar' %}تحليل_الهدر.xlsx{% else %}waste_analysis.xlsx{% endif %}</span><b>XLSX</b></li><li><span><i data-lucide="download"></i>{% if ar == 'ar' %}النبض_الأسبوعي.pdf{% else %}weekly_pulse.pdf{% endif %}</span><b>PDF</b></li></ul>
-      </div>
-      <h3>{% if ar == 'ar' %}تقارير جاهزة بضغطة{% else %}Reports in one click{% endif %}</h3>
-      <p>{% if ar == 'ar' %}حمّل تقارير مبصومة بشهرية أو بنطاق تواريخ تختاره، وجاهزة للمحاسب والبنك.{% else %}Download integrity-stamped reports for a month or any date range, ready for your accountant or bank.{% endif %}</p>
-      <a href="{% url 'register' %}" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
-    </article>
-
-    <article class="sd-card" data-hw-reveal>
-      <div class="sd-vis">
-        <div class="sd-vis__top"><b>{% if ar == 'ar' %}مخاطر العملاء{% else %}Customer risk{% endif %}</b></div>
-        <div class="sd-risk"><span>{% if ar == 'ar' %}عميل أ{% else %}Customer A{% endif %}</span><div class="sd-meter"><i style="--w:78%"></i></div><b>{% if ar == 'ar' %}مرتفعة{% else %}High{% endif %}</b></div>
-        <div class="sd-risk"><span>{% if ar == 'ar' %}عميل ب{% else %}Customer B{% endif %}</span><div class="sd-meter"><i style="--w:22%"></i></div><b>{% if ar == 'ar' %}منخفضة{% else %}Low{% endif %}</b></div>
-        <div class="sd-risk"><span>{% if ar == 'ar' %}عميل ج{% else %}Customer C{% endif %}</span><div class="sd-meter"><i style="--w:46%"></i></div><b>{% if ar == 'ar' %}متوسطة{% else %}Medium{% endif %}</b></div>
-      </div>
-      <h3>{% if ar == 'ar' %}إنذار مبكر للبيع بالآجل{% else %}Early warning for credit sales{% endif %}</h3>
-      <p>{% if ar == 'ar' %}قبل أن تبيع بالآجل، اعرف إن كان العميل يحمل مؤشرات مخاطرة من بياناتك أنت.{% else %}Before you sell on credit, see whether the customer shows risk signals in your own data.{% endif %}</p>
-      <a href="#why" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
-    </article>
-
-    <article class="sd-card" data-hw-reveal>
-      <div class="sd-vis">
-        <div class="sd-vis__top"><b>{% if ar == 'ar' %}واتساب{% else %}WhatsApp{% endif %}</b></div>
-        <div class="sd-bubble">{% if ar == 'ar' %}نبض الأسبوع: أكبر تسريب عندك اشتراكات مكررة بقيمة ٣٤٠ ر.ع.{% else %}This week: your biggest leak is duplicate subscriptions worth OMR 340.{% endif %}</div>
-        <div class="sd-bubble sd-bubble--out">{% if ar == 'ar' %}وكيف أوقفه؟{% else %}How do I stop it?{% endif %}</div>
-        <div class="sd-bubble">{% if ar == 'ar' %}ألغِ اشتراكين منها اليوم.{% else %}Cancel two of them today.{% endif %}</div>
-      </div>
-      <h3>{% if ar == 'ar' %}نبض أسبوعي على واتساب{% else %}A weekly pulse on WhatsApp{% endif %}</h3>
-      <p>{% if ar == 'ar' %}ملخص قصير بالعامية العُمانية يصلك كل أسبوع، وتسأل بصيرة من الجوال مباشرة.{% else %}A short plain-language summary every week, and you can ask Baseera straight from your phone.{% endif %}</p>
-      <a href="{% url 'register' %}" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
-    </article>
+  <div class="zn-track" tabindex="0" aria-label="{% if ar == 'ar' %}خدمات بصيرة{% else %}Baseera services{% endif %}">
+    <article class="zn-card" data-hw-reveal><span class="zn-ico"><i data-lucide="scan-search"></i></span><h3>{% if ar == 'ar' %}كشف الهدر المالي{% else %}Financial leak detection{% endif %}</h3><p>{% if ar == 'ar' %}يحسب بصيرة الهدر من بياناتك بالكود، ويعرض أكبر تسريب بالرقم والدليل.{% else %}Baseera computes waste from your data in code and shows the biggest leak with the number and the proof.{% endif %}</p><a class="hw-link" href="#why">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a></article>
+    <article class="zn-card" data-hw-reveal><span class="zn-ico"><i data-lucide="gauge"></i></span><h3>{% if ar == 'ar' %}توقّع السيولة{% else %}Runway forecast{% endif %}</h3><p>{% if ar == 'ar' %}اعرف كم شهراً تكفيك السيولة الحالية قبل أن تنفد، وما الذي يسرّع نفادها.{% else %}See how many months your cash lasts before it runs out, and what speeds it up.{% endif %}</p><a class="hw-link" href="#why">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a></article>
+    <article class="zn-card" data-hw-reveal><span class="zn-ico"><i data-lucide="map-pinned"></i></span><h3>{% if ar == 'ar' %}مشترون من خرائط Google{% else %}Buyers from Google Maps{% endif %}</h3><p>{% if ar == 'ar' %}بعد كشف الهدر، يبحث وكيل المبيعات عمّن يشتري منتجاتك ويجهّز لك رسالة التواصل.{% else %}After finding waste, the Sales agent searches for who buys your products and drafts the message for you.{% endif %}</p><a class="hw-link" href="#agents">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a></article>
+    <article class="zn-card" data-hw-reveal><span class="zn-ico"><i data-lucide="file-down"></i></span><h3>{% if ar == 'ar' %}تقارير جاهزة بضغطة{% else %}Reports in one click{% endif %}</h3><p>{% if ar == 'ar' %}حمّل تقارير مبصومة بشهرية أو بنطاق تواريخ تختاره، وجاهزة للمحاسب والبنك.{% else %}Download integrity-stamped reports for a month or any date range, ready for your accountant or bank.{% endif %}</p><a class="hw-link" href="#plans">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a></article>
+    <article class="zn-card" data-hw-reveal><span class="zn-ico"><i data-lucide="shield-check"></i></span><h3>{% if ar == 'ar' %}إنذار مبكر للبيع بالآجل{% else %}Early warning for credit sales{% endif %}</h3><p>{% if ar == 'ar' %}قبل أن تبيع بالآجل، اعرف إن كان العميل يحمل مؤشرات مخاطرة من بياناتك أنت.{% else %}Before you sell on credit, see whether the customer shows risk signals in your own data.{% endif %}</p><a class="hw-link" href="#why">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a></article>
+    <article class="zn-card" data-hw-reveal><span class="zn-ico"><i data-lucide="message-circle"></i></span><h3>{% if ar == 'ar' %}نبض أسبوعي على واتساب{% else %}A weekly pulse on WhatsApp{% endif %}</h3><p>{% if ar == 'ar' %}ملخص قصير يصلك كل أسبوع، وتسأل بصيرة من الجوال مباشرة.{% else %}A short plain-language summary every week, and you can ask Baseera straight from your phone.{% endif %}</p><a class="hw-link" href="#faq">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a></article>
   </div>
 </section>
 
 <!-- ============================ METHOD FILM ============================ -->
-<section class="hw-section hw-wrap">{% include 'dashboard/_method_film.html' %}</section>
+<section class="zn-sec hw-wrap">{% include 'dashboard/_method_film.html' %}</section>
 
-<!-- ============================ AGENTS ============================ -->
-<section class="hw-section hw-wrap" id="agents">
-  <div class="hw-head">
-    <span class="sc-label" data-hw-reveal>{% if ar == 'ar' %}الوكلاء{% else %}Agents{% endif %}</span>
-    <h2 class="hw-h2" data-hw-reveal style="--hw-d:.08s">{% if ar == 'ar' %}سبعة وكلاء،{% else %}Seven agents,{% endif %} <em class="sc-accent">{% if ar == 'ar' %}فريق واحد.{% else %}one team.{% endif %}</em></h2>
-    <p class="hw-side" data-hw-reveal style="--hw-d:.16s">{% if ar == 'ar' %}كل وكيل يرصد ويقرّر ثم يغذّي بصيرة بخلاصته لحظة بلحظة.{% else %}Each agent observes, decides, then feeds its findings back to Baseera, moment by moment.{% endif %}</p>
-  </div>
-  <div class="hw-acc" data-open-first data-hw-reveal>
-    <div class="hw-acc__item">
-      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwag0"><span class="hw-acc__title">{% if ar == 'ar' %}الوكيل المالي{% else %}Financial agent{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
-      <div class="hw-acc__panel" id="hwag0" role="region"><div><div class="hw-acc__body">
-        <div class="hw-acc__thumb"><i data-lucide="wallet"></i></div>
-        <p>{% if ar == 'ar' %}يرصد السيولة والتدفق النقدي ويحذّرك قبل أن تنفد، ويقرأ الهوامش بالأرقام.{% else %}Watches cash and runway and warns you before it runs out, reading margins in numbers.{% endif %}</p>
-        <div class="hw-chips"><span class="hw-chip">{% if ar == 'ar' %}السيولة{% else %}Liquidity{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}الهوامش{% else %}Margins{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}التدفق النقدي{% else %}Cash flow{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}نقطة التعادل{% else %}Break-even{% endif %}</span></div>
-      </div></div></div>
+<!-- ============================ AGENTS (tabs) ============================ -->
+<section class="zn-sec hw-wrap" id="agents">
+  <div class="zn-head"><h2 class="zn-h2" data-hw-reveal>{% if ar == 'ar' %}سبعة وكلاء،<br>فريق واحد{% else %}Seven agents,<br>one team{% endif %}</h2></div>
+  <div class="zn-tabs" data-zn-tabs data-hw-reveal>
+    <div class="zn-tablist" role="tablist" aria-orientation="vertical">
+      <button type="button" role="tab" id="zt0" aria-controls="zp0" aria-selected="false">{% if ar == 'ar' %}الوكيل المالي{% else %}Financial agent{% endif %}</button>
+      <button type="button" role="tab" id="zt1" aria-controls="zp1" aria-selected="false">{% if ar == 'ar' %}وكيل التدقيق{% else %}Audit agent{% endif %}</button>
+      <button type="button" role="tab" id="zt2" aria-controls="zp2" aria-selected="false">{% if ar == 'ar' %}وكيل التسعير{% else %}Pricing agent{% endif %}</button>
+      <button type="button" role="tab" id="zt3" aria-controls="zp3" aria-selected="false">{% if ar == 'ar' %}وكيل السوق{% else %}Market agent{% endif %}</button>
+      <button type="button" role="tab" id="zt4" aria-controls="zp4" aria-selected="false">{% if ar == 'ar' %}وكيل الاحتفاظ بالعملاء{% else %}Retention agent{% endif %}</button>
+      <button type="button" role="tab" id="zt5" aria-controls="zp5" aria-selected="false">{% if ar == 'ar' %}وكيل سلسلة التوريد{% else %}Supply chain agent{% endif %}</button>
+      <button type="button" role="tab" id="zt6" aria-controls="zp6" aria-selected="false">{% if ar == 'ar' %}وكيل المبيعات والعملاء{% else %}Sales leads agent{% endif %}<span class=zn-new>{% if ar == 'ar' %}جديد{% else %}New{% endif %}</span></button>
     </div>
-    <div class="hw-acc__item">
-      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwag1"><span class="hw-acc__title">{% if ar == 'ar' %}وكيل التدقيق ومكافحة الهدر{% else %}Forensic audit agent{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
-      <div class="hw-acc__panel" id="hwag1" role="region"><div><div class="hw-acc__body">
-        <div class="hw-acc__thumb"><i data-lucide="shield-alert"></i></div>
-        <p>{% if ar == 'ar' %}يكشف الفواتير المكررة وبنود المصاريف التي تتسرب منها فلوسك.{% else %}Finds duplicate invoices and the expense lines your money leaks through.{% endif %}</p>
-        <div class="hw-chips"><span class="hw-chip">{% if ar == 'ar' %}الفواتير المكررة{% else %}Duplicate invoices{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}تسرب المصاريف{% else %}Expense leaks{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}القيم الشاذة{% else %}Anomalies{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}المطابقة{% else %}Reconciliation{% endif %}</span></div>
-      </div></div></div>
+    <div class="zn-tabpanel" role="tabpanel" id="zp0" aria-labelledby="zt0" hidden>
+      <div class="zn-vis"><span class="zn-vis__ring"></span><span class="zn-vis__ring zn-vis__ring--2"></span><span class="zn-vis__ico"><i data-lucide="wallet"></i></span></div>
+      <div class="zn-copy"><div class="zn-pills"><span>{% if ar == 'ar' %}السيولة{% else %}Liquidity{% endif %}</span><span>{% if ar == 'ar' %}الهوامش{% else %}Margins{% endif %}</span><span>{% if ar == 'ar' %}التدفق النقدي{% else %}Cash flow{% endif %}</span></div><h3>{% if ar == 'ar' %}الوكيل المالي{% else %}Financial agent{% endif %}</h3><p>{% if ar == 'ar' %}يرصد السيولة والتدفق النقدي ويحذّرك قبل أن تنفد، ويقرأ الهوامش بالأرقام.{% else %}Watches cash and runway and warns you before it runs out, reading margins in numbers.{% endif %}</p><a class="hw-link" href="{% url 'register' %}">{% if ar == 'ar' %}جرّب الوكيل{% else %}Try the agent{% endif %}</a><div class="zn-meta"><span>{% if ar == 'ar' %}وكيل{% else %}Agent{% endif %} 01 / 07</span><span>{% if ar == 'ar' %}بصيرة{% else %}Baseera{% endif %}</span></div></div>
     </div>
-    <div class="hw-acc__item">
-      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwag2"><span class="hw-acc__title">{% if ar == 'ar' %}وكيل التسعير{% else %}Pricing agent{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
-      <div class="hw-acc__panel" id="hwag2" role="region"><div><div class="hw-acc__body">
-        <div class="hw-acc__thumb"><i data-lucide="tag"></i></div>
-        <p>{% if ar == 'ar' %}يضبط الأسعار والخصومات ويحمي هامش الربح قبل أن تُفرط في التخفيض.{% else %}Tunes prices and discounts and protects your margin before you over-discount.{% endif %}</p>
-        <div class="hw-chips"><span class="hw-chip">{% if ar == 'ar' %}مرونة السعر{% else %}Price elasticity{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}الخصومات{% else %}Discounts{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}الباقات{% else %}Bundles{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}هامش الربح{% else %}Gross margin{% endif %}</span></div>
-      </div></div></div>
+    <div class="zn-tabpanel" role="tabpanel" id="zp1" aria-labelledby="zt1" hidden>
+      <div class="zn-vis"><span class="zn-vis__ring"></span><span class="zn-vis__ring zn-vis__ring--2"></span><span class="zn-vis__ico"><i data-lucide="shield-alert"></i></span></div>
+      <div class="zn-copy"><div class="zn-pills"><span>{% if ar == 'ar' %}الفواتير المكررة{% else %}Duplicates{% endif %}</span><span>{% if ar == 'ar' %}تسرب المصاريف{% else %}Leaks{% endif %}</span><span>{% if ar == 'ar' %}القيم الشاذة{% else %}Anomalies{% endif %}</span></div><h3>{% if ar == 'ar' %}وكيل التدقيق{% else %}Audit agent{% endif %}</h3><p>{% if ar == 'ar' %}يكشف الفواتير المكررة وبنود المصاريف التي تتسرب منها فلوسك.{% else %}Finds duplicate invoices and the expense lines your money leaks through.{% endif %}</p><a class="hw-link" href="{% url 'register' %}">{% if ar == 'ar' %}جرّب الوكيل{% else %}Try the agent{% endif %}</a><div class="zn-meta"><span>{% if ar == 'ar' %}وكيل{% else %}Agent{% endif %} 02 / 07</span><span>{% if ar == 'ar' %}بصيرة{% else %}Baseera{% endif %}</span></div></div>
     </div>
-    <div class="hw-acc__item">
-      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwag3"><span class="hw-acc__title">{% if ar == 'ar' %}وكيل السوق{% else %}Market agent{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
-      <div class="hw-acc__panel" id="hwag3" role="region"><div><div class="hw-acc__body">
-        <div class="hw-acc__thumb"><i data-lucide="trending-up"></i></div>
-        <p>{% if ar == 'ar' %}يقرأ المنافسين وحركة السوق ليخبرك أين الفرصة.{% else %}Reads competitors and the market so you know where the opportunity is.{% endif %}</p>
-        <div class="hw-chips"><span class="hw-chip">{% if ar == 'ar' %}المنافسون{% else %}Competitors{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}الأسعار في السوق{% else %}Market prices{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}الفرص{% else %}Opportunities{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}الطلب{% else %}Demand{% endif %}</span></div>
-      </div></div></div>
+    <div class="zn-tabpanel" role="tabpanel" id="zp2" aria-labelledby="zt2" hidden>
+      <div class="zn-vis"><span class="zn-vis__ring"></span><span class="zn-vis__ring zn-vis__ring--2"></span><span class="zn-vis__ico"><i data-lucide="tag"></i></span></div>
+      <div class="zn-copy"><div class="zn-pills"><span>{% if ar == 'ar' %}مرونة السعر{% else %}Elasticity{% endif %}</span><span>{% if ar == 'ar' %}الخصومات{% else %}Discounts{% endif %}</span><span>{% if ar == 'ar' %}هامش الربح{% else %}Margin{% endif %}</span></div><h3>{% if ar == 'ar' %}وكيل التسعير{% else %}Pricing agent{% endif %}</h3><p>{% if ar == 'ar' %}يضبط الأسعار والخصومات ويحمي هامش الربح قبل أن تُفرط في التخفيض.{% else %}Tunes prices and discounts and protects your margin before you over-discount.{% endif %}</p><a class="hw-link" href="{% url 'register' %}">{% if ar == 'ar' %}جرّب الوكيل{% else %}Try the agent{% endif %}</a><div class="zn-meta"><span>{% if ar == 'ar' %}وكيل{% else %}Agent{% endif %} 03 / 07</span><span>{% if ar == 'ar' %}بصيرة{% else %}Baseera{% endif %}</span></div></div>
     </div>
-    <div class="hw-acc__item">
-      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwag4"><span class="hw-acc__title">{% if ar == 'ar' %}وكيل الاحتفاظ بالعملاء{% else %}Retention agent{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
-      <div class="hw-acc__panel" id="hwag4" role="region"><div><div class="hw-acc__body">
-        <div class="hw-acc__thumb"><i data-lucide="heart-handshake"></i></div>
-        <p>{% if ar == 'ar' %}يمنع تسرب العملاء ويصمم حملات استعادتهم ويرفع قيمتهم الدائمة.{% else %}Prevents customer churn, designs win-back campaigns and lifts customer lifetime value.{% endif %}</p>
-        <div class="hw-chips"><span class="hw-chip">{% if ar == 'ar' %}الاحتفاظ{% else %}Retention{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}الاستعادة{% else %}Win-back{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}القيمة الدائمة{% else %}Lifetime value{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}الولاء{% else %}Loyalty{% endif %}</span></div>
-      </div></div></div>
+    <div class="zn-tabpanel" role="tabpanel" id="zp3" aria-labelledby="zt3" hidden>
+      <div class="zn-vis"><span class="zn-vis__ring"></span><span class="zn-vis__ring zn-vis__ring--2"></span><span class="zn-vis__ico"><i data-lucide="trending-up"></i></span></div>
+      <div class="zn-copy"><div class="zn-pills"><span>{% if ar == 'ar' %}المنافسون{% else %}Competitors{% endif %}</span><span>{% if ar == 'ar' %}أسعار السوق{% else %}Market prices{% endif %}</span><span>{% if ar == 'ar' %}الفرص{% else %}Opportunities{% endif %}</span></div><h3>{% if ar == 'ar' %}وكيل السوق{% else %}Market agent{% endif %}</h3><p>{% if ar == 'ar' %}يقرأ المنافسين وحركة السوق ليخبرك أين الفرصة.{% else %}Reads competitors and the market so you know where the opportunity is.{% endif %}</p><a class="hw-link" href="{% url 'register' %}">{% if ar == 'ar' %}جرّب الوكيل{% else %}Try the agent{% endif %}</a><div class="zn-meta"><span>{% if ar == 'ar' %}وكيل{% else %}Agent{% endif %} 04 / 07</span><span>{% if ar == 'ar' %}بصيرة{% else %}Baseera{% endif %}</span></div></div>
     </div>
-    <div class="hw-acc__item">
-      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwag5"><span class="hw-acc__title">{% if ar == 'ar' %}وكيل سلسلة التوريد{% else %}Supply chain agent{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
-      <div class="hw-acc__panel" id="hwag5" role="region"><div><div class="hw-acc__body">
-        <div class="hw-acc__thumb"><i data-lucide="truck"></i></div>
-        <p>{% if ar == 'ar' %}يتتبع دوران المخزون والمخزون الراكد وخطر النفاد ومدد التوريد.{% else %}Tracks inventory turnover, dead stock, stock-out risk and supplier lead times.{% endif %}</p>
-        <div class="hw-chips"><span class="hw-chip">{% if ar == 'ar' %}دوران المخزون{% else %}Turnover{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}المخزون الراكد{% else %}Dead stock{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}خطر النفاد{% else %}Stock-outs{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}مدد التوريد{% else %}Lead times{% endif %}</span></div>
-      </div></div></div>
+    <div class="zn-tabpanel" role="tabpanel" id="zp4" aria-labelledby="zt4" hidden>
+      <div class="zn-vis"><span class="zn-vis__ring"></span><span class="zn-vis__ring zn-vis__ring--2"></span><span class="zn-vis__ico"><i data-lucide="heart-handshake"></i></span></div>
+      <div class="zn-copy"><div class="zn-pills"><span>{% if ar == 'ar' %}الاحتفاظ{% else %}Retention{% endif %}</span><span>{% if ar == 'ar' %}الاستعادة{% else %}Win-back{% endif %}</span><span>{% if ar == 'ar' %}الولاء{% else %}Loyalty{% endif %}</span></div><h3>{% if ar == 'ar' %}وكيل الاحتفاظ بالعملاء{% else %}Retention agent{% endif %}</h3><p>{% if ar == 'ar' %}يمنع تسرب العملاء ويصمم حملات استعادتهم ويرفع قيمتهم الدائمة.{% else %}Prevents customer churn, designs win-back campaigns and lifts customer lifetime value.{% endif %}</p><a class="hw-link" href="{% url 'register' %}">{% if ar == 'ar' %}جرّب الوكيل{% else %}Try the agent{% endif %}</a><div class="zn-meta"><span>{% if ar == 'ar' %}وكيل{% else %}Agent{% endif %} 05 / 07</span><span>{% if ar == 'ar' %}بصيرة{% else %}Baseera{% endif %}</span></div></div>
     </div>
-    <div class="hw-acc__item">
-      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwag6"><span class="hw-acc__title">{% if ar == 'ar' %}وكيل المبيعات والعملاء{% else %}Sales leads agent{% endif %}<span class="hw-acc__badge">{% if ar == 'ar' %}جديد{% else %}New{% endif %}</span></span><span class="hw-acc__icon" aria-hidden="true"></span></button>
-      <div class="hw-acc__panel" id="hwag6" role="region"><div><div class="hw-acc__body">
-        <div class="hw-acc__thumb"><i data-lucide="map-pinned"></i></div>
-        <p>{% if ar == 'ar' %}بعد أن تكشف بصيرة الهدر في منتجاتك، يبحث في خرائط Google عمّن يشتريها ويجهّز لك رسالة التواصل.{% else %}After Baseera finds waste in your products, it searches Google Maps for who buys them and drafts the outreach message for you.{% endif %}</p>
-        <div class="hw-chips"><span class="hw-chip">{% if ar == 'ar' %}خرائط Google{% else %}Google Maps{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}ترتيب المشترين{% else %}Buyer ranking{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}رسالة التواصل{% else %}Outreach draft{% endif %}</span><span class="hw-chip">{% if ar == 'ar' %}متابعة الصفقة{% else %}Deal tracking{% endif %}</span></div>
-      </div></div></div>
+    <div class="zn-tabpanel" role="tabpanel" id="zp5" aria-labelledby="zt5" hidden>
+      <div class="zn-vis"><span class="zn-vis__ring"></span><span class="zn-vis__ring zn-vis__ring--2"></span><span class="zn-vis__ico"><i data-lucide="truck"></i></span></div>
+      <div class="zn-copy"><div class="zn-pills"><span>{% if ar == 'ar' %}دوران المخزون{% else %}Turnover{% endif %}</span><span>{% if ar == 'ar' %}المخزون الراكد{% else %}Dead stock{% endif %}</span><span>{% if ar == 'ar' %}خطر النفاد{% else %}Stock-outs{% endif %}</span></div><h3>{% if ar == 'ar' %}وكيل سلسلة التوريد{% else %}Supply chain agent{% endif %}</h3><p>{% if ar == 'ar' %}يتتبع دوران المخزون والمخزون الراكد وخطر النفاد ومدد التوريد.{% else %}Tracks inventory turnover, dead stock, stock-out risk and supplier lead times.{% endif %}</p><a class="hw-link" href="{% url 'register' %}">{% if ar == 'ar' %}جرّب الوكيل{% else %}Try the agent{% endif %}</a><div class="zn-meta"><span>{% if ar == 'ar' %}وكيل{% else %}Agent{% endif %} 06 / 07</span><span>{% if ar == 'ar' %}بصيرة{% else %}Baseera{% endif %}</span></div></div>
+    </div>
+    <div class="zn-tabpanel" role="tabpanel" id="zp6" aria-labelledby="zt6" hidden>
+      <div class="zn-vis"><span class="zn-vis__ring"></span><span class="zn-vis__ring zn-vis__ring--2"></span><span class="zn-vis__ico"><i data-lucide="map-pinned"></i></span></div>
+      <div class="zn-copy"><div class="zn-pills"><span>{% if ar == 'ar' %}خرائط Google{% else %}Google Maps{% endif %}</span><span>{% if ar == 'ar' %}ترتيب المشترين{% else %}Ranking{% endif %}</span><span>{% if ar == 'ar' %}رسالة التواصل{% else %}Draft{% endif %}</span></div><h3>{% if ar == 'ar' %}وكيل المبيعات والعملاء{% else %}Sales leads agent{% endif %}</h3><p>{% if ar == 'ar' %}بعد أن تكشف بصيرة الهدر في منتجاتك، يبحث في خرائط Google عمّن يشتريها ويجهّز لك رسالة التواصل.{% else %}After Baseera finds waste in your products, it searches Google Maps for who buys them and drafts the outreach message for you.{% endif %}</p><a class="hw-link" href="{% url 'register' %}">{% if ar == 'ar' %}جرّب الوكيل{% else %}Try the agent{% endif %}</a><div class="zn-meta"><span>{% if ar == 'ar' %}وكيل{% else %}Agent{% endif %} 07 / 07</span><span>{% if ar == 'ar' %}بصيرة{% else %}Baseera{% endif %}</span></div></div>
     </div>
   </div>
 </section>
 
 <!-- ============================ WHY ============================ -->
-<section class="hw-section hw-wrap" id="why">
-  <div class="hw-head">
-    <span class="sc-label" data-hw-reveal>{% if ar == 'ar' %}لماذا بصيرة{% else %}Why Baseera{% endif %}</span>
-    <h2 class="hw-h2" data-hw-reveal style="--hw-d:.08s">{% if ar == 'ar' %}أربعة أسباب،{% else %}Four reasons,{% endif %} <em class="sc-accent">{% if ar == 'ar' %}ورقم لكل سبب.{% else %}one number each.{% endif %}</em></h2>
-    <p class="hw-side" data-hw-reveal style="--hw-d:.16s">{% if ar == 'ar' %}ما يميّز بصيرة عن البرامج المحاسبية التي تسجّل الماضي فقط.{% else %}What sets Baseera apart from accounting tools that only record the past.{% endif %}</p>
-  </div>
+<section class="zn-sec hw-wrap" id="why">
+  <div class="zn-head"><h2 class="zn-h2" data-hw-reveal>{% if ar == 'ar' %}لماذا بصيرة{% else %}Why Baseera{% endif %}</h2><p class="zn-note" data-hw-reveal>{% if ar == 'ar' %}أربعة أسباب، ومعها رقم واحد لكل سبب.{% else %}Four reasons, and one number for each.{% endif %}</p></div>
   <div class="hw-rows" data-hw-stagger><div class="hw-row" data-hw-reveal><h3>{% if ar == 'ar' %}أرقام بلا تخمين{% else %}Numbers, not guesses{% endif %}</h3><p>{% if ar == 'ar' %}حساب حتمي بالكود{% else %}Deterministic, in code{% endif %}</p><p>{% if ar == 'ar' %}كل رقم يُحسب بايثون من بياناتك، والذكاء الاصطناعي يشرح فقط.{% else %}Every figure is computed in Python from your data. AI only explains.{% endif %}</p><span class="hw-metric">{% if ar == 'ar' %}٠٪{% else %}0%{% endif %}</span></div><div class="hw-row" data-hw-reveal><h3>{% if ar == 'ar' %}من الملف إلى القرار{% else %}From file to decision{% endif %}</h3><p>{% if ar == 'ar' %}خلال دقائق{% else %}Within minutes{% endif %}</p><p>{% if ar == 'ar' %}ارفع ملفك أو صوّر دفترك وشاهد أول تسريب مالي فوراً.{% else %}Upload a file or photograph your ledger and see your first leak at once.{% endif %}</p><span class="hw-metric">{% if ar == 'ar' %}٥ د{% else %}5 min{% endif %}</span></div><div class="hw-row" data-hw-reveal><h3>{% if ar == 'ar' %}بياناتك معزولة{% else %}Your data stays yours{% endif %}</h3><p>{% if ar == 'ar' %}لكل منشأة{% else %}Per business{% endif %}</p><p>{% if ar == 'ar' %}لا تُستخدم للتدريب ولا تُشارك، وكل تقرير مبصوم ببصمة سلامة.{% else %}Never used for training or shared, and every report carries an integrity hash.{% endif %}</p><span class="hw-metric">{% if ar == 'ar' %}تام{% else %}Full{% endif %}</span></div><div class="hw-row" data-hw-reveal><h3>{% if ar == 'ar' %}سبعة وكلاء{% else %}Seven agents{% endif %}</h3><p>{% if ar == 'ar' %}يعملون معاً{% else %}Working together{% endif %}</p><p>{% if ar == 'ar' %}من كشف الهدر إلى إيجاد المشترين وتجهيز رسالة التواصل.{% else %}From finding waste to finding buyers and drafting the message.{% endif %}</p><span class="hw-metric">{% if ar == 'ar' %}٧{% else %}7{% endif %}</span></div></div>
 </section>
 
-<!-- ============================ PLANS ============================ -->
-<section class="hw-section hw-wrap" id="plans">
-  <div class="hw-head">
-    <span class="sc-label" data-hw-reveal>{% if ar == 'ar' %}الأسعار{% else %}Pricing{% endif %}</span>
-    <h2 class="hw-h2" data-hw-reveal style="--hw-d:.08s">{% if ar == 'ar' %}باقات{% else %}Flexible{% endif %} <em class="sc-accent">{% if ar == 'ar' %}مرنة.{% else %}plans.{% endif %}</em></h2>
-    <p class="hw-side" data-hw-reveal style="--hw-d:.16s">{% if ar == 'ar' %}اختر الباقة التي تناسب حجم مشروعك.{% else %}Choose the plan that fits your business.{% endif %}</p>
-  </div>
-  <div class="hw-trial" data-hw-reveal><span>{% if ar == 'ar' %}ابدأ بتجربة مجانية 14 يوماً، بدون بطاقة ائتمان{% else %}Start with a 14-day free trial, no credit card{% endif %}</span><a class="hw-link" href="{% url 'register' %}">{{ trans.register_today }}</a></div>
-  <div class="hw-grid hw-grid--2" data-hw-stagger>
-    <article class="hw-plan hw-panel" data-hw-reveal>
-      <h3>{% if ar == 'ar' %}باقة البداية{% else %}Starter{% endif %}</h3>
-      <p class="d">{% if ar == 'ar' %}للمشاريع والشركات الصغيرة.{% else %}For small businesses with basic needs.{% endif %}</p>
-      <div class="hw-price" dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="7">{% if ar == 'ar' %}٧{% else %}7{% endif %}</span><small>{% if ar == 'ar' %}ر.ع. / شهر{% else %}OMR / month{% endif %}</small></div>
-      <ul><li>{% if ar == 'ar' %}استفسارات ذكاء اصطناعي وتحليل مبيعات منتظم{% else %}Regular AI queries and sales analysis{% endif %}</li><li>{% if ar == 'ar' %}رفع ملفات Excel وCSV وكشوف الحسابات{% else %}Excel, CSV and statement uploads{% endif %}</li><li>{% if ar == 'ar' %}متابعة أهداف المبيعات الشهرية{% else %}Monthly sales goal tracking{% endif %}</li><li>{% if ar == 'ar' %}تصدير تقارير ورسوم بيانية شهرية{% else %}Export monthly charts and reports{% endif %}</li></ul>
-      <a href="{% url 'register' %}" class="hw-btn hw-btn--ink hw-btn--block">{% if ar == 'ar' %}ابدأ بباقة البداية{% else %}Start with Starter{% endif %}</a>
+<!-- ============================ PRICING ============================ -->
+<section class="zn-price hw-wrap" id="plans">
+  <h2 class="zn-price__word" data-hw-reveal>{% if ar == 'ar' %}الأسعار{% else %}Pricing{% endif %}</h2>
+  <div class="zn-plans" data-hw-stagger>
+    <article class="zn-plan" data-hw-reveal>
+      <div class="zn-plan__price"><span>{% if ar == 'ar' %}مجاناً{% else %}Free{% endif %}</span><small>{% if ar == 'ar' %}١٤ يوماً{% else %}14 days{% endif %}</small></div>
+      <div class="zn-plan__name">{% if ar == 'ar' %}التجربة المجانية{% else %}Free trial{% endif %}</div>
+      <hr>
+      <ul><li><i data-lucide="check"></i>{% if ar == 'ar' %}فترة تجريبية مجانية 14 يوماً{% else %}14-day free trial{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}رفع وتحليل حتى 3 ملفات{% else %}Upload and analyse up to 3 files{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}محادثة أساسية مع اسأل بصيرة{% else %}Basic chat with Ask Baseera{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}لوحة تحكم تفاعلية ومؤشرات الأداء{% else %}Interactive dashboard and KPIs{% endif %}</li></ul>
+      <a href="{% url 'register' %}" class="zn-pill">{% if ar == 'ar' %}ابدأ مجاناً{% else %}Start free{% endif %}</a>
     </article>
-    <article class="hw-plan hw-panel hw-panel--dark hw-plan--dark" data-hw-reveal>
-      <h3>{% if ar == 'ar' %}باقة النمو{% else %}Growth{% endif %}</h3>
-      <p class="d">{% if ar == 'ar' %}الأكثر طلباً: تحليلات غير محدودة وقدرات متقدمة للنمو.{% else %}Most popular: unlimited analysis and advanced insights.{% endif %}</p>
-      <div class="hw-price" dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="20">{% if ar == 'ar' %}٢٠{% else %}20{% endif %}</span><small>{% if ar == 'ar' %}ر.ع. / شهر{% else %}OMR / month{% endif %}</small></div>
-      <ul><li>{% if ar == 'ar' %}رفع وتحليل غير محدود للبيانات والملفات{% else %}Unlimited data uploads and analysis{% endif %}</li><li>{% if ar == 'ar' %}غرفة إدارة وكلاء الذكاء الاصطناعي{% else %}Full access to the AI Boardroom{% endif %}</li><li>{% if ar == 'ar' %}تحليلات تنبؤية وتوقعات نمو المبيعات{% else %}Predictive sales and profit forecasts{% endif %}</li><li>{% if ar == 'ar' %}تنبيهات استباقية لكشف الهدر والفرص{% else %}Proactive waste and opportunity alerts{% endif %}</li></ul>
-      <a href="{% url 'register' %}" class="hw-btn hw-btn--accent hw-btn--block">{% if ar == 'ar' %}اشترك في باقة النمو{% else %}Subscribe to Growth{% endif %}</a>
+    <article class="zn-plan zn-plan--feat" data-hw-reveal>
+      <div class="zn-plan__price" dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="7">{% if ar == 'ar' %}٧{% else %}7{% endif %}</span><small>{% if ar == 'ar' %}ر.ع. / شهر{% else %}OMR / month{% endif %}</small></div>
+      <div class="zn-plan__name">{% if ar == 'ar' %}باقة البداية{% else %}Starter plan{% endif %}</div>
+      <hr>
+      <ul><li><i data-lucide="check"></i>{% if ar == 'ar' %}استفسارات ذكاء اصطناعي وتحليل مبيعات منتظم{% else %}Regular AI queries and sales analysis{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}رفع ملفات Excel وCSV وكشوف الحسابات{% else %}Excel, CSV and statement uploads{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}متابعة أهداف المبيعات الشهرية{% else %}Monthly sales goal tracking{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}تصدير تقارير ورسوم بيانية شهرية{% else %}Export monthly charts and reports{% endif %}</li></ul>
+      <a href="{% url 'register' %}" class="zn-pill zn-pill--white">{% if ar == 'ar' %}ابدأ بباقة البداية{% else %}Start with Starter{% endif %}</a>
+    </article>
+    <article class="zn-plan" data-hw-reveal>
+      <div class="zn-plan__price" dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="20">{% if ar == 'ar' %}٢٠{% else %}20{% endif %}</span><small>{% if ar == 'ar' %}ر.ع. / شهر{% else %}OMR / month{% endif %}</small></div>
+      <div class="zn-plan__name">{% if ar == 'ar' %}باقة النمو{% else %}Growth plan{% endif %}</div>
+      <hr>
+      <ul><li><i data-lucide="check"></i>{% if ar == 'ar' %}رفع وتحليل غير محدود للبيانات والملفات{% else %}Unlimited data uploads and analysis{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}غرفة إدارة وكلاء الذكاء الاصطناعي{% else %}Full access to the AI Boardroom{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}تحليلات تنبؤية وتوقعات نمو المبيعات{% else %}Predictive sales and profit forecasts{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}تنبيهات استباقية لكشف الهدر والفرص{% else %}Proactive waste and opportunity alerts{% endif %}</li></ul>
+      <a href="{% url 'register' %}" class="zn-pill">{% if ar == 'ar' %}اشترك في باقة النمو{% else %}Subscribe to Growth{% endif %}</a>
     </article>
   </div>
 </section>
 
-<!-- ============================ CUSTOMER STORIES ============================ -->
-<section class="hw-section hw-wrap" id="testimonials">
-  <div class="hw-head">
-    <span class="sc-label" data-hw-reveal>{% if ar == 'ar' %}قصص العملاء{% else %}Customer stories{% endif %}</span>
-    <h2 class="hw-h2" data-hw-reveal style="--hw-d:.08s">{% if ar == 'ar' %}منشآت عُمانية{% else %}Omani businesses{% endif %} <em class="sc-accent">{% if ar == 'ar' %}شافت الفرق.{% else %}saw the difference.{% endif %}</em></h2>
-    <p class="hw-side" data-hw-reveal style="--hw-d:.16s">{% if ar == 'ar' %}تجربة عميل فعلي مع بصيرة، بكلماته هو.{% else %}A real customer's experience with Baseera, in his own words.{% endif %}</p>
-  </div>
-  <div class="hw-trio" data-hw-stagger>
-    <div class="hw-panel" data-hw-reveal>
-      <div class="hw-who"><b>{% if ar == 'ar' %}ماذا تغيّر{% else %}What changed{% endif %}</b><span>{% if ar == 'ar' %}كما وصفها صاحب الورشة{% else %}As described by the workshop owner{% endif %}</span></div>
-      <ul><li><i data-lucide="check"></i>{% if ar == 'ar' %}عرف وين يروح الهدر{% else %}Found where waste was going{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}ضبط الإيرادات والمصاريف{% else %}Controlled income and expenses{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}وزّع الأرباح بشكل صحيح{% else %}Split profit correctly{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}جذب زبائن فعليين{% else %}Attracted real customers{% endif %}</li></ul>
-      <span style="font-size:.85rem;color:var(--hw-muted)">{% if ar == 'ar' %}تجربة موثّقة من صاحب الورشة{% else %}Verified experience from the workshop owner{% endif %}</span>
+<!-- ============================ VOICES ============================ -->
+<section class="zn-sec zn-voices hw-wrap" id="testimonials">
+  <svg class="zn-ribbon" viewBox="0 0 1200 400" preserveAspectRatio="none" aria-hidden="true"><path d="M-20,330 C220,380 420,250 620,250 C820,250 980,130 1220,90" fill="none" stroke="url(#znr)" stroke-width="34" stroke-linecap="round"/><defs><linearGradient id="znr" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-color="#fff" stop-opacity=".18"/></linearGradient></defs></svg>
+  <div class="zn-voices__grid">
+    <div class="zn-voices__lead">
+      <h2 class="zn-h2" data-hw-reveal>{% if ar == 'ar' %}أصوات عملائنا{% else %}Voices of our customers{% endif %}</h2>
+      <hr>
+      <p data-hw-reveal>{% if ar == 'ar' %}تجربة عميل فعلي مع بصيرة، بكلماته هو: كيف عرف أين يذهب الهدر، وكيف ضبط إيراداته ومصاريفه.{% else %}A real customer's experience with Baseera, in his own words: how he found where waste was going and took control of income and expenses.{% endif %}</p>
     </div>
-    <div class="hw-panel hw-panel--dark" data-hw-reveal>
-      <div class="hw-logo-tile"><img src="{% static 'dashboard/img/center-motor.png' %}" alt="{% if ar == 'ar' %}شعار سنتر موتر{% else %}Center Motor logo{% endif %}" loading="lazy"></div>
-      <blockquote>{% if ar == 'ar' %}«من يوم بدأت أرتّب وأشوف تقارير بياناتي قدّامي، صدق عرفت وين كان يروح الهدر ووين تضيع الفلوس.»{% else %}“The moment I started organizing and seeing my own data reports in front of me, I truly saw where the waste was going and where money was slipping away.”{% endif %}</blockquote>
-      <div class="hw-who"><b>{% if ar == 'ar' %}سنتر موتر{% else %}Center Motor{% endif %}</b><span>{% if ar == 'ar' %}ورشة سيارات · سلطنة عُمان{% else %}Auto workshop · Oman{% endif %}</span></div>
-    </div>
-    <div class="hw-panel" data-hw-reveal>
-      <blockquote>{% if ar == 'ar' %}«صرت أعرف كل بيسة وين دخلت ووين طلعت، وكيف أضبط إيراداتي ومصاريفي وأوزّع الأرباح صح، وكيف أجيب زباين فعليين للورشة. كان له أثر كبير في مشروعي.»{% else %}“I now know where every baisa comes in and goes out, how to control my income and expenses, split profit correctly, and bring in real customers. It made a huge difference for my business.”{% endif %}</blockquote>
-      <div class="hw-who"><b>{% if ar == 'ar' %}صاحب الورشة{% else %}The workshop owner{% endif %}</b><span>{% if ar == 'ar' %}عميل بصيرة{% else %}Baseera customer{% endif %}</span></div>
+    <div class="zn-voices__list" data-hw-stagger>
+      <figure class="zn-quote" data-hw-reveal><blockquote>{% if ar == 'ar' %}«من يوم بدأت أرتّب وأشوف تقارير بياناتي قدّامي، صدق عرفت وين كان يروح الهدر ووين تضيع الفلوس.»{% else %}“The moment I started organizing and seeing my own data reports in front of me, I truly saw where the waste was going and where money was slipping away.”{% endif %}</blockquote><figcaption><b>{% if ar == 'ar' %}سنتر موتر{% else %}Center Motor{% endif %}</b><span>{% if ar == 'ar' %}ورشة سيارات · سلطنة عُمان{% else %}Auto workshop · Oman{% endif %}</span></figcaption><span class="zn-avatar zn-avatar--logo"><img src="{% static 'dashboard/img/center-motor.png' %}" alt="{% if ar == 'ar' %}شعار سنتر موتر{% else %}Center Motor logo{% endif %}" loading="lazy"></span></figure>
+      <figure class="zn-quote" data-hw-reveal><blockquote>{% if ar == 'ar' %}«صرت أعرف كل بيسة وين دخلت ووين طلعت، وكيف أضبط إيراداتي ومصاريفي وأوزّع الأرباح صح، وكيف أجيب زباين فعليين للورشة. كان له أثر كبير في مشروعي.»{% else %}“I now know where every baisa comes in and goes out, how to control my income and expenses, split profit correctly, and bring in real customers. It made a huge difference for my business.”{% endif %}</blockquote><figcaption><b>{% if ar == 'ar' %}صاحب الورشة{% else %}The workshop owner{% endif %}</b><span>{% if ar == 'ar' %}عميل بصيرة{% else %}Baseera customer{% endif %}</span></figcaption><span class="zn-avatar"><i data-lucide="user"></i></span></figure>
+      <figure class="zn-quote" data-hw-reveal><ul class="zn-outs"><li><i data-lucide="check"></i>{% if ar == 'ar' %}عرف وين يروح الهدر{% else %}Found where waste was going{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}ضبط الإيرادات والمصاريف{% else %}Controlled income and expenses{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}وزّع الأرباح بشكل صحيح{% else %}Split profit correctly{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}جذب زبائن فعليين{% else %}Attracted real customers{% endif %}</li></ul><figcaption><b>{% if ar == 'ar' %}ماذا تغيّر{% else %}What changed{% endif %}</b><span>{% if ar == 'ar' %}تجربة موثّقة من صاحب الورشة{% else %}Verified experience from the workshop owner{% endif %}</span></figcaption><span class="zn-avatar"><i data-lucide="badge-check"></i></span></figure>
     </div>
   </div>
 </section>
 
 <!-- ============================ FAQ ============================ -->
-<section class="hw-section hw-wrap" id="faq">
-  <div class="hw-head">
-    <span class="sc-label" data-hw-reveal>{% if ar == 'ar' %}أسئلة{% else %}FAQ{% endif %}</span>
-    <h2 class="hw-h2" data-hw-reveal style="--hw-d:.08s">{% if ar == 'ar' %}أسئلة{% else %}Common{% endif %} <em class="sc-accent">{% if ar == 'ar' %}شائعة.{% else %}questions.{% endif %}</em></h2>
-    <p class="hw-side" data-hw-reveal style="--hw-d:.16s">{% if ar == 'ar' %}أسئلة يسألها كل صاحب مشروع.{% else %}Questions every owner asks.{% endif %}</p>
-  </div>
+<section class="zn-sec hw-wrap" id="faq">
+  <div class="zn-head"><h2 class="zn-h2" data-hw-reveal>{% if ar == 'ar' %}أسئلة شائعة{% else %}Questions{% endif %}</h2><p class="zn-note" data-hw-reveal>{% if ar == 'ar' %}أسئلة يسألها كل صاحب مشروع.{% else %}Questions every owner asks.{% endif %}</p></div>
   <div class="hw-acc" data-open-first data-hw-reveal>
     <div class="hw-acc__item">
-      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwfq0"><span class="hw-acc__title" style="font-size:clamp(1.05rem,2.2vw,1.5rem)">{% if ar == 'ar' %}هل بياناتي آمنة؟{% else %}Is my data safe?{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
+      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwfq0"><span class="hw-acc__title">{% if ar == 'ar' %}هل بياناتي آمنة؟{% else %}Is my data safe?{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
       <div class="hw-acc__panel" id="hwfq0" role="region"><div><div class="hw-acc__body" style="grid-template-columns:1fr"><p style="max-width:44rem">{% if ar == 'ar' %}نعم. بيانات كل مستخدم معزولة تماماً، لا تُستخدم للتدريب ولا تُشارك مع أي طرف، وكل تقرير مبصوم ببصمة سلامة.{% else %}Yes. Each user's data is fully isolated, never used for training or shared, and every report carries an integrity hash.{% endif %}</p></div></div></div>
     </div>
     <div class="hw-acc__item">
-      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwfq1"><span class="hw-acc__title" style="font-size:clamp(1.05rem,2.2vw,1.5rem)">{% if ar == 'ar' %}أحتاج محاسب أو خبرة مالية؟{% else %}Do I need an accountant?{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
+      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwfq1"><span class="hw-acc__title">{% if ar == 'ar' %}أحتاج محاسب أو خبرة مالية؟{% else %}Do I need an accountant?{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
       <div class="hw-acc__panel" id="hwfq1" role="region"><div><div class="hw-acc__body" style="grid-template-columns:1fr"><p style="max-width:44rem">{% if ar == 'ar' %}لا. ترفع ملفك وتقرأ النتيجة بلغتك، وبصيرة تشرح لك وين يروح فلوسك وخطوة واحدة لإيقاف التسريب.{% else %}No. Upload a file and read the result in plain language. Baseera shows where your money goes and one step to stop the leak.{% endif %}</p></div></div></div>
     </div>
     <div class="hw-acc__item">
-      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwfq2"><span class="hw-acc__title" style="font-size:clamp(1.05rem,2.2vw,1.5rem)">{% if ar == 'ar' %}أي ملفات أقدر أرفعها؟{% else %}What files can I upload?{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
+      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwfq2"><span class="hw-acc__title">{% if ar == 'ar' %}أي ملفات أقدر أرفعها؟{% else %}What files can I upload?{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
       <div class="hw-acc__panel" id="hwfq2" role="region"><div><div class="hw-acc__body" style="grid-template-columns:1fr"><p style="max-width:44rem">{% if ar == 'ar' %}كشف حساب بنكي، ملف مبيعات أو مصروفات، أو حتى صورة دفترك، بصيغة Excel أو CSV أو PDF أو صورة.{% else %}A bank statement, a sales or expense file, even a photo of your ledger, as Excel, CSV, PDF or an image.{% endif %}</p></div></div></div>
     </div>
     <div class="hw-acc__item">
-      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwfq3"><span class="hw-acc__title" style="font-size:clamp(1.05rem,2.2vw,1.5rem)">{% if ar == 'ar' %}الأرقام دقيقة ولا تخمين ذكاء اصطناعي؟{% else %}Are the numbers accurate or AI guesses?{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
+      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwfq3"><span class="hw-acc__title">{% if ar == 'ar' %}الأرقام دقيقة ولا تخمين ذكاء اصطناعي؟{% else %}Are the numbers accurate or AI guesses?{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
       <div class="hw-acc__panel" id="hwfq3" role="region"><div><div class="hw-acc__body" style="grid-template-columns:1fr"><p style="max-width:44rem">{% if ar == 'ar' %}كل رقم محسوب حتمياً بايثون من بياناتك، بالمعادلة والدليل. الذكاء الاصطناعي للقراءة والصياغة فقط.{% else %}Every number is computed deterministically in Python from your data, with the formula and evidence. AI only reads and phrases.{% endif %}</p></div></div></div>
     </div>
     <div class="hw-acc__item">
-      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwfq4"><span class="hw-acc__title" style="font-size:clamp(1.05rem,2.2vw,1.5rem)">{% if ar == 'ar' %}كم يكلّف، وكيف أبدأ؟{% else %}What does it cost and how do I start?{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
+      <button type="button" class="hw-acc__btn" aria-expanded="false" aria-controls="hwfq4"><span class="hw-acc__title">{% if ar == 'ar' %}كم يكلّف، وكيف أبدأ؟{% else %}What does it cost and how do I start?{% endif %}</span><span class="hw-acc__icon" aria-hidden="true"></span></button>
       <div class="hw-acc__panel" id="hwfq4" role="region"><div><div class="hw-acc__body" style="grid-template-columns:1fr"><p style="max-width:44rem">{% if ar == 'ar' %}تبدأ مجاناً بدون بطاقة ائتمان: ترفع ملفك الأول وتشوف أول تسريب مالي فوراً.{% else %}Start free, no credit card: upload your first file and see your first financial leak right away.{% endif %}</p></div></div></div>
     </div>
   </div>
 </section>
 
 <!-- ============================ FINAL CTA ============================ -->
-<section class="sc-final hw-wrap" aria-label="{% if ar == 'ar' %}ابدأ الآن{% else %}Get started{% endif %}">
-  <div class="sc-aurora" aria-hidden="true" style="inset:0 -15% auto -15%;height:100%"><i class="sc-blob sc-blob--a"></i><i class="sc-blob sc-blob--b"></i><i class="sc-blob sc-blob--c"></i></div>
-  <h2 data-hw-reveal>{% if ar == 'ar' %}جاهز لقرارك المالي{% else %}Ready for your first{% endif %} <em class="sc-accent">{% if ar == 'ar' %}الأول؟{% else %}financial decision?{% endif %}</em></h2>
+<section class="zn-final hw-wrap" aria-label="{% if ar == 'ar' %}ابدأ الآن{% else %}Get started{% endif %}">
+  <h2 class="zn-h2" data-hw-reveal>{% if ar == 'ar' %}جاهز لقرارك المالي الأول؟{% else %}Ready for your first financial decision?{% endif %}</h2>
   <p data-hw-reveal style="--hw-d:.1s">{% if ar == 'ar' %}ارفع أي ملف أو صورة دفتر، ودع بصيرة تجمع المتناثر وتحسب بالكود وتضع أمامك الخطوة التالية.{% else %}Upload any file or a photo of your ledger. Baseera gathers what is scattered, computes in code and puts the next step in front of you.{% endif %}</p>
-  <div class="sc-cta" data-hw-reveal style="--hw-d:.18s"><a href="{% url 'register' %}" class="hw-btn hw-btn--accent">{{ trans.register_today }}</a><a href="{% url 'contact' %}" class="hw-btn hw-btn--ink">{{ trans.contact }}</a></div>
+  <div class="zn-final__cta" data-hw-reveal style="--hw-d:.18s"><a href="{% url 'register' %}" class="zn-btn zn-btn--white">{{ trans.register_today }}</a><a href="{% url 'contact' %}" class="zn-btn zn-btn--ghost">{{ trans.contact }}</a></div>
 </section>
 
 <div class="hw-float">
