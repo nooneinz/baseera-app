@@ -98,25 +98,25 @@
 
 <!-- ============================ PRICING ============================ -->
 <section class="zn-price hw-wrap" id="plans">
-  <h2 class="zn-price__word" data-hw-reveal>{% if ar == 'ar' %}الأسعار{% else %}Pricing{% endif %}</h2>
+  <h2 class="sr-only">{% if ar == 'ar' %}الأسعار{% else %}Pricing{% endif %}</h2>
   <div class="zn-plans" data-hw-stagger>
     <article class="zn-plan" data-hw-reveal>
-      <div class="zn-plan__price"><span>{% if ar == 'ar' %}مجاناً{% else %}Free{% endif %}</span><small>{% if ar == 'ar' %}١٤ يوماً{% else %}14 days{% endif %}</small></div>
       <div class="zn-plan__name">{% if ar == 'ar' %}التجربة المجانية{% else %}Free trial{% endif %}</div>
+      <div class="zn-plan__price"><span>{% if ar == 'ar' %}مجاناً{% else %}Free{% endif %}</span><small>{% if ar == 'ar' %}١٤ يوماً{% else %}14 days{% endif %}</small></div>
       <hr>
       <ul><li><i data-lucide="check"></i>{% if ar == 'ar' %}فترة تجريبية مجانية 14 يوماً{% else %}14-day free trial{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}رفع وتحليل حتى 3 ملفات{% else %}Upload and analyse up to 3 files{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}محادثة أساسية مع اسأل بصيرة{% else %}Basic chat with Ask Baseera{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}لوحة تحكم تفاعلية ومؤشرات الأداء{% else %}Interactive dashboard and KPIs{% endif %}</li></ul>
       <a href="{% url 'register' %}" class="zn-pill">{% if ar == 'ar' %}ابدأ مجاناً{% else %}Start free{% endif %}</a>
     </article>
     <article class="zn-plan zn-plan--feat" data-hw-reveal>
-      <div class="zn-plan__price" dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="7">{% if ar == 'ar' %}٧{% else %}7{% endif %}</span><small>{% if ar == 'ar' %}ر.ع. / شهر{% else %}OMR / month{% endif %}</small></div>
       <div class="zn-plan__name">{% if ar == 'ar' %}باقة البداية{% else %}Starter plan{% endif %}</div>
+      <div class="zn-plan__price" dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="7">{% if ar == 'ar' %}٧{% else %}7{% endif %}</span><small>{% if ar == 'ar' %}ر.ع. / شهر{% else %}OMR / month{% endif %}</small></div>
       <hr>
       <ul><li><i data-lucide="check"></i>{% if ar == 'ar' %}استفسارات ذكاء اصطناعي وتحليل مبيعات منتظم{% else %}Regular AI queries and sales analysis{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}رفع ملفات Excel وCSV وكشوف الحسابات{% else %}Excel, CSV and statement uploads{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}متابعة أهداف المبيعات الشهرية{% else %}Monthly sales goal tracking{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}تصدير تقارير ورسوم بيانية شهرية{% else %}Export monthly charts and reports{% endif %}</li></ul>
       <a href="{% url 'register' %}" class="zn-pill zn-pill--white">{% if ar == 'ar' %}ابدأ بباقة البداية{% else %}Start with Starter{% endif %}</a>
     </article>
     <article class="zn-plan" data-hw-reveal>
-      <div class="zn-plan__price" dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="20">{% if ar == 'ar' %}٢٠{% else %}20{% endif %}</span><small>{% if ar == 'ar' %}ر.ع. / شهر{% else %}OMR / month{% endif %}</small></div>
       <div class="zn-plan__name">{% if ar == 'ar' %}باقة النمو{% else %}Growth plan{% endif %}</div>
+      <div class="zn-plan__price" dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="20">{% if ar == 'ar' %}٢٠{% else %}20{% endif %}</span><small>{% if ar == 'ar' %}ر.ع. / شهر{% else %}OMR / month{% endif %}</small></div>
       <hr>
       <ul><li><i data-lucide="check"></i>{% if ar == 'ar' %}رفع وتحليل غير محدود للبيانات والملفات{% else %}Unlimited data uploads and analysis{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}غرفة إدارة وكلاء الذكاء الاصطناعي{% else %}Full access to the AI Boardroom{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}تحليلات تنبؤية وتوقعات نمو المبيعات{% else %}Predictive sales and profit forecasts{% endif %}</li><li><i data-lucide="check"></i>{% if ar == 'ar' %}تنبيهات استباقية لكشف الهدر والفرص{% else %}Proactive waste and opportunity alerts{% endif %}</li></ul>
       <a href="{% url 'register' %}" class="zn-pill">{% if ar == 'ar' %}اشترك في باقة النمو{% else %}Subscribe to Growth{% endif %}</a>
