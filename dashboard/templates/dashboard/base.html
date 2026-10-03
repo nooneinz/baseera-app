@@ -27,7 +27,7 @@
             },
             fontFamily: {
               sans: ['IBM Plex Sans Arabic', 'system-ui', 'sans-serif'],
-              display: ['Aref Ruqaa', 'IBM Plex Sans Arabic', 'serif']
+              display: ['Alexandria', 'IBM Plex Sans Arabic', 'sans-serif']
             },
             borderRadius: {
               '2xl': '20px',
@@ -38,10 +38,10 @@
       }
     </script>
     
-    <!-- Google Fonts: Aref Ruqaa (display) + IBM Plex Sans Arabic (body) -->
+    <!-- Google Fonts: Alexandria (display, heavy) + IBM Plex Sans Arabic (body) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@700;800&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- FontAwesome & Lucide Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -82,7 +82,7 @@
         --muted-foreground: #94a3b8;
         --ink: #f8fafc;
       }
-      :root { --font-display: 'Aref Ruqaa', 'IBM Plex Sans Arabic', serif; --font-body: 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif; }
+      :root { --font-display: 'Alexandria', 'IBM Plex Sans Arabic', system-ui, sans-serif; --font-body: 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif; }
       * { font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif; }
       
       /* إخفاء أيقونة العين الافتراضية للمتصفحات */
@@ -444,6 +444,9 @@
             document.documentElement.classList.remove('dark');
         }
     </script>
+    <script>document.documentElement.classList.add('hw-js');</script>
+    <link rel="stylesheet" href="{% static 'dashboard/css/halo.css' %}">
+    <script src="{% static 'dashboard/js/halo.js' %}" defer></script>
 </head>
 <body class="{% if trans.lang_code == 'ar' %}font-sans{% else %}font-sans{% endif %} transition-colors duration-300 relative antialiased" dir="{{ trans.dir }}">
     

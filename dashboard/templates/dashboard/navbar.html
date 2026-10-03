@@ -1,72 +1,44 @@
-{% load static %}
-<header class="bz-nav fixed top-0 inset-x-0 z-50 px-2 sm:px-4 py-2 sm:py-3 w-full flex justify-center pointer-events-none">
-  <div class="glass pointer-events-auto flex w-[min(1200px,100%)] items-center justify-between rounded-full px-3 sm:px-6 py-2 sm:py-2.5 border border-white/60 dark:border-slate-800 shadow-xl shadow-indigo-500/5 backdrop-blur-xl bg-white/70 dark:bg-slate-900/80">
-    <!-- Brand Logo / Name (Left aligned) -->
-    <div class="flex flex-[0.5] sm:flex-1 items-center justify-start">
-      <a href="{% url 'welcome' %}" class="flex items-center gap-1.5 sm:gap-2.5 hover:opacity-90 transition-opacity">
-        <img src="{% static 'dashboard/img/logo.png' %}" alt="Basira Logo" class="h-8 sm:h-9 md:h-11 w-auto object-contain hover:scale-105 transition-transform duration-300 shrink-0 filter drop-shadow-md">
-        <span class="text-lg sm:text-xl md:text-2xl font-black tracking-tight leading-none bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-500 dark:from-white dark:via-indigo-200 dark:to-indigo-400 bg-clip-text text-transparent" style="font-family: 'Aref Ruqaa', 'IBM Plex Sans Arabic', serif; font-weight: 900;">{{ trans.brand }}</span>
-      </a>
-    </div>
-    
-    <!-- Navigation Links (Center aligned) -->
-    <nav class="hidden md:flex flex-1 items-center justify-center gap-8 lg:gap-10 whitespace-nowrap text-sm font-extrabold text-slate-700 dark:text-slate-200">
-      <a href="{% url 'welcome' %}" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">{{ trans.home }}</a>
-      <a href="{% url 'welcome' %}#testimonials" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">{% if trans.lang_code == 'ar' %}عملاؤنا{% else %}Customers{% endif %}</a>
-      <a href="{% url 'about' %}" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">{{ trans.about }}</a>
-      <a href="{% url 'all_agents_gallery' %}" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-1.5">
-        <span>{{ trans.agents_nav }}</span>
-      </a>
-      <a href="{% url 'contact' %}" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">{{ trans.contact }}</a>
+{% load static %}{% with ar=trans.lang_code %}
+<header class="hw-nav" role="banner">
+  <div class="hw-nav__in">
+    <a href="{% url 'welcome' %}" class="hw-brand" aria-label="{{ trans.brand }}">
+      <img src="{% static 'dashboard/img/logo.png' %}" alt="{% if ar == 'ar' %}شعار بصيرة{% else %}Baseera logo{% endif %}">
+      <b>{{ trans.brand }}</b>
+    </a>
+
+    <span class="hw-status"><span class="hw-dot" aria-hidden="true"></span>{% if ar == 'ar' %}من مسقط، سلطنة عُمان{% else %}Based in Muscat, Oman{% endif %}</span>
+
+    <nav class="hw-links" aria-label="{% if ar == 'ar' %}التنقل الرئيسي{% else %}Main navigation{% endif %}">
+      <a class="hw-link" href="{% url 'welcome' %}">{{ trans.home }}</a>
+      <a class="hw-link" href="{% url 'welcome' %}#agents">{{ trans.agents_nav }}</a>
+      <a class="hw-link" href="{% url 'welcome' %}#testimonials">{% if ar == 'ar' %}عملاؤنا{% else %}Customers{% endif %}</a>
+      <a class="hw-link" href="{% url 'about' %}">{{ trans.about }}</a>
+      <a class="hw-link" href="{% url 'contact' %}">{{ trans.contact }}</a>
     </nav>
 
-    <!-- Language Switcher & Authentication Buttons (Right aligned) -->
-    <div class="flex flex-[1.5] sm:flex-1 items-center justify-end gap-1.5 sm:gap-3">
-      <!-- Theme Toggle Button -->
-      <button id="navThemeToggleBtn" class="grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-full border border-slate-200/80 bg-white/80 text-slate-800 shadow-xs hover:bg-white transition dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700">
-          <i data-lucide="moon" class="h-3.5 w-3.5 sm:h-4 sm:w-4 dark:hidden"></i>
-          <i data-lucide="sun" class="h-3.5 w-3.5 sm:h-4 sm:w-4 hidden dark:block text-amber-400"></i>
+    <div class="flex items-center gap-2">
+      <button id="navThemeToggleBtn" type="button" class="hw-tool" aria-label="{% if ar == 'ar' %}تبديل الوضع الداكن{% else %}Toggle dark mode{% endif %}">
+        <i data-lucide="moon" class="dark:hidden"></i><i data-lucide="sun" class="hidden dark:block"></i>
       </button>
-
-      <!-- Language Switcher Button -->
-      <a href="?lang={{ trans.other_lang }}" class="flex items-center gap-1.5 text-xs font-black px-2 sm:px-3.5 py-1.5 rounded-full border border-slate-200/80 bg-white/80 hover:bg-white transition-all shadow-xs dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700">
-        <i data-lucide="globe" class="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400"></i>
-        <span class="hidden sm:inline tracking-wider uppercase">{{ trans.other_lang_name }}</span>
-      </a>
-
+      <a href="?lang={{ trans.other_lang }}" class="hw-tool" aria-label="{{ trans.other_lang_name }}">{{ trans.other_lang_name }}</a>
       {% if user.is_authenticated %}
-        <a href="{% url 'dashboard' %}" class="rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm font-bold text-white transition-all hover:brightness-110 shadow-md shadow-indigo-500/25 transform hover:-translate-y-0.5">
-          {{ trans.dashboard_link }}
-        </a>
+        <a href="{% url 'dashboard' %}" class="hw-btn hw-btn--accent" style="padding:.6rem 1.1rem;font-size:.85rem">{{ trans.dashboard_link }}</a>
       {% else %}
-        <a href="{% url 'login' %}" class="hidden md:block text-sm font-extrabold hover:text-indigo-600 dark:hover:text-indigo-400 px-2 transition-colors">{{ trans.login_link }}</a>
-        <a href="{% url 'register' %}" class="rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm font-bold text-white transition-all hover:brightness-110 shadow-md shadow-indigo-500/30 transform hover:-translate-y-0.5 text-center whitespace-nowrap">
-          {{ trans.register_link }}
-        </a>
+        <a href="{% url 'login' %}" class="hw-link hidden md:inline text-sm font-semibold px-2">{{ trans.login_link }}</a>
+        <a href="{% url 'register' %}" class="hw-btn hw-btn--accent" style="padding:.6rem 1.1rem;font-size:.85rem">{{ trans.register_link }}</a>
       {% endif %}
     </div>
   </div>
 </header>
 
-<style>
-  /* Header enters once on page open: fades in and slides down 20px (0.8s ease-out). */
-  .bz-nav{animation:bzNavIn .8s ease-out both}
-  @keyframes bzNavIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
-  @media (prefers-reduced-motion:reduce){.bz-nav{animation:none}}
-</style>
-
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const navThemeToggleBtn = document.getElementById('navThemeToggleBtn');
-    if (navThemeToggleBtn) {
-        navThemeToggleBtn.addEventListener('click', function() {
-            document.documentElement.classList.toggle('dark');
-            if (document.documentElement.classList.contains('dark')) {
-                localStorage.setItem('theme', 'dark');
-            } else {
-                localStorage.setItem('theme', 'light');
-            }
-        });
-    }
+document.addEventListener('DOMContentLoaded', function () {
+  var b = document.getElementById('navThemeToggleBtn');
+  if (!b) return;
+  b.addEventListener('click', function () {
+    document.documentElement.classList.toggle('dark');
+    try { localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); } catch (e) { }
+  });
 });
 </script>
+{% endwith %}

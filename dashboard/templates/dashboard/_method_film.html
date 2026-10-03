@@ -4,12 +4,10 @@
   Brand palette only (nile / glow / lavender / ink). Logo is the real Baseera mark.
 {% endcomment %}
 {% with ar=trans.lang_code %}
-<section id="method" class="scroll-mt-28 animate-fade-up" aria-labelledby="mf-title">
+<section id="method" class="scroll-mt-28" aria-labelledby="mf-title">
   <style>
-    .mf{position:relative;border-radius:28px;border:1px solid #ece9fb;overflow:hidden;
-        background:radial-gradient(700px 420px at 50% 42%,rgba(124,108,240,.14),transparent 65%),linear-gradient(135deg,#fff 0%,#f6f4fd 100%);
-        box-shadow:0 30px 60px -34px rgba(43,36,112,.35)}
-    .dark .mf{background:radial-gradient(700px 420px at 50% 42%,rgba(124,108,240,.22),transparent 65%),linear-gradient(135deg,#1b1650 0%,#14103d 100%);border-color:rgba(255,255,255,.1)}
+    .mf{position:relative;border-radius:var(--hw-r,4px);border:1px solid var(--hw-hair,#e4e2ee);overflow:hidden;background:var(--hw-surface,#f4f3fa)}
+    .dark .mf{background:#15104a;border-color:rgba(185,166,242,.18)}
     .mf-stage{position:relative;height:440px;direction:ltr}
     .mf-grid{position:absolute;inset:0;opacity:.5;background-image:linear-gradient(rgba(124,108,240,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(124,108,240,.09) 1px,transparent 1px);background-size:38px 38px;
         -webkit-mask-image:radial-gradient(closest-side,#000 40%,transparent 100%);mask-image:radial-gradient(closest-side,#000 40%,transparent 100%)}
@@ -104,16 +102,13 @@
     @media (prefers-reduced-motion:reduce){.mf *{animation:none!important;transition-duration:.01s!important}}
   </style>
 
-  <div class="mx-auto max-w-2xl text-center">
-    <h2 id="mf-title" class="text-2xl md:text-4xl font-black text-ink dark:text-white">
+  <div class="hw-head"><h2 id="mf-title" class="hw-h2" data-hw-reveal>
       {% if ar == 'ar' %}شاهد كيف تتحول بياناتك المبعثرة إلى قرار{% else %}Watch scattered data become a decision{% endif %}
-    </h2>
-    <p class="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed">
+    </h2><p class="hw-side" data-hw-reveal style="--hw-d:.15s">
       {% if ar == 'ar' %}منهجية بصيرة في نصف دقيقة: ملفات متناثرة، ثم عدسة بصيرة، ثم وكلاء متخصصون، ثم خطوة تنفيذية واحدة.{% else %}The Baseera method in half a minute: scattered files, the Baseera lens, specialised agents, then one action.{% endif %}
-    </p>
-  </div>
+    </p></div>
 
-  <div class="mf mt-10" id="mfRoot" data-s="0" role="group" aria-label="{% if ar == 'ar' %}عرض متحرك لمنهجية بصيرة{% else %}Animated walkthrough of the Baseera method{% endif %}">
+  <div class="mf" id="mfRoot" data-hw-reveal data-s="0" role="group" aria-label="{% if ar == 'ar' %}عرض متحرك لمنهجية بصيرة{% else %}Animated walkthrough of the Baseera method{% endif %}">
     <div class="mf-stage">
       <div class="mf-grid"></div>
       <div class="mf-cap" aria-live="polite"><span id="mfCap"></span></div>
