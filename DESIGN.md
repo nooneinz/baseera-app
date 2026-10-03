@@ -53,3 +53,9 @@ Applies only to the home page; every other page keeps the Halo light system abov
 - Product section: two-column bento of six cards (leak detection, reports, agents, buyers from Google Maps, credit-risk warning, WhatsApp weekly pulse), each with a mini interface; alternate cards flip text above/below the mock; a violet spotlight follows the pointer.
 - Accent button on black: Glow fill with ink text (contrast 4.8:1). Secondary: translucent white with a hairline.
 - Mock interfaces are labelled as illustrative examples; no invented reviews, partners or ratings.
+
+## Landing page v3: starfield SaaS start, thin type
+- The page opens like a dark analytics-product template: faint twinkling starfield, a violet glow under the header, a badge, a two-line headline with a bright-to-soft gradient (lowest stop keeps 5:1 on black), a ghost button plus a glowing violet button, then two floating panels (an upload card and a tilted dashboard) with floating audience chips, and an "illustrative example" label.
+- Next section: badge, gradient headline, one sentence, one button, then a three-up grid of cards. Each card is a mini interface (area chart, runway gauge, buyers list, reports, customer risk, WhatsApp), a title, one sentence and a ghost "Learn more" button.
+- Type on the landing is thin, small and simple in Arabic and English: IBM Plex Sans Arabic 300 for everything (200 available), headlines `clamp(1.8rem, 3.6-4.2vw, 2.7-3.2rem)`, body .8-.9rem. No calligraphic or serif accent anymore; `.sc-accent` is just the dimmer second half of a headline.
+- Heavy display weights (Alexandria 800) remain only on the light pages.
