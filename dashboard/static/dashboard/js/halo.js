@@ -116,5 +116,40 @@
     });
   }
 
-  ready(function () { initReveal(); initSpotlight(); initNav(); initRows(); initAccordions(); initCounters(); initFloat(); if (window.lucide) lucide.createIcons(); });
+  /* 8) Tabs (agents): one panel visible, arrow keys move between tabs */
+  function initTabs() {
+    $$('[data-zn-tabs]').forEach(function (root) {
+      var tabs = $$('[role="tab"]', root), panels = $$('[role="tabpanel"]', root);
+      function set(i, focus) {
+        tabs.forEach(function (t, k) { t.setAttribute('aria-selected', k === i ? 'true' : 'false'); t.tabIndex = k === i ? 0 : -1; });
+        panels.forEach(function (p, k) { p.hidden = k !== i; });
+        if (focus) tabs[i].focus();
+      }
+      tabs.forEach(function (t, k) {
+        t.addEventListener('click', function () { set(k); });
+        t.addEventListener('keydown', function (e) {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            var d = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? 1 : -1;
+            set((k + d + tabs.length) % tabs.length, true);
+          }
+        });
+      });
+      set(0);
+    });
+  }
+
+  /* 9) Carousel: arrows scroll the snap track by most of its width (direction-aware) */
+  function initCarousel() {
+    $$('[data-zn-carousel]').forEach(function (root) {
+      var track = $('.zn-track', root); if (!track) return;
+      var rtl = getComputedStyle(track).direction === 'rtl';
+      function go(dir) { track.scrollBy({ left: (rtl ? -dir : dir) * track.clientWidth * 0.8, behavior: reduce ? 'auto' : 'smooth' }); }
+      var n = $('[data-zn-next]', root), p = $('[data-zn-prev]', root);
+      if (n) n.addEventListener('click', function () { go(1); });
+      if (p) p.addEventListener('click', function () { go(-1); });
+    });
+  }
+
+  ready(function () { initReveal(); initSpotlight(); initTabs(); initCarousel(); initNav(); initRows(); initAccordions(); initCounters(); initFloat(); if (window.lucide) lucide.createIcons(); });
 })();
