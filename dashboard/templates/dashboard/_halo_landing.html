@@ -34,97 +34,131 @@
   .hs-form button span { display: none; } }
   </style>
 
-<!-- ============================ HERO ============================ -->
-<section class="sc-hero hw-wrap" aria-label="{{ trans.brand }}">
-  <div class="sc-aurora" aria-hidden="true"><i class="sc-blob sc-blob--a"></i><i class="sc-blob sc-blob--b"></i><i class="sc-blob sc-blob--c"></i><i class="sc-blob sc-blob--d"></i><i class="sc-arc sc-arc--a"></i><i class="sc-arc sc-arc--b"></i></div>
+<!-- ============================ HERO (Dataly-style) ============================ -->
+<section class="sd-hero hw-wrap" aria-label="{{ trans.brand }}">
+  <div class="sd-stars" aria-hidden="true"><i class="sd-stars__a"></i><i class="sd-stars__b"></i></div>
+  <div class="sd-glow" aria-hidden="true"></div>
 
-  <a class="sc-badge" href="#agents" data-hw-reveal><span class="hw-dot" aria-hidden="true"></span>{% if ar == 'ar' %}جديد: وكيل المبيعات يجد لك المشترين من خرائط Google{% else %}New: the Sales agent finds buyers on Google Maps{% endif %}</a>
-  <h1 data-hw-reveal style="--hw-d:.08s">{{ trans.hero_title }} <em class="sc-accent">{{ trans.hero_title_sub }}.</em></h1>
-  <p class="sc-sub" data-hw-reveal style="--hw-d:.16s">{% if ar == 'ar' %}ارفع ملفك أو صوّر دفترك، وخلال دقائق تشوف أكبر تسريب مالي في مشروعك وخطوة واحدة لإيقافه.{% else %}Upload a file or photograph your ledger, and within minutes see your biggest financial leak and one step to stop it.{% endif %}</p>
-  <div class="sc-cta" data-hw-reveal style="--hw-d:.24s">
-    <a href="{% url 'register' %}" class="hw-btn hw-btn--accent">{{ trans.register_today }}</a>
-    <a href="#method" class="hw-btn hw-btn--ink">{% if ar == 'ar' %}شاهد كيف تعمل{% else %}See how it works{% endif %}</a>
+  <span class="sd-badge" data-hw-reveal><img src="{% static 'dashboard/img/logo.png' %}" alt="">{% if ar == 'ar' %}بصيرة، ذكاء مالي لمنشآت عُمان{% else %}Baseera, financial intelligence for Omani businesses{% endif %}</span>
+  <h1 class="sd-h1" data-hw-reveal style="--hw-d:.08s"><span>{{ trans.hero_title }}</span> <em class="sc-accent">{{ trans.hero_title_sub }}</em></h1>
+  <p class="sd-sub" data-hw-reveal style="--hw-d:.16s">{% if ar == 'ar' %}ارفع ملفك أو صوّر دفترك، وخلال دقائق تشوف أكبر تسريب مالي في مشروعك وخطوة واحدة لإيقافه.{% else %}Upload a file or photograph your ledger, and within minutes see your biggest financial leak and one step to stop it.{% endif %}</p>
+  <div class="sd-cta" data-hw-reveal style="--hw-d:.24s">
+    <a href="#method" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
+    <a href="{% url 'register' %}" class="sd-btn sd-btn--glow">{% if ar == 'ar' %}ابدأ مجاناً{% else %}Get started{% endif %}</a>
   </div>
 
-  <div class="sc-trust" data-hw-reveal style="--hw-d:.3s">
-    <p>{% if ar == 'ar' %}تقرأ بياناتك كما هي، أينما كانت{% else %}Reads your data as it is, wherever it lives{% endif %}</p>
-    <ul>
-      <li><i data-lucide="file-spreadsheet"></i>Excel</li><li><i data-lucide="table"></i>CSV</li><li><i data-lucide="file-text"></i>PDF</li>
-      <li><i data-lucide="image"></i>{% if ar == 'ar' %}صورة الدفتر{% else %}Ledger photo{% endif %}</li><li><i data-lucide="message-circle"></i>{% if ar == 'ar' %}واتساب{% else %}WhatsApp{% endif %}</li><li><i data-lucide="map-pinned"></i>{% if ar == 'ar' %}خرائط Google{% else %}Google Maps{% endif %}</li>
-    </ul>
-  </div>
+  <div class="sd-stage" data-hw-reveal style="--hw-d:.12s" role="img" aria-label="{% if ar == 'ar' %}واجهة بصيرة: رفع الملف ولوحة القرارات{% else %}Baseera interface: file upload and the decision dashboard{% endif %}">
+    <span class="sd-chip sd-chip--1"><i data-lucide="check"></i>{% if ar == 'ar' %}أصحاب المنشآت{% else %}Business owners{% endif %}</span>
+    <span class="sd-chip sd-chip--2"><i data-lucide="check"></i>{% if ar == 'ar' %}المحاسبون{% else %}Accountants{% endif %}</span>
+    <span class="sd-chip sd-chip--3"><i data-lucide="check"></i>{% if ar == 'ar' %}فرق المبيعات{% else %}Sales teams{% endif %}</span>
 
-  <div class="sc-dash" data-hw-reveal style="--hw-d:.1s" role="img" aria-label="{% if ar == 'ar' %}واجهة بصيرة: الدخل وصافي الربح وأكبر تسريب مع مخطط التدفق النقدي{% else %}Baseera interface: income, net profit and biggest leak with a cash-flow chart{% endif %}">
-    <span class="sc-dash__ex">{% if ar == 'ar' %}مثال توضيحي{% else %}Illustrative example{% endif %}</span>
-    <div class="sc-kpis">
-      <div class="sc-kpi"><small>{% if ar == 'ar' %}الدخل{% else %}Income{% endif %}<b>+12%</b></small><strong dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="48320">{% if ar == 'ar' %}٤٨٬٣٢٠{% else %}48,320{% endif %}</span> {% if ar == 'ar' %}ر.ع{% else %}OMR{% endif %}</strong></div>
-      <div class="sc-kpi"><small>{% if ar == 'ar' %}صافي الربح{% else %}Net profit{% endif %}<b>+8%</b></small><strong dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="17220">{% if ar == 'ar' %}١٧٬٢٢٠{% else %}17,220{% endif %}</span> {% if ar == 'ar' %}ر.ع{% else %}OMR{% endif %}</strong></div>
-      <div class="sc-kpi"><small>{% if ar == 'ar' %}أكبر تسريب{% else %}Biggest leak{% endif %}</small><strong dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="340">{% if ar == 'ar' %}٣٤٠{% else %}340{% endif %}</span> {% if ar == 'ar' %}ر.ع{% else %}OMR{% endif %}</strong></div>
+    <div class="sd-fade">
+    <div class="sd-panel sd-upload">
+      <div class="sd-panel__brand"><img src="{% static 'dashboard/img/logo.png' %}" alt=""><span>{{ trans.brand }}</span></div>
+      <h3>{% if ar == 'ar' %}ابدأ مع بصيرة{% else %}Get started with Baseera{% endif %}</h3>
+      <div class="sd-drop"><i data-lucide="upload"></i><span>{% if ar == 'ar' %}اسحب ملفك هنا أو اضغط للاختيار{% else %}Drop your file here or click to choose{% endif %}</span><small>Excel · CSV · PDF · {% if ar == 'ar' %}صورة{% else %}Image{% endif %}</small></div>
+      <div class="sd-files"><span><i data-lucide="file-spreadsheet"></i>{% if ar == 'ar' %}مبيعات_يناير.xlsx{% else %}sales_jan.xlsx{% endif %}</span><span><i data-lucide="file-text"></i>{% if ar == 'ar' %}كشف_حساب.pdf{% else %}statement.pdf{% endif %}</span></div>
+      <div class="sd-prog"><small>{% if ar == 'ar' %}جارٍ التحليل{% else %}Analysing{% endif %}<b data-hw-count="87" data-suffix="%">87%</b></small><i style="--w:87%"></i></div>
     </div>
-    <div class="sc-dash__body">
-      <div class="sc-box"><h4>{% if ar == 'ar' %}كفاية السيولة{% else %}Cash runway{% endif %}</h4><div class="big">{% if ar == 'ar' %}٨ أشهر{% else %}8 months{% endif %}</div><p style="margin:.6rem 0 0"><span class="sc-pill">{% if ar == 'ar' %}كافية{% else %}Healthy{% endif %}</span></p></div>
-      <div class="sc-box"><h4>{% if ar == 'ar' %}التدفق النقدي، آخر ٨ أشهر{% else %}Cash flow, last 8 months{% endif %}</h4>
-        <svg class="sc-chart" viewBox="0 0 400 140" preserveAspectRatio="none" aria-hidden="true">
-          <defs><linearGradient id="scg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7c6cf0" stop-opacity=".45"/><stop offset="1" stop-color="#7c6cf0" stop-opacity="0"/></linearGradient></defs>
-          <path class="fl" d="M0,112 C40,92 60,38 100,50 C140,62 150,122 200,102 C250,82 270,28 320,40 C360,50 380,72 400,56 L400,140 L0,140 Z" fill="url(#scg)"/>
-          <path class="ln" pathLength="1000" d="M0,112 C40,92 60,38 100,50 C140,62 150,122 200,102 C250,82 270,28 320,40 C360,50 380,72 400,56"/>
-        </svg></div>
-      <div class="sc-box"><h4>{% if ar == 'ar' %}الوكلاء{% else %}Agents{% endif %}</h4><ul class="sc-list"><li class="ok"><span><i></i> {% if ar == 'ar' %}المالي{% else %}Financial{% endif %}</span><span class="sc-pill">{% if ar == 'ar' %}يرصد{% else %}Watching{% endif %}</span></li><li><span><i></i> {% if ar == 'ar' %}التدقيق{% else %}Audit{% endif %}</span><span class="sc-pill">{% if ar == 'ar' %}٣ بنود{% else %}3 items{% endif %}</span></li><li><span><i></i> {% if ar == 'ar' %}المبيعات{% else %}Sales{% endif %}</span><span class="sc-pill">{% if ar == 'ar' %}١٢ مشترياً{% else %}12 buyers{% endif %}</span></li></ul></div>
+
+    <div class="sd-panel sd-app">
+      <aside>
+        <div class="sd-panel__brand"><img src="{% static 'dashboard/img/logo.png' %}" alt=""><span>{{ trans.brand }}</span></div>
+        <ul>
+          <li class="on"><i data-lucide="layout-grid"></i>{% if ar == 'ar' %}منصة القرارات{% else %}Decisions{% endif %}</li>
+          <li><i data-lucide="message-circle"></i>{% if ar == 'ar' %}اسأل بصيرة{% else %}Ask Baseera{% endif %}</li>
+          <li><i data-lucide="file-text"></i>{% if ar == 'ar' %}المستندات{% else %}Documents{% endif %}</li>
+          <li><i data-lucide="bar-chart-3"></i>{% if ar == 'ar' %}التقارير{% else %}Reports{% endif %}</li>
+          <li><i data-lucide="users"></i>{% if ar == 'ar' %}الوكلاء{% else %}Agents{% endif %}</li>
+        </ul>
+      </aside>
+      <div class="sd-app__main">
+        <h4>{% if ar == 'ar' %}نظرة عامة{% else %}Overview{% endif %}</h4>
+        <div class="sd-kpi"><small>{% if ar == 'ar' %}صافي الربح{% else %}Net profit{% endif %}</small><strong dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="17220">{% if ar == 'ar' %}١٧٬٢٢٠{% else %}17,220{% endif %}</span> {% if ar == 'ar' %}ر.ع{% else %}OMR{% endif %}</strong></div>
+        <div class="sd-kpi"><small>{% if ar == 'ar' %}الدخل{% else %}Income{% endif %}</small><strong dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="48320">{% if ar == 'ar' %}٤٨٬٣٢٠{% else %}48,320{% endif %}</span> {% if ar == 'ar' %}ر.ع{% else %}OMR{% endif %}</strong></div>
+        <div class="sd-kpi sd-kpi--warn"><small>{% if ar == 'ar' %}أكبر تسريب{% else %}Biggest leak{% endif %}</small><strong dir="{% if ar == 'ar' %}rtl{% else %}ltr{% endif %}"><span data-hw-count="340">{% if ar == 'ar' %}٣٤٠{% else %}340{% endif %}</span> {% if ar == 'ar' %}ر.ع{% else %}OMR{% endif %}</strong></div>
+      </div>
     </div>
+    </div>
+    <span class="sd-ex">{% if ar == 'ar' %}مثال توضيحي{% else %}Illustrative example{% endif %}</span>
   </div>
 </section>
 
-<!-- ============================ PRODUCT (bento) ============================ -->
-<section class="hw-section hw-wrap" id="product">
-  <div class="hw-head">
-    <span class="sc-label" data-hw-reveal>{% if ar == 'ar' %}المنتج{% else %}Product{% endif %}</span>
-    <h2 class="hw-h2" data-hw-reveal style="--hw-d:.08s">{% if ar == 'ar' %}اعرف ما يهمّ{% else %}Track the things that matter{% endif %} <em class="sc-accent">{% if ar == 'ar' %}مشروعك فعلاً.{% else %}most to you.{% endif %}</em></h2>
-    <p class="hw-side" data-hw-reveal style="--hw-d:.16s">{% if ar == 'ar' %}من رفع الملف إلى التقرير والقرار، كل شيء في مكان واحد. الأرقام في الواجهات أمثلة توضيحية.{% else %}From the uploaded file to the report and the decision, all in one place. Figures in the interfaces are illustrative examples.{% endif %}</p>
+<!-- ============================ PRODUCT (three-up cards) ============================ -->
+<section class="sd-sec hw-wrap" id="product">
+  <div class="sd-head">
+    <span class="sd-badge" data-hw-reveal><img src="{% static 'dashboard/img/logo.png' %}" alt="">{% if ar == 'ar' %}المنتج{% else %}Product{% endif %}</span>
+    <h2 class="sd-h2" data-hw-reveal style="--hw-d:.08s">{% if ar == 'ar' %}اعرف ما يهمّ{% else %}Know what matters to{% endif %} <em class="sc-accent">{% if ar == 'ar' %}مشروعك فعلاً{% else %}your business{% endif %}</em></h2>
+    <p class="sd-sub" data-hw-reveal style="--hw-d:.16s">{% if ar == 'ar' %}من رفع الملف إلى التقرير والقرار، كل شيء في مكان واحد. الأرقام في الواجهات أمثلة توضيحية.{% else %}From the uploaded file to the report and the decision, all in one place. Figures in the interfaces are illustrative examples.{% endif %}</p>
+    <div class="sd-cta" data-hw-reveal style="--hw-d:.22s"><a href="{% url 'register' %}" class="sd-btn sd-btn--glow">{% if ar == 'ar' %}ابدأ مجاناً{% else %}Get started{% endif %}</a></div>
   </div>
-  <div class="sc-bento" data-hw-stagger data-sc-spot>
-    <article class="sc-card" data-hw-reveal>
-      <div><h3>{% if ar == 'ar' %}كشف الهدر المالي{% else %}Financial leak detection{% endif %}</h3><p>{% if ar == 'ar' %}يحسب بصيرة الهدر من بياناتك بالكود، ويعرض أكبر تسريب بالرقم والدليل.{% else %}Baseera computes waste from your data in code and shows the biggest leak with the number and the proof.{% endif %}</p></div>
-      <div class="sc-card__mock"><div class="sc-row"><span class="sc-ico"><i data-lucide="repeat"></i></span><div>{% if ar == 'ar' %}اشتراكات مكررة{% else %}Duplicate subscriptions{% endif %}<small>{% if ar == 'ar' %}٣ بنود في ٣ أنظمة{% else %}3 items across 3 tools{% endif %}</small></div><span class="end up" dir="ltr">340</span></div>
-        <svg class="sc-chart" viewBox="0 0 400 140" preserveAspectRatio="none" aria-hidden="true" style="height:7rem"><defs><linearGradient id="scg2" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7c6cf0" stop-opacity=".4"/><stop offset="1" stop-color="#7c6cf0" stop-opacity="0"/></linearGradient></defs><path class="fl" d="M0,100 C50,96 80,60 130,66 C180,72 210,36 260,40 C310,44 350,20 400,24 L400,140 L0,140 Z" fill="url(#scg2)"/><path class="ln" pathLength="1000" d="M0,100 C50,96 80,60 130,66 C180,72 210,36 260,40 C310,44 350,20 400,24"/></svg></div>
-    </article>
-    <article class="sc-card sc-card--flip" data-hw-reveal>
-      <div><h3>{% if ar == 'ar' %}تقارير جاهزة بضغطة{% else %}Reports in one click{% endif %}</h3><p>{% if ar == 'ar' %}حمّل تقارير مبصومة بشهرية أو بنطاق تواريخ تختاره، وجاهزة للمحاسب والبنك.{% else %}Download integrity-stamped reports for a month or any date range, ready for your accountant or bank.{% endif %}</p></div>
-      <div class="sc-card__mock">
-        <div class="sc-row"><span class="sc-ico"><i data-lucide="download"></i></span><div>{% if ar == 'ar' %}تقرير_المبيعات_يناير.pdf{% else %}sales_report_jan.pdf{% endif %}<small>PDF</small></div></div>
-        <div class="sc-row"><span class="sc-ico"><i data-lucide="download"></i></span><div>{% if ar == 'ar' %}تحليل_الهدر.xlsx{% else %}waste_analysis.xlsx{% endif %}<small>Excel</small></div></div>
-        <div class="sc-row"><span class="sc-ico"><i data-lucide="download"></i></span><div>{% if ar == 'ar' %}النبض_الأسبوعي.pdf{% else %}weekly_pulse.pdf{% endif %}<small>PDF</small></div></div>
+
+  <div class="sd-cards" data-hw-stagger>
+    <article class="sd-card" data-hw-reveal>
+      <div class="sd-vis">
+        <div class="sd-vis__top"><b>{% if ar == 'ar' %}الهدر هذا الشهر{% else %}Waste this month{% endif %}</b><span class="sd-mini">{% if ar == 'ar' %}عرض التقرير{% else %}View report{% endif %}</span></div>
+        <div class="sd-stats"><div><small>{% if ar == 'ar' %}إجمالي التسريب{% else %}Total leak{% endif %}</small><strong dir="ltr">340</strong></div><div><small>{% if ar == 'ar' %}بنود مكررة{% else %}Duplicates{% endif %}</small><strong>{% if ar == 'ar' %}٣{% else %}3{% endif %}</strong></div><div><small>{% if ar == 'ar' %}أنظمة{% else %}Tools{% endif %}</small><strong>{% if ar == 'ar' %}٣{% else %}3{% endif %}</strong></div></div>
+        <svg class="sc-chart sd-chart" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="sdg1" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7c6cf0" stop-opacity=".5"/><stop offset="1" stop-color="#7c6cf0" stop-opacity="0"/></linearGradient></defs><path class="fl" d="M0,40 L60,40 L60,52 L120,52 L120,38 L180,38 L180,86 L240,86 L240,96 L300,96 L300,66 L360,66 L360,70 L400,70 L400,120 L0,120 Z" fill="url(#sdg1)"/><path class="ln" pathLength="1000" d="M0,40 L60,40 L60,52 L120,52 L120,38 L180,38 L180,86 L240,86 L240,96 L300,96 L300,66 L360,66 L360,70 L400,70"/></svg>
       </div>
+      <h3>{% if ar == 'ar' %}كشف الهدر المالي{% else %}Financial leak detection{% endif %}</h3>
+      <p>{% if ar == 'ar' %}يحسب بصيرة الهدر من بياناتك بالكود، ويعرض أكبر تسريب بالرقم والدليل.{% else %}Baseera computes waste from your data in code and shows the biggest leak with the number and the proof.{% endif %}</p>
+      <a href="#why" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
     </article>
-    <article class="sc-card" data-hw-reveal>
-      <div><h3>{% if ar == 'ar' %}وكلاء يعملون معك{% else %}Agents working with you{% endif %}</h3><p>{% if ar == 'ar' %}سبعة وكلاء متخصصين، كل واحد يرصد ويقرّر ثم يغذّي بصيرة بخلاصته.{% else %}Seven specialised agents. Each observes, decides, then feeds its findings back to Baseera.{% endif %}</p></div>
-      <div class="sc-card__mock">
-        <div class="sc-row"><span class="sc-ico"><i data-lucide="wallet"></i></span><div>{% if ar == 'ar' %}الوكيل المالي{% else %}Financial agent{% endif %}<small>{% if ar == 'ar' %}يرصد السيولة{% else %}Watching cash{% endif %}</small></div><span class="end">{% if ar == 'ar' %}٨ أشهر{% else %}8 mo{% endif %}</span></div>
-        <div class="sc-row"><span class="sc-ico"><i data-lucide="shield-alert"></i></span><div>{% if ar == 'ar' %}التدقيق{% else %}Audit{% endif %}<small>{% if ar == 'ar' %}وجد بنوداً مكررة{% else %}Found duplicates{% endif %}</small></div><span class="end">{% if ar == 'ar' %}٣{% else %}3{% endif %}</span></div>
-        <div class="sc-row"><span class="sc-ico"><i data-lucide="tag"></i></span><div>{% if ar == 'ar' %}التسعير{% else %}Pricing{% endif %}<small>{% if ar == 'ar' %}هامش ضعيف في صنف{% else %}Thin margin on one item{% endif %}</small></div><span class="end">{% if ar == 'ar' %}١{% else %}1{% endif %}</span></div>
+
+    <article class="sd-card" data-hw-reveal>
+      <div class="sd-vis">
+        <div class="sd-vis__top"><b>{% if ar == 'ar' %}كفاية السيولة{% else %}Cash runway{% endif %}</b></div>
+        <svg class="sd-gauge" viewBox="0 0 200 110" aria-hidden="true"><path d="M20,100 A80,80 0 0 1 180,100" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="14" stroke-linecap="round"/><path class="g" pathLength="100" d="M20,100 A80,80 0 0 1 180,100" fill="none" stroke="#7c6cf0" stroke-width="14" stroke-linecap="round" style="--p:80"/><text x="100" y="92" text-anchor="middle" fill="#f4f2ff" font-size="30" font-weight="300">{% if ar == 'ar' %}٨٠٪{% else %}80%{% endif %}</text></svg>
+        <div class="sd-tabs"><span class="on">{% if ar == 'ar' %}المبيعات{% else %}Sales{% endif %}</span><span>{% if ar == 'ar' %}المصروفات{% else %}Expenses{% endif %}</span><span>{% if ar == 'ar' %}الأرباح{% else %}Profit{% endif %}</span></div>
       </div>
+      <h3>{% if ar == 'ar' %}توقّع السيولة{% else %}Runway forecast{% endif %}</h3>
+      <p>{% if ar == 'ar' %}اعرف كم شهراً تكفيك السيولة الحالية قبل أن تنفد، وما الذي يسرّع نفادها.{% else %}See how many months your cash lasts before it runs out, and what speeds it up.{% endif %}</p>
+      <a href="#agents" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
     </article>
-    <article class="sc-card sc-card--flip" data-hw-reveal>
-      <div><h3>{% if ar == 'ar' %}مشترون من خرائط Google{% else %}Buyers from Google Maps{% endif %}</h3><p>{% if ar == 'ar' %}بعد كشف الهدر، يبحث وكيل المبيعات عمّن يشتري منتجاتك ويجهّز لك رسالة التواصل.{% else %}After finding waste, the Sales agent searches for who buys your products and drafts the message for you.{% endif %}</p></div>
-      <div class="sc-card__mock">
-        <div class="sc-row"><span class="sc-ico"><i data-lucide="map-pin"></i></span><div>{% if ar == 'ar' %}مطعم في مسقط{% else %}Restaurant in Muscat{% endif %}<small>4.6 / 5</small></div><span class="end up">92</span></div>
-        <div class="sc-row"><span class="sc-ico"><i data-lucide="map-pin"></i></span><div>{% if ar == 'ar' %}مقهى في السيب{% else %}Cafe in Seeb{% endif %}<small>4.4 / 5</small></div><span class="end up">81</span></div>
-        <div class="sc-row"><span class="sc-ico"><i data-lucide="map-pin"></i></span><div>{% if ar == 'ar' %}سوبرماركت في بوشر{% else %}Supermarket in Bawshar{% endif %}<small>4.2 / 5</small></div><span class="end up">74</span></div>
+
+    <article class="sd-card" data-hw-reveal>
+      <div class="sd-vis">
+        <div class="sd-vis__top"><b>{% if ar == 'ar' %}المشترون المحتملون{% else %}Potential buyers{% endif %}</b></div>
+        <div class="sd-big"><strong data-hw-count="12">{% if ar == 'ar' %}١٢{% else %}12{% endif %}</strong><small>{% if ar == 'ar' %}مشترياً من خرائط Google{% else %}buyers from Google Maps{% endif %}</small></div>
+        <ul class="sd-rows"><li><span>{% if ar == 'ar' %}مطعم في مسقط{% else %}Restaurant in Muscat{% endif %}</span><b>92</b></li><li><span>{% if ar == 'ar' %}مقهى في السيب{% else %}Cafe in Seeb{% endif %}</span><b>81</b></li><li><span>{% if ar == 'ar' %}سوبرماركت في بوشر{% else %}Supermarket in Bawshar{% endif %}</span><b>74</b></li></ul>
       </div>
+      <h3>{% if ar == 'ar' %}مشترون من خرائط Google{% else %}Buyers from Google Maps{% endif %}</h3>
+      <p>{% if ar == 'ar' %}بعد كشف الهدر، يبحث وكيل المبيعات عمّن يشتري منتجاتك ويجهّز لك رسالة التواصل.{% else %}After finding waste, the Sales agent searches for who buys your products and drafts the message for you.{% endif %}</p>
+      <a href="#agents" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
     </article>
-    <article class="sc-card" data-hw-reveal>
-      <div><h3>{% if ar == 'ar' %}إنذار مبكر للبيع بالآجل{% else %}Early warning for credit sales{% endif %}</h3><p>{% if ar == 'ar' %}قبل أن تبيع بالآجل، اعرف إن كان العميل يحمل مؤشرات مخاطرة من بياناتك أنت.{% else %}Before you sell on credit, see whether the customer shows risk signals in your own data.{% endif %}</p></div>
-      <div class="sc-card__mock">
-        <div class="sc-risk"><div style="min-width:6.5rem">{% if ar == 'ar' %}عميل أ{% else %}Customer A{% endif %}<small style="display:block;color:var(--hw-muted);font-size:.72rem">{% if ar == 'ar' %}تأخر في السداد{% else %}Late payments{% endif %}</small></div><div class="sc-meter"><i style="--w:78%"></i></div><span class="sc-pill">{% if ar == 'ar' %}مرتفعة{% else %}High{% endif %}</span></div>
-        <div class="sc-risk" style="margin-top:.55rem"><div style="min-width:6.5rem">{% if ar == 'ar' %}عميل ب{% else %}Customer B{% endif %}<small style="display:block;color:var(--hw-muted);font-size:.72rem">{% if ar == 'ar' %}سداد منتظم{% else %}Pays on time{% endif %}</small></div><div class="sc-meter"><i style="--w:22%"></i></div><span class="sc-pill">{% if ar == 'ar' %}منخفضة{% else %}Low{% endif %}</span></div>
+
+    <article class="sd-card" data-hw-reveal>
+      <div class="sd-vis">
+        <div class="sd-vis__top"><b>{% if ar == 'ar' %}التقارير{% else %}Reports{% endif %}</b></div>
+        <ul class="sd-rows sd-rows--files"><li><span><i data-lucide="download"></i>{% if ar == 'ar' %}تقرير_المبيعات_يناير.pdf{% else %}sales_report_jan.pdf{% endif %}</span><b>PDF</b></li><li><span><i data-lucide="download"></i>{% if ar == 'ar' %}تحليل_الهدر.xlsx{% else %}waste_analysis.xlsx{% endif %}</span><b>XLSX</b></li><li><span><i data-lucide="download"></i>{% if ar == 'ar' %}النبض_الأسبوعي.pdf{% else %}weekly_pulse.pdf{% endif %}</span><b>PDF</b></li></ul>
       </div>
+      <h3>{% if ar == 'ar' %}تقارير جاهزة بضغطة{% else %}Reports in one click{% endif %}</h3>
+      <p>{% if ar == 'ar' %}حمّل تقارير مبصومة بشهرية أو بنطاق تواريخ تختاره، وجاهزة للمحاسب والبنك.{% else %}Download integrity-stamped reports for a month or any date range, ready for your accountant or bank.{% endif %}</p>
+      <a href="{% url 'register' %}" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
     </article>
-    <article class="sc-card sc-card--flip" data-hw-reveal>
-      <div><h3>{% if ar == 'ar' %}نبض أسبوعي على واتساب{% else %}A weekly pulse on WhatsApp{% endif %}</h3><p>{% if ar == 'ar' %}ملخص قصير بالعامية العُمانية يصلك كل أسبوع، وتسأل بصيرة من الجوال مباشرة.{% else %}A short plain-language summary every week, and you can ask Baseera straight from your phone.{% endif %}</p></div>
-      <div class="sc-card__mock">
-        <div class="sc-bubble sc-bubble--in">{% if ar == 'ar' %}نبض الأسبوع: أكبر تسريب عندك اشتراكات مكررة بقيمة ٣٤٠ ر.ع.{% else %}This week: your biggest leak is duplicate subscriptions worth OMR 340.{% endif %}</div>
-        <div class="sc-bubble sc-bubble--out">{% if ar == 'ar' %}وكيف أوقفه؟{% else %}How do I stop it?{% endif %}</div>
-        <div class="sc-bubble sc-bubble--in">{% if ar == 'ar' %}ألغِ اشتراكين منها اليوم.{% else %}Cancel two of them today.{% endif %}</div>
+
+    <article class="sd-card" data-hw-reveal>
+      <div class="sd-vis">
+        <div class="sd-vis__top"><b>{% if ar == 'ar' %}مخاطر العملاء{% else %}Customer risk{% endif %}</b></div>
+        <div class="sd-risk"><span>{% if ar == 'ar' %}عميل أ{% else %}Customer A{% endif %}</span><div class="sd-meter"><i style="--w:78%"></i></div><b>{% if ar == 'ar' %}مرتفعة{% else %}High{% endif %}</b></div>
+        <div class="sd-risk"><span>{% if ar == 'ar' %}عميل ب{% else %}Customer B{% endif %}</span><div class="sd-meter"><i style="--w:22%"></i></div><b>{% if ar == 'ar' %}منخفضة{% else %}Low{% endif %}</b></div>
+        <div class="sd-risk"><span>{% if ar == 'ar' %}عميل ج{% else %}Customer C{% endif %}</span><div class="sd-meter"><i style="--w:46%"></i></div><b>{% if ar == 'ar' %}متوسطة{% else %}Medium{% endif %}</b></div>
       </div>
+      <h3>{% if ar == 'ar' %}إنذار مبكر للبيع بالآجل{% else %}Early warning for credit sales{% endif %}</h3>
+      <p>{% if ar == 'ar' %}قبل أن تبيع بالآجل، اعرف إن كان العميل يحمل مؤشرات مخاطرة من بياناتك أنت.{% else %}Before you sell on credit, see whether the customer shows risk signals in your own data.{% endif %}</p>
+      <a href="#why" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
+    </article>
+
+    <article class="sd-card" data-hw-reveal>
+      <div class="sd-vis">
+        <div class="sd-vis__top"><b>{% if ar == 'ar' %}واتساب{% else %}WhatsApp{% endif %}</b></div>
+        <div class="sd-bubble">{% if ar == 'ar' %}نبض الأسبوع: أكبر تسريب عندك اشتراكات مكررة بقيمة ٣٤٠ ر.ع.{% else %}This week: your biggest leak is duplicate subscriptions worth OMR 340.{% endif %}</div>
+        <div class="sd-bubble sd-bubble--out">{% if ar == 'ar' %}وكيف أوقفه؟{% else %}How do I stop it?{% endif %}</div>
+        <div class="sd-bubble">{% if ar == 'ar' %}ألغِ اشتراكين منها اليوم.{% else %}Cancel two of them today.{% endif %}</div>
+      </div>
+      <h3>{% if ar == 'ar' %}نبض أسبوعي على واتساب{% else %}A weekly pulse on WhatsApp{% endif %}</h3>
+      <p>{% if ar == 'ar' %}ملخص قصير بالعامية العُمانية يصلك كل أسبوع، وتسأل بصيرة من الجوال مباشرة.{% else %}A short plain-language summary every week, and you can ask Baseera straight from your phone.{% endif %}</p>
+      <a href="{% url 'register' %}" class="sd-btn sd-btn--ghost">{% if ar == 'ar' %}اعرف أكثر{% else %}Learn more{% endif %}</a>
     </article>
   </div>
 </section>
