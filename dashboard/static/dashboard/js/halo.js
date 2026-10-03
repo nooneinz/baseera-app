@@ -93,7 +93,13 @@
     var f = $('.hw-float'); if (!f) return;
     try { if (sessionStorage.getItem('hwFloatClosed') === '1') { f.remove(); return; } } catch (e) { }
     f.classList.add('is-hidden');
-    window.addEventListener('scroll', function () { f.classList.toggle('is-hidden', window.scrollY < window.innerHeight * 0.8); }, { passive: true });
+    var nearFoot = false;
+    function sync() { f.classList.toggle('is-hidden', window.scrollY < window.innerHeight * 0.8 || nearFoot); }
+    window.addEventListener('scroll', sync, { passive: true });
+    var foot = $('.hw-foot');
+    if (foot && 'IntersectionObserver' in window) {
+      new IntersectionObserver(function (es) { es.forEach(function (e) { nearFoot = e.isIntersecting; sync(); }); }, { threshold: 0.05 }).observe(foot);
+    }
     var x = $('.hw-float__x', f);
     if (x) x.addEventListener('click', function () { f.remove(); try { sessionStorage.setItem('hwFloatClosed', '1'); } catch (e) { } });
   }

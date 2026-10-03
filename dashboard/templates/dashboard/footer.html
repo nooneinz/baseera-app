@@ -1,19 +1,30 @@
 {% load static %}{% with ar=trans.lang_code %}
 <style>
-  .hw-foot { margin-top: clamp(3rem, 8vw, 6rem); background: #0d0a2b; color: var(--hw-on-dark-muted, #b7b1dc); overflow: hidden; }
-  .hw-foot a { color: #f4f2ff; }
-  .hw-foot__cta { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; flex-wrap: wrap; padding-block: clamp(4rem, 9vw, 7rem) 3rem; }
-  .hw-foot__cta h2 { color: #f4f2ff; font-size: clamp(2.2rem, 6vw, 5rem); max-width: 46rem; margin: 0; }
-  .hw-foot__mark { font-family: var(--hw-display); font-weight: 800; font-size: clamp(6rem, 24vw, 22rem); line-height: 1.05; letter-spacing: -.02em; color: #f4f2ff; margin: 1rem 0 2.2rem; white-space: nowrap; user-select: none; display: flex; align-items: flex-end; gap: clamp(.6rem, 2vw, 2rem); }
-  .hw-foot__mark img { height: .62em; width: auto; background: #fff; border-radius: 50%; padding: .04em; align-self: center; }
-  .hw-foot__cols { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 2rem; padding-block: 2.5rem; border-top: 1px solid rgba(185, 166, 242, .18); font-size: .92rem; }
-  .hw-foot__cols h4 { margin: 0 0 .9rem; font-size: .8rem; font-weight: 700; color: #b9a6f2; }
-  .hw-foot__cols ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .55rem; }
-  .hw-foot__base { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-block: 1.4rem; border-top: 1px solid rgba(185, 166, 242, .18); font-size: .8rem; }
-  .hw-foot .hw-link { background-image: linear-gradient(currentColor, currentColor); }
-  .sc .hw-foot { background: #05030f; border-top: 1px solid rgba(255,255,255,.09); }
-  .hw-foot__mark { margin-top: 2.5rem; }
-  @media (max-width: 760px) { .hw-foot__cols { grid-template-columns: 1fr 1fr; } }
+  /* Footer: thin, small, quiet. Same IBM Plex Sans Arabic 300 as the landing page. */
+  .hw-foot { margin-top: clamp(3rem, 8vw, 6rem); background: #0d0a2b; color: #a9a3cf; font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif; font-weight: 300; font-size: .84rem; position: relative; overflow: hidden; }
+  .hw-foot::before { content: ""; position: absolute; top: -10rem; left: 50%; width: 42rem; height: 14rem; transform: translateX(-50%); background: radial-gradient(closest-side, rgba(124, 108, 240, .22), rgba(124, 108, 240, 0)); filter: blur(24px); pointer-events: none; }
+  .sc .hw-foot { background: #05030f; border-top: 1px solid rgba(255, 255, 255, .09); }
+  .hw-foot .hw-wrap { position: relative; }
+  .hw-foot a { color: #d6d0f3; text-decoration: none; transition: color .2s; }
+  .hw-foot a:hover { color: #fff; }
+  .hw-foot__cta { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; padding-block: clamp(3rem, 6vw, 4.5rem) 2.5rem; border-bottom: 1px solid rgba(255, 255, 255, .09); }
+  html[lang] .hw-foot__cta h2 { margin: 0; max-width: 34rem; font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif !important; font-weight: 300 !important; font-size: clamp(1.5rem, 3vw, 2.2rem); line-height: 1.3; color: #f4f2ff; text-transform: none !important; letter-spacing: 0 !important; }
+  .hw-foot__main { display: grid; grid-template-columns: 1.6fr repeat(3, 1fr); gap: clamp(1.5rem, 4vw, 3.5rem); padding-block: clamp(2.5rem, 5vw, 3.5rem); }
+  .hw-foot__brand { display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; }
+  .hw-foot__logo { display: inline-flex; align-items: center; gap: .7rem; color: #f4f2ff !important; }
+  .hw-foot__logo img { width: 2.1rem; height: 2.1rem; padding: 2px; border-radius: 50%; background: #fff; object-fit: contain; }
+  .hw-foot__logo span { font-size: 1.25rem; font-weight: 400; }
+  .hw-foot__brand p { margin: 0; max-width: 21rem; line-height: 1.9; }
+  .hw-foot__ig { display: inline-flex; align-items: center; gap: .55rem; padding: .45rem .9rem; border: 1px solid rgba(255, 255, 255, .14); border-radius: 8px; background: rgba(255, 255, 255, .04); font-size: .78rem; }
+  .hw-foot__ig:hover { background: rgba(255, 255, 255, .09); }
+  .hw-foot__ig svg { width: 1rem; height: 1rem; }
+  .hw-foot h4 { margin: 0 0 1rem; font-size: .74rem; font-weight: 400; color: #b9a6f2; text-transform: none; }
+  .hw-foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .7rem; }
+  .hw-foot__base { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding-block: 1.3rem 1.6rem; border-top: 1px solid rgba(255, 255, 255, .09); font-size: .76rem; }
+  .hw-foot__base span:last-child { display: inline-flex; align-items: center; gap: .5rem; }
+  .hw-foot__base .hw-dot { width: .45rem; height: .45rem; }
+  @media (max-width: 860px) { .hw-foot__main { grid-template-columns: 1fr 1fr; } .hw-foot__brand { grid-column: 1 / -1; } }
+  @media (max-width: 520px) { .hw-foot__main { grid-template-columns: 1fr 1fr; gap: 1.8rem 1rem; } .hw-foot__base { flex-direction: column; align-items: flex-start; } }
 </style>
 <footer class="hw-foot" role="contentinfo">
   <div class="hw-wrap">
@@ -22,46 +33,51 @@
       <h2 data-hw-reveal>{% if ar == 'ar' %}جاهز لقرارك المالي الأول؟{% else %}Ready for your first financial decision?{% endif %}</h2>
       <a href="{% url 'register' %}" class="hw-btn hw-btn--accent" data-hw-reveal style="--hw-d:.15s">{{ trans.register_today }}</a>
     </div>
-
     {% endif %}
 
-    <div class="hw-foot__mark" aria-hidden="true" data-hw-reveal><span>{% if ar == 'ar' %}بصيرة{% else %}BASEERA{% endif %}</span><img src="{% static 'dashboard/img/logo.png' %}" alt=""></div>
-
-    <div class="hw-foot__cols">
-      <div>
-        <p style="max-width:22rem;line-height:1.85;margin:0 0 1rem">{% if ar == 'ar' %}منصة ذكاء مالي للمنشآت العُمانية الصغيرة والمتوسطة: ترى أين تخسر فلوسك، وتعرف خطوتك التالية.{% else %}A financial-intelligence platform for Omani SMEs: see where you lose money and know your next step.{% endif %}</p>
-        <a class="hw-link" href="https://www.instagram.com/baseera.ai0/" target="_blank" rel="noopener noreferrer" dir="ltr" aria-label="{% if ar == 'ar' %}حساب بصيرة على إنستغرام{% else %}Baseera on Instagram{% endif %}" style="display:inline-flex;align-items:center;gap:.6rem;font-weight:700">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1" fill="currentColor" stroke="none"/></svg>
+    <div class="hw-foot__main">
+      <div class="hw-foot__brand">
+        <a href="{% url 'welcome' %}" class="hw-foot__logo" aria-label="{{ trans.brand }}">
+          <img src="{% static 'dashboard/img/logo.png' %}" alt="{% if ar == 'ar' %}شعار بصيرة{% else %}Baseera logo{% endif %}">
+          <span>{{ trans.brand }}</span>
+        </a>
+        <p>{% if ar == 'ar' %}منصة ذكاء مالي للمنشآت العُمانية الصغيرة والمتوسطة: ترى أين تخسر فلوسك، وتعرف خطوتك التالية.{% else %}A financial-intelligence platform for Omani SMEs: see where you lose money and know your next step.{% endif %}</p>
+        <a class="hw-foot__ig" href="https://www.instagram.com/baseera.ai0/" target="_blank" rel="noopener noreferrer" dir="ltr" aria-label="{% if ar == 'ar' %}حساب بصيرة على إنستغرام{% else %}Baseera on Instagram{% endif %}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1" fill="currentColor" stroke="none"/></svg>
           @baseera.ai0
         </a>
       </div>
-      <div>
-        <h4>{% if ar == 'ar' %}تواصلوا معنا{% else %}Get in touch{% endif %}</h4>
-        <ul>
-          <li><a class="hw-link" href="{% url 'contact' %}">{{ trans.contact }}</a></li>
-          <li><a class="hw-link" href="https://www.instagram.com/baseera.ai0/" target="_blank" rel="noopener noreferrer">{% if ar == 'ar' %}إنستغرام{% else %}Instagram{% endif %}</a></li>
-        </ul>
-      </div>
-      <div>
+
+      <nav aria-label="{% if ar == 'ar' %}المنصة{% else %}Platform{% endif %}">
         <h4>{% if ar == 'ar' %}المنصة{% else %}Platform{% endif %}</h4>
         <ul>
-          <li><a class="hw-link" href="{% url 'welcome' %}">{{ trans.home }}</a></li>
-          <li><a class="hw-link" href="{% url 'welcome' %}#agents">{{ trans.agents_nav }}</a></li>
-          <li><a class="hw-link" href="{% url 'welcome' %}#plans">{% if ar == 'ar' %}الباقات{% else %}Plans{% endif %}</a></li>
-          <li><a class="hw-link" href="{% url 'about' %}">{{ trans.about }}</a></li>
+          <li><a href="{% url 'welcome' %}">{{ trans.home }}</a></li>
+          <li><a href="{% url 'welcome' %}#agents">{{ trans.agents_nav }}</a></li>
+          <li><a href="{% url 'welcome' %}#plans">{% if ar == 'ar' %}الباقات{% else %}Plans{% endif %}</a></li>
+          <li><a href="{% url 'about' %}">{{ trans.about }}</a></li>
         </ul>
-      </div>
-      <div>
+      </nav>
+
+      <nav aria-label="{% if ar == 'ar' %}تواصلوا معنا{% else %}Get in touch{% endif %}">
+        <h4>{% if ar == 'ar' %}تواصلوا معنا{% else %}Get in touch{% endif %}</h4>
+        <ul>
+          <li><a href="{% url 'contact' %}">{{ trans.contact }}</a></li>
+          <li><a href="https://www.instagram.com/baseera.ai0/" target="_blank" rel="noopener noreferrer">{% if ar == 'ar' %}إنستغرام{% else %}Instagram{% endif %}</a></li>
+        </ul>
+      </nav>
+
+      <nav aria-label="{% if ar == 'ar' %}قانوني{% else %}Legal{% endif %}">
         <h4>{% if ar == 'ar' %}قانوني{% else %}Legal{% endif %}</h4>
         <ul>
-          <li><a class="hw-link" href="{% url 'privacy' %}">{% if ar == 'ar' %}الخصوصية{% else %}Privacy{% endif %}</a></li>
-          <li><a class="hw-link" href="{% url 'terms' %}">{% if ar == 'ar' %}الشروط والبنود{% else %}Terms{% endif %}</a></li>
+          <li><a href="{% url 'privacy' %}">{% if ar == 'ar' %}الخصوصية{% else %}Privacy{% endif %}</a></li>
+          <li><a href="{% url 'terms' %}">{% if ar == 'ar' %}الشروط والبنود{% else %}Terms{% endif %}</a></li>
         </ul>
-      </div>
+      </nav>
     </div>
+
     <div class="hw-foot__base">
       <span>&copy; 2026 {% if ar == 'ar' %}تطبيق بصيرة. صُنع لتمكين المؤسسات العُمانية الصغيرة والمتوسطة.{% else %}Basira App. Built for Omani SME Empowerment.{% endif %}</span>
-      <span>{% if ar == 'ar' %}من مسقط، سلطنة عُمان{% else %}Made in Muscat, Oman{% endif %}</span>
+      <span><i class="hw-dot" aria-hidden="true"></i>{% if ar == 'ar' %}من مسقط، سلطنة عُمان{% else %}Made in Muscat, Oman{% endif %}</span>
     </div>
   </div>
 </footer>
