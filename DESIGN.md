@@ -43,3 +43,13 @@ Accent usage: one fill per screen (primary CTA, the highlighted word of a headli
 3. Real content only: no invented awards, partners, reviews or statistics. Sample numbers must be labelled.
 4. The Baseera logo image is used as is.
 5. Dashboard pages inherit the same tokens through `halo.css`; heavy motion is reserved for the landing page.
+
+## Landing page: dark product look (`landing.css`, scoped under `.sc`)
+Applies only to the home page; every other page keeps the Halo light system above.
+- Black stage `#05030f`, violet aurora (drifting blurred blobs plus two slowly rotating glowing arcs) behind the hero and the final CTA.
+- Headlines are medium weight (Alexandria 500), centered, with ONE accent phrase in a calligraphic/serif face: Aref Ruqaa in Arabic, Instrument Serif italic in English (`.sc-accent`). The accent phrase is the only colored text in a headline (Lavender).
+- Each section: small pill label, headline, one muted sentence, then content.
+- Hero: badge with live dot, headline, two buttons, a row of the data sources Baseera reads (Excel, CSV, PDF, ledger photo, WhatsApp, Google Maps), then a glass dashboard mock (KPIs, cash-flow line that draws itself, agent list).
+- Product section: two-column bento of six cards (leak detection, reports, agents, buyers from Google Maps, credit-risk warning, WhatsApp weekly pulse), each with a mini interface; alternate cards flip text above/below the mock; a violet spotlight follows the pointer.
+- Accent button on black: Glow fill with ink text (contrast 4.8:1). Secondary: translucent white with a hairline.
+- Mock interfaces are labelled as illustrative examples; no invented reviews, partners or ratings.

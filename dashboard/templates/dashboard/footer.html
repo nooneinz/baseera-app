@@ -1,6 +1,6 @@
 {% load static %}{% with ar=trans.lang_code %}
 <style>
-  .hw-foot { margin-top: clamp(5rem, 11vw, 9rem); background: #0d0a2b; color: var(--hw-on-dark-muted, #b7b1dc); overflow: hidden; }
+  .hw-foot { margin-top: clamp(3rem, 8vw, 6rem); background: #0d0a2b; color: var(--hw-on-dark-muted, #b7b1dc); overflow: hidden; }
   .hw-foot a { color: #f4f2ff; }
   .hw-foot__cta { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; flex-wrap: wrap; padding-block: clamp(4rem, 9vw, 7rem) 3rem; }
   .hw-foot__cta h2 { color: #f4f2ff; font-size: clamp(2.2rem, 6vw, 5rem); max-width: 46rem; margin: 0; }
@@ -11,14 +11,19 @@
   .hw-foot__cols ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .55rem; }
   .hw-foot__base { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-block: 1.4rem; border-top: 1px solid rgba(185, 166, 242, .18); font-size: .8rem; }
   .hw-foot .hw-link { background-image: linear-gradient(currentColor, currentColor); }
+  .sc .hw-foot { background: #05030f; border-top: 1px solid rgba(255,255,255,.09); }
+  .hw-foot__mark { margin-top: 2.5rem; }
   @media (max-width: 760px) { .hw-foot__cols { grid-template-columns: 1fr 1fr; } }
 </style>
 <footer class="hw-foot" role="contentinfo">
   <div class="hw-wrap">
+    {% if not no_cta %}
     <div class="hw-foot__cta">
       <h2 data-hw-reveal>{% if ar == 'ar' %}جاهز لقرارك المالي الأول؟{% else %}Ready for your first financial decision?{% endif %}</h2>
       <a href="{% url 'register' %}" class="hw-btn hw-btn--accent" data-hw-reveal style="--hw-d:.15s">{{ trans.register_today }}</a>
     </div>
+
+    {% endif %}
 
     <div class="hw-foot__mark" aria-hidden="true" data-hw-reveal><span>{% if ar == 'ar' %}بصيرة{% else %}BASEERA{% endif %}</span><img src="{% static 'dashboard/img/logo.png' %}" alt=""></div>
 

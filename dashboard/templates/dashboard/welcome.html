@@ -4,11 +4,14 @@
 {% block title %}{{ trans.brand }}{% endblock %}
 
 {% block content %}
-{% include 'dashboard/navbar.html' %}
+<link rel="stylesheet" href="{% static 'dashboard/css/landing.css' %}">
+<div class="sc dark">
+  {% include 'dashboard/navbar.html' %}
 
-<main id="main">
-  {% include 'dashboard/_halo_landing.html' %}
-</main>
+  <main id="main">
+    {% include 'dashboard/_halo_landing.html' %}
+  </main>
 
-{% include 'dashboard/footer.html' %}
+  {% include 'dashboard/footer.html' with no_cta=True %}
+</div>
 {% endblock %}
