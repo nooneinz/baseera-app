@@ -25,7 +25,7 @@ from .services import lead_finder
 logger = logging.getLogger(__name__)
 
 ROW_CAP = 10000
-DAILY_SEARCH_CAP = 20          # Places calls are billed per request: cap per user per day
+DAILY_SEARCH_CAP = 20          # map searches are billed per request: cap per user per day
 VALID_STATUSES = {c[0] for c in SalesLead.STATUS_CHOICES}
 
 
@@ -67,7 +67,7 @@ def sales_leads_page(request):
         "buyer_presets": [{"key": k, "label": v[lang]} for k, v in lead_finder.BUYER_PRESETS.items()],
         "leads": leads,
         "statuses": [{"key": k, "label": label} for k, label in SalesLead.STATUS_CHOICES],
-        "maps_enabled": bool(lead_finder.get_api_key()),
+        "maps_enabled": lead_finder.is_enabled(),
     })
 
 
@@ -84,9 +84,9 @@ def api_leads_search(request):
         city = str(data.get("city", "")).strip()[:120]
         if not product:
             return JsonResponse({"status": "error", "message": "اختر المنتج أولاً."}, status=400)
-        if not lead_finder.get_api_key():
+        if not lead_finder.is_enabled():
             return JsonResponse({"status": "error", "code": "maps_not_configured",
-                                 "message": "خدمة خرائط Google غير مفعّلة بعد. يضيف مسؤول النظام مفتاح GOOGLE_MAPS_API_KEY."}, status=503)
+                                 "message": "خدمة البحث في الخرائط غير مفعّلة بعد. يضيف مسؤول النظام مفتاح SERPAPI_API_KEY."}, status=503)
         key = _quota_key(request.user)
         used = cache.get(key, 0)
         if used >= DAILY_SEARCH_CAP:

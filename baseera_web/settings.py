@@ -27,6 +27,8 @@ SENTRY_DSN = os.environ.get("SENTRY_DSN")
 # Google Maps Places API (New) key for the Sales Leads agent. Unset = the agent
 # page still loads but searches answer "not configured" instead of failing.
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+# SerpApi (engine=google_maps) key: preferred provider for the same agent, one key and no Google Cloud billing.
+SERPAPI_API_KEY = os.environ.get("SERPAPI_API_KEY", "")
 if SENTRY_DSN:
     sentry_sdk.init(
         dsn=SENTRY_DSN,

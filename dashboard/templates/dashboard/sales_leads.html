@@ -43,13 +43,13 @@
 
         {% if not maps_enabled %}
         <section class="rounded-3xl glass px-6 py-4 text-sm text-amber-700 border border-amber-300/40 animate-fade-up">
-            {% if ar == 'ar' %}خدمة خرائط Google غير مفعّلة بعد على هذا الخادم (المفتاح GOOGLE_MAPS_API_KEY غير مضبوط). ما زال بإمكانك مراجعة قائمتك، لكن البحث الجديد يتوقف حتى يضيف مسؤول النظام المفتاح.{% else %}Google Maps is not enabled on this server yet (GOOGLE_MAPS_API_KEY is not set). You can still review your list, but new searches are paused until an admin adds the key.{% endif %}
+            {% if ar == 'ar' %}خدمة خرائط Google غير مفعّلة بعد على هذا الخادم (المفتاح SERPAPI_API_KEY غير مضبوط). ما زال بإمكانك مراجعة قائمتك، لكن البحث الجديد يتوقف حتى يضيف مسؤول النظام المفتاح.{% else %}Google Maps is not enabled on this server yet (SERPAPI_API_KEY is not set). You can still review your list, but new searches are paused until an admin adds the key.{% endif %}
         </section>
         {% endif %}
 
         <section class="rounded-3xl glass-strong p-6 animate-fade-up" style="animation-delay:80ms">
             <h2 class="text-lg text-ink mb-1">{% if ar == 'ar' %}ابحث عن مشترين{% else %}Find buyers{% endif %}</h2>
-            <p class="text-xs text-gray-500 mb-4">{% if ar == 'ar' %}يخرج من بصيرة نوع المشتري والمدينة فقط إلى Google. لا تُرسل أسماء منتجاتك ولا أسعارك ولا أي أرقام مالية.{% else %}Only the buyer type and the city leave Baseera for Google. Your product names, prices and financial figures are never sent.{% endif %}</p>
+            <p class="text-xs text-gray-500 mb-4">{% if ar == 'ar' %}يخرج من بصيرة نوع المشتري والمدينة فقط إلى خدمة الخرائط. لا تُرسل أسماء منتجاتك ولا أسعارك ولا أي أرقام مالية.{% else %}Only the buyer type and the city leave Baseera for the maps service. Your product names, prices and financial figures are never sent.{% endif %}</p>
 
             <form id="slForm" class="grid gap-4" autocomplete="off">
                 <div>
